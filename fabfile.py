@@ -59,22 +59,34 @@ def start():
 
 
 def install():
-    run('sudo yum -y install git python34 python34-pip nginx')
-    run('sudo /etc/init.d/nginx start')
-    run('sudo rm /etc/nginx/sites-enabled/default')
-    put('pacioli-gunicorn', '/etc/nginx/sites-available/pacioli', use_sudo=True)
-    run('/etc/init.d/nginx restart')
+    # APP
+    run('sudo yum -y install git python34 python34-pip')
     put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, use_sudo=True)
     run('sudo chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
     run('rm -rf pacioli')
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
+    run('sudo pip-3.4 install -r ~/pacioli/instance-requirements.txt')
+    put('pacioli/settings.py', '~/pacioli/settings.py')
+    run('mkdir ~/pacioli/logs')
+
+    # SUPERVISORD
     run('sudo easy_install supervisor')
-    run('sudo pip install gunicorn')
-    run('sudo pip-3.4 install -r pacioli/instance-requirements.txt')
     put('supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
     run('supervisord -c /etc/supervisord.conf')
-    put('pacioli/settings.py', 'pacioli/settings.py')
+    run('supervisorctl reread')
+    run('supervisorctl update')
+    run('supervisorctl restart pacioli')
+
+    # GUNICORN
+    run('sudo pip install gunicorn')
+    put('gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
+
+    # NGINX
+    run('sudo yum -y install nginx')
+    run('sudo rm /etc/nginx/sites-enabled/default')
+    put('pacioli-gunicorn', '/etc/nginx/sites-available/pacioli', use_sudo=True)
+    run('sudo /etc/init.d/nginx start')
 
 
 def ssh():
