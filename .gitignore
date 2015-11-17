@@ -47,3 +47,5 @@ venv
 venv2
 
 aws_config.py
+
+*.pem
