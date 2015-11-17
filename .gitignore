@@ -41,4 +41,16 @@ env*
 
 .idea/*
 
-appname/settings.py
+pacioli/settings.py
+
+venv
+venv2
+
+aws_config.py
+
+*.pem
+
+pacioli-gunicorn
+gunicorn_configuration.py
+
+supervisord.conf

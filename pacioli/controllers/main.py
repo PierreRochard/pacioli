@@ -4,8 +4,8 @@ from flask import Blueprint
 from flask.ext.admin.contrib import sqla
 from flask.ext.admin.contrib.sqla import ModelView
 
-from appname.extensions import admin
-from appname.models import db, User, Role
+from pacioli.extensions import admin
+from pacioli.models import db, User, Role
 
 main = Blueprint('main', __name__)
 

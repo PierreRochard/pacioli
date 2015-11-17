@@ -6,11 +6,11 @@ from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
 from flask_mail import Mail
 
-from appname import assets
-from appname.models import db, User, Role, user_datastore
-from appname.controllers.main import main
+from pacioli import assets
+from pacioli.models import db, User, Role, user_datastore
+from pacioli.controllers.main import main
 
-from appname.extensions import (
+from pacioli.extensions import (
     cache,
     assets_env,
     debug_toolbar,
@@ -25,7 +25,7 @@ def create_app(object_name, env="prod"):
 
     Arguments:
         object_name: the python path of the config object,
-                     e.g. appname.settings.ProdConfig
+                     e.g. pacioli.settings.ProdConfig
 
         env: The name of the current environment, e.g. prod or dev
     """
