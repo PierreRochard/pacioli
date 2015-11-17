@@ -55,6 +55,7 @@ def start():
                       if 'ToPort' in permission and permission['ToPort'] == 22]
     if not ssh_permission:
         security_group.authorize_ingress(IpProtocol='tcp', FromPort=22, ToPort=22, CidrIp='0.0.0.0/0')
+        security_group.authorize_ingress(IpProtocol='tcp', FromPort=80, ToPort=80, CidrIp='0.0.0.0/0')
     instance.create_tags(Tags=[{'Key': 'Purpose', 'Value': purpose}])
 
 
@@ -68,25 +69,49 @@ def install():
         GITHUB_SSH_PRIVATE_KEY_FILE))
     run('sudo pip-3.4 install -r ~/pacioli/instance-requirements.txt')
     put('pacioli/settings.py', '~/pacioli/settings.py')
-    run('mkdir ~/pacioli/logs')
+    run('mkdir ~/pacioli/logs/')
 
     # SUPERVISORD
     run('sudo easy_install supervisor')
-    put('supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
+    put('configuration_files/supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
     run('supervisord -c /etc/supervisord.conf')
     run('supervisorctl reread')
     run('supervisorctl update')
     run('supervisorctl restart pacioli')
 
     # GUNICORN
-    run('sudo pip install gunicorn')
-    put('gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
+    run('sudo pip-3.4 install gunicorn')
+    put('configuration_files/gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
 
     # NGINX
+    run('mkdir ~/pacioli/logs/nginx/')
     run('sudo yum -y install nginx')
-    run('sudo rm /etc/nginx/sites-enabled/default')
-    put('pacioli-gunicorn', '/etc/nginx/sites-available/pacioli', use_sudo=True)
+    run('sudo mkdir /etc/nginx/sites-available')
+    put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)
+    put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
     run('sudo /etc/init.d/nginx start')
+
+
+def update():
+
+
+    run('sudo rm -f /home/ec2-user/pacioli/logs/supervisord_stdout.log')
+    run('sudo rm -f /home/ec2-user/pacioli/logs/gunicorn_error.log')
+
+    # SUPERVISORD
+    put('configuration_files/supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
+    run('supervisorctl reread')
+    run('supervisorctl update')
+    run('supervisorctl restart pacioli')
+
+    # GUNICORN
+    put('configuration_files/gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
+
+
+    # NGINX
+    put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)
+    put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
+    run('sudo /etc/init.d/nginx restart')
 
 
 def ssh():
