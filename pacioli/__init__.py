@@ -1,4 +1,4 @@
-#! ../env/bin/python
+import os
 
 from flask import Flask
 from flask.ext.security import Security
@@ -17,8 +17,10 @@ from pacioli.extensions import (
     admin
 )
 
+environment = os.environ.get('pacioli_ENV', 'prod')
 
-def create_app(object_name, env="prod"):
+
+def create_app(object_name='pacioli.settings.%sConfig' % environment.capitalize(), env="prod"):
     """
     An flask application factory, as explained here:
     http://flask.pocoo.org/docs/patterns/appfactories/
