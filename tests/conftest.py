@@ -1,12 +1,12 @@
 import pytest
 
-from appname import create_app
-from appname.models import db, User
+from pacioli import create_app
+from pacioli.models import db, User
 
 
 @pytest.fixture()
 def testapp(request):
-    app = create_app('appname.settings.TestConfig', env='dev')
+    app = create_app('pacioli.settings.TestConfig', env='dev')
     client = app.test_client()
 
     db.app = app

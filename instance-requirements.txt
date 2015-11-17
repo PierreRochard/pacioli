@@ -1,11 +1,13 @@
 Flask
 
 # Flask Extensions
+Flask-Admin
 Flask-Assets
 Flask-Cache
 Flask-DebugToolbar
 Flask-Login
 Flask-SQLAlchemy
+Flask-Security
 Flask-Script
 Flask-WTF
 
