@@ -45,3 +45,5 @@ pacioli/settings.py
 
 venv
 venv2
+
+aws_config.py
