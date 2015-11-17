@@ -67,8 +67,8 @@ def install():
     run('rm -rf pacioli')
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
-    run('sudo pip-3.4 install -r ~/pacioli/instance-requirements.txt')
-    put('pacioli/settings.py', '~/pacioli/settings.py')
+    run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
+    put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     run('mkdir ~/pacioli/logs/')
 
     # SUPERVISORD
@@ -96,19 +96,20 @@ def update():
     # APP
     with cd('/home/ec2-user/pacioli/'):
         run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/'+GITHUB_SSH_PRIVATE_KEY_FILE))
+    put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
 
     run('sudo rm -f /home/ec2-user/pacioli/logs/supervisord_stdout.log')
     run('sudo rm -f /home/ec2-user/pacioli/logs/gunicorn_error.log')
+
+
+    # GUNICORN
+    put('configuration_files/gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
 
     # SUPERVISORD
     put('configuration_files/supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
     run('supervisorctl reread')
     run('supervisorctl update')
     run('supervisorctl restart pacioli')
-
-    # GUNICORN
-    put('configuration_files/gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
-
 
     # NGINX
     put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)

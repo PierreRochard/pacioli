@@ -1,5 +1,3 @@
-import os
-
 from flask import Flask
 from flask.ext.security import Security
 from webassets.loaders import PythonLoader as PythonAssetsLoader
@@ -17,10 +15,9 @@ from pacioli.extensions import (
     admin
 )
 
-environment = os.environ.get('pacioli_ENV', 'prod')
 
 
-def create_app(object_name='pacioli.settings.%sConfig' % environment.capitalize(), env="prod"):
+def create_app(object_name, env="prod"):
     """
     An flask application factory, as explained here:
     http://flask.pocoo.org/docs/patterns/appfactories/
