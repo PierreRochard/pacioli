@@ -93,7 +93,9 @@ def install():
 
 
 def update():
-
+    # APP
+    with cd('/home/ec2-user/pacioli/'):
+        run('git pull')
 
     run('sudo rm -f /home/ec2-user/pacioli/logs/supervisord_stdout.log')
     run('sudo rm -f /home/ec2-user/pacioli/logs/gunicorn_error.log')
