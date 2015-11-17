@@ -41,4 +41,4 @@ env*
 
 .idea/*
 
-appname/settings.py
+pacioli/settings.py
