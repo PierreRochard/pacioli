@@ -42,3 +42,6 @@ env*
 .idea/*
 
 pacioli/settings.py
+
+venv
+venv2
