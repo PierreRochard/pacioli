@@ -5,27 +5,26 @@ import time
 from fabric.api import cd, env, get, put
 from fabric.operations import run
 from boto3.session import Session
-from botocore.exceptions import ClientError
 
-from aws_config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, REGION, KEY_PAIR_NAME
+from aws_config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_KEY_PAIR_NAME
+from aws_config import AWS_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE
 
 
 purpose = 'pacioli-deployment'
 
 session = Session(aws_access_key_id=AWS_ACCESS_KEY_ID,
                   aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                  region_name=REGION)
+                  region_name=AWS_REGION)
 
 client = session.client('ec2')
 ec2 = session.resource('ec2')
 
-private_key_file = os.path.abspath('{0}.pem'.format(KEY_PAIR_NAME))
 
-if not os.path.isfile(private_key_file):
-    key = client.create_key_pair(KeyName=KEY_PAIR_NAME)
-    with open(private_key_file, 'w') as f:
+if not os.path.isfile(AWS_SSH_PRIVATE_KEY_FILE):
+    key = client.create_key_pair(KeyName=AWS_KEY_PAIR_NAME)
+    with open(AWS_SSH_PRIVATE_KEY_FILE, 'w') as f:
         f.write(key['KeyMaterial'])
-    os.chmod(private_key_file, 400)
+    os.chmod(AWS_SSH_PRIVATE_KEY_FILE, 400)
 
 
 instances = ec2.instances.all()
@@ -37,7 +36,7 @@ if pacioli_instance and len(pacioli_instance) == 1:
     env.hosts = pacioli_instance[0].public_dns_name
 
 env.user = 'ec2-user'
-env.key_filename = private_key_file
+env.key_filename = AWS_SSH_PRIVATE_KEY_FILE
 env.port = 22
 
 
@@ -47,7 +46,7 @@ def start():
     instance = ec2.create_instances(ImageId=ami_id,
                                     MinCount=1,
                                     MaxCount=1,
-                                    KeyName=KEY_PAIR_NAME,
+                                    KeyName=AWS_KEY_PAIR_NAME,
                                     InstanceType=instance_type,
                                     )[0]
 
@@ -57,4 +56,12 @@ def start():
     if not ssh_permission:
         security_group.authorize_ingress(IpProtocol='tcp', FromPort=22, ToPort=22, CidrIp='0.0.0.0/0')
     instance.create_tags(Tags=[{'Key': 'Purpose', 'Value': purpose}])
+
+
+def install():
+    run('sudo yum -y install git python34 python34-pip')
+    put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE)
+    run('chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
+    run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
+        GITHUB_SSH_PRIVATE_KEY_FILE))
 
