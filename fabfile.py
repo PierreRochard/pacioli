@@ -95,7 +95,7 @@ def install():
 def update():
     # APP
     with cd('/home/ec2-user/pacioli/'):
-        run('git pull')
+        run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/'+GITHUB_SSH_PRIVATE_KEY_FILE))
 
     run('sudo rm -f /home/ec2-user/pacioli/logs/supervisord_stdout.log')
     run('sudo rm -f /home/ec2-user/pacioli/logs/gunicorn_error.log')
