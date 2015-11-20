@@ -56,3 +56,5 @@ gunicorn_configuration.py
 supervisord.conf
 
 configuration_files
+
+pacioli/db_config.py
