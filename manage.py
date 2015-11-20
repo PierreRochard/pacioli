@@ -5,7 +5,7 @@ import os
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
 from pacioli import create_app
-from pacioli.models import db, User
+from pacioli.models import db, User, Role
 
 # default to dev config because no one should use this in
 # production anyway
@@ -34,6 +34,19 @@ def createdb():
     """
 
     db.create_all()
+
+@manager.command
+def create_superuser():
+    if User.query.count() == 1:
+        if not Role.query.count():
+            superuser = Role()
+            superuser.name = 'superuser'
+            superuser.description = 'superuser'
+            db.session.add(superuser)
+            db.session.commit()
+        admin = User.query.first()
+        admin.roles.append(superuser)
+        db.session.commit()
 
 if __name__ == "__main__":
     manager.run()
