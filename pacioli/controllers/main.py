@@ -2,7 +2,6 @@ from flask import url_for, redirect, request, abort
 from flask_security import current_user
 from flask import Blueprint
 from flask.ext.admin.contrib import sqla
-from flask.ext.admin.contrib.sqla import ModelView
 
 from pacioli.extensions import admin
 from pacioli.models import db, User, Role

@@ -8,10 +8,10 @@ from fabric.api import cd, env, get, put
 from fabric.operations import run
 from boto3.session import Session
 
-
-
 from aws_config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_KEY_PAIR_NAME
-from aws_config import AWS_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE
+from aws_config import AWS_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, DOMAIN_NAME
+from aws_config import mx1, mx5, mx5b, mx10, mx10b, cname_name, cname_value, txt
+
 sys.path.insert(0, "pacioli/")
 from db_config import PROD_PG_USERNAME, PROD_PG_PASSWORD
 
@@ -25,6 +25,8 @@ ec2_client = session.client('ec2')
 ec2_resource = session.resource('ec2')
 
 rds_client = session.client('rds')
+
+route53_client = session.client('route53')
 
 if not os.path.isfile(AWS_SSH_PRIVATE_KEY_FILE):
     key = ec2_client.create_key_pair(KeyName=AWS_KEY_PAIR_NAME)
@@ -40,6 +42,8 @@ pacioli_instance = [instance for instance in instances if instance.state['Name']
 if pacioli_instance and len(pacioli_instance) == 1:
     env.hosts = pacioli_instance[0].public_dns_name
 
+pacioli_instance = pacioli_instance[0]
+
 env.user = 'ec2-user'
 env.key_filename = AWS_SSH_PRIVATE_KEY_FILE
 env.port = 22
@@ -47,10 +51,9 @@ env.port = 22
 subnets = ec2_client.describe_subnets()['Subnets']
 availability_zones = {subnet['SubnetId']: subnet['AvailabilityZone'] for subnet in subnets}
 
-instance_availability_zones = {instance.public_dns_name: availability_zones[instance.subnet_id] for instance in instances
-      if instance.state['Name'] != 'terminated' and instance.tags[0]['Value'] == purpose}
-
-
+instance_availability_zones = {instance.public_dns_name: availability_zones[instance.subnet_id] for instance in
+                               instances
+                               if instance.state['Name'] != 'terminated' and instance.tags[0]['Value'] == purpose}
 
 
 def start_ec2():
@@ -94,6 +97,45 @@ def start_rds():
             },
         ]
     )
+
+
+def start_dns():
+    vpc = ec2_client.describe_vpcs()['Vpcs'][0]
+    hosted_zone = route53_client.create_hosted_zone(Name=DOMAIN_NAME,
+                                                    CallerReference=purpose + '3')
+    print(hosted_zone['DelegationSet']['NameServers'])
+
+
+def allocate_ip():
+    allocation_id = ec2_client.allocate_address()['AllocationId']
+    response = ec2_client.associate_address(InstanceId=pacioli_instance.id,
+                                            AllocationId=allocation_id,
+                                            PrivateIpAddress=pacioli_instance.private_ip_address)
+    print(response)
+
+
+def create_dns_records():
+    hosted_zone_id = route53_client.list_hosted_zones()['HostedZones'][0]['Id']
+    public_ip_address = ec2_client.describe_addresses()['Addresses'][0]['PublicIp']
+    response = route53_client.change_resource_record_sets(
+        HostedZoneId=hosted_zone_id,
+        ChangeBatch={
+            'Changes': [{'Action': 'CREATE',
+                         'ResourceRecordSet': {'Name': DOMAIN_NAME + '.',
+                                               'Type': 'A',
+                                               'TTL': 900,
+                                               'ResourceRecords': [{'Value': public_ip_address}]}},
+                        {'Action': 'CREATE',
+                         'ResourceRecordSet': {'Name': 'www.' + DOMAIN_NAME + '.',
+                                               'Type': 'CNAME',
+                                               'TTL': 900,
+                                               'ResourceRecords': [{'Value': public_ip_address}]}},
+                        {'Action': 'CREATE',
+                         'ResourceRecordSet': {'Name': DOMAIN_NAME + '.',
+                                               'Type': 'MX',
+                                               'TTL': 3600,
+                                               'ResourceRecords': [{'Value': mx1}]}}
+                        ]})
     print(response)
 
 

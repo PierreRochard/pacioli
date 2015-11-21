@@ -17,7 +17,6 @@ from pacioli.extensions import (
 )
 
 
-
 def create_app(object_name, env="prod"):
     """
     An flask application factory, as explained here:
@@ -35,26 +34,15 @@ def create_app(object_name, env="prod"):
     app.config.from_object(object_name)
     app.config['ENV'] = env
     Talisman(app)
-    # initialize the cache
-    cache.init_app(app)
-
-    # initialize the debug tool bar
-    # debug_toolbar.init_app(app)
-
-    # initialize SQLAlchemy
     db.init_app(app)
-
     mail = Mail(app)
-
     security = Security(app, user_datastore)
 
     @security.context_processor
     def security_context_processor():
-        return dict(
-            admin_base_template=admin.base_template,
-            admin_view=admin.index_view,
-            h=admin_helpers,
-        )
+        return dict(admin_base_template=admin.base_template,
+                    admin_view=admin.index_view,
+                    h=admin_helpers)
 
     admin.init_app(app)
 
