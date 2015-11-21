@@ -1,5 +1,6 @@
 from flask import Flask
 from flask.ext.security import Security
+from talisman import Talisman
 from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
 from flask_mail import Mail
@@ -33,12 +34,12 @@ def create_app(object_name, env="prod"):
 
     app.config.from_object(object_name)
     app.config['ENV'] = env
-
+    Talisman(app)
     # initialize the cache
     cache.init_app(app)
 
     # initialize the debug tool bar
-    debug_toolbar.init_app(app)
+    # debug_toolbar.init_app(app)
 
     # initialize SQLAlchemy
     db.init_app(app)

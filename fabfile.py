@@ -144,8 +144,10 @@ def update():
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
 
-    run('sudo rm -f /home/ec2-user/pacioli/logs/supervisord_stdout.log')
-    run('sudo rm -f /home/ec2-user/pacioli/logs/gunicorn_error.log')
+    with cd('/home/ec2-user/pacioli/logs/'):
+        run('sudo rm -f *.log')
+    with cd('/home/ec2-user/pacioli/logs/nginx/'):
+        run('sudo rm -f *.log')
 
     with cd('flask-security'):
         run('git checkout develop')
@@ -154,7 +156,7 @@ def update():
 
 
     # GUNICORN
-    put('configuration_files/gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
+    put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')
 
     # SUPERVISORD
     put('configuration_files/supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
@@ -172,6 +174,12 @@ def create_db():
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
             run('python3 manage.py createdb')
+
+
+def install_certs():
+    # cat pacio_li.crt pacio_li.ca-bundle > ssl_bundle.crt
+    put('configuration_files/ssl_bundle.crt', '/etc/ssl/certs/ssl_bundle.crt', use_sudo=True)
+    put('configuration_files/server.key', '/etc/ssl/certs/server.key', use_sudo=True)
 
 
 def ssh():
