@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from datetime import datetime
 import sys
 
@@ -44,5 +46,5 @@ def update():
 
 
 if __name__ == '__main__':
-    setup()
-    # update()
+    # setup()
+    update()

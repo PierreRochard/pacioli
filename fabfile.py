@@ -76,27 +76,20 @@ def start_ec2():
 
 
 def start_rds():
-    response = rds_client.create_db_instance(
-        DBName='postgres',
-        DBInstanceIdentifier='pacioli',
-        AllocatedStorage=6,
-        DBInstanceClass='db.t2.micro',
-        Engine='postgres',
-        MasterUsername=PROD_PG_USERNAME,
-        MasterUserPassword=PROD_PG_PASSWORD,
-        AvailabilityZone=instance_availability_zones[env.host_string],
-        Port=58217,
-        MultiAZ=False,
-        EngineVersion='9.4.1',
-        AutoMinorVersionUpgrade=True,
-        PubliclyAccessible=True,
-        Tags=[
-            {
-                'Key': 'Purpose',
-                'Value': purpose
-            },
-        ]
-    )
+    response = rds_client.create_db_instance(DBName='postgres',
+                                             DBInstanceIdentifier='pacioli',
+                                             AllocatedStorage=6,
+                                             DBInstanceClass='db.t2.micro',
+                                             Engine='postgres',
+                                             MasterUsername=PROD_PG_USERNAME,
+                                             MasterUserPassword=PROD_PG_PASSWORD,
+                                             AvailabilityZone=instance_availability_zones[env.host_string],
+                                             Port=58217,
+                                             MultiAZ=False,
+                                             EngineVersion='9.4.1',
+                                             AutoMinorVersionUpgrade=True,
+                                             PubliclyAccessible=True,
+                                             Tags=[{'Key': 'Purpose', 'Value': purpose}])
 
 
 def start_dns():
@@ -177,6 +170,18 @@ def install():
     put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)
     put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
     run('sudo /etc/init.d/nginx start')
+
+
+def install_ofx():
+    with cd('/home/ec2-user/pacioli/plugins/'):
+        put('ofx_config.py', 'ofx_config.py')
+    run('git clone https://github.com/PierreRochard/ofxtools')
+    with cd('/home/ec2-user/ofxtools/'):
+        run('sudo python setup.py install')
+    run('sudo crontab -l > mycron')
+    run('sudo echo "30 5,17 * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
+    run('sudo crontab mycron')
+    run('sudo rm -f mycron')
 
 
 def update():
