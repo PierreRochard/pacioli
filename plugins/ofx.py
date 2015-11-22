@@ -4,7 +4,7 @@ import sys
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
 from ofxtools.ofxalchemy import DBSession, OFXParser, Base
-from sqlalchemy import create_engine
+from ofxtools.ofxalchemy.models import STMTTRN
 
 sys.path.insert(0, "../pacioli/")
 
@@ -33,15 +33,16 @@ def setup():
 
 
 def update():
-
+    start, = DBSession.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.desc()).first()
+    end = datetime.today()
     for account in accounts:
-        request = client.statement_request(user, password, [account])
+        request = client.statement_request(user, password, [account], dtstart=start, dtend=end)
         response = client.download(request)
         parser = OFXParser()
         parser.parse(response)
         parser.instantiate()
 
 
-
 if __name__ == '__main__':
-    setup()
+    # setup()
+    update()

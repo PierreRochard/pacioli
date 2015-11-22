@@ -58,3 +58,5 @@ supervisord.conf
 configuration_files
 
 pacioli/db_config.py
+
+plugins/*_config.py
