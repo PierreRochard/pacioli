@@ -9,7 +9,7 @@ from ofxtools.ofxalchemy.models import STMTTRN
 sys.path.insert(0, "../pacioli/")
 
 from db_config import PROD_PG_USERNAME, PROD_PG_PASSWORD, PROD_PG_HOST, PROD_PG_PORT
-from ofx_config import url, org, fid, bankid, checking, savings, creditcard, user, password
+from ofx_config import url, org, fid, bankid_checking, bankid_savings, checking, savings, creditcard, user, password
 
 
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
@@ -19,7 +19,7 @@ engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
 DBSession.configure(autocommit=True, autoflush=True, bind=engine)
 client = OFXClient(url, org, fid)
 
-accounts = [BankAcct(bankid, checking, 'checking'), BankAcct(bankid, savings, 'savings'), CcAcct(creditcard)]
+accounts = [BankAcct(bankid_checking, checking, 'checking'), BankAcct(bankid_savings, savings, 'savings'), CcAcct(creditcard)]
 
 
 def setup():
@@ -44,5 +44,5 @@ def update():
 
 
 if __name__ == '__main__':
-    # setup()
-    update()
+    setup()
+    # update()
