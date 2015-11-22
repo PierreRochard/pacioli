@@ -174,12 +174,19 @@ def install():
 
 def install_ofx():
     with cd('/home/ec2-user/pacioli/plugins/'):
-        put('ofx_config.py', 'ofx_config.py')
+        put('plugins/ofx_config.py', 'ofx_config.py')
     run('git clone https://github.com/PierreRochard/ofxtools')
     with cd('/home/ec2-user/ofxtools/'):
         run('sudo python setup.py install')
-    run('sudo crontab -l > mycron')
-    run('sudo echo "30 5,17 * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
+    run('touch mycron')
+    run('sudo echo "30 5,17 * * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
+    run('sudo crontab mycron')
+    run('sudo rm -f mycron')
+
+
+def update_cron():
+    run('touch mycron')
+    run('sudo echo "30 11,23 * * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
 
@@ -188,8 +195,13 @@ def update():
     # APP
     with cd('/home/ec2-user/pacioli/'):
         run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/' + GITHUB_SSH_PRIVATE_KEY_FILE))
+
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
+
+    with cd('/home/ec2-user/ofxtools/'):
+        run('git pull')
+        run('sudo python setup.py install')
 
     with cd('/home/ec2-user/pacioli/logs/'):
         run('sudo rm -f *.log')
@@ -200,7 +212,6 @@ def update():
         run('git checkout develop')
         run('git pull')
         run('sudo python3 setup.py install')
-
 
     # GUNICORN
     put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')
