@@ -173,12 +173,15 @@ def install():
 
 
 def install_ofx():
+    run('sudo yum -y install gcc git python python-pip python-setuptools python-devel')
+    run('sudo pip install sqlalchemy psycopg2')
     with cd('/home/ec2-user/pacioli/plugins/'):
         put('plugins/ofx_config.py', 'ofx_config.py')
     run('git clone https://github.com/PierreRochard/ofxtools')
     with cd('/home/ec2-user/ofxtools/'):
         run('sudo python setup.py install')
     run('touch mycron')
+    run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
     run('sudo echo "30 5,17 * * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
@@ -189,6 +192,16 @@ def update_cron():
     run('sudo echo "30 11,23 * * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
+
+
+def install_certs():
+    # cat pacio_li.crt pacio_li.ca-bundle > ssl_bundle.crt
+    put('configuration_files/ssl_bundle.crt', '/etc/ssl/certs/ssl_bundle.crt', use_sudo=True)
+    put('configuration_files/server.key', '/etc/ssl/certs/server.key', use_sudo=True)
+
+
+def ssh():
+    print('ssh -i {0} ec2-user@{1}'.format(AWS_SSH_PRIVATE_KEY_FILE, env.host_string))
 
 
 def update():
@@ -238,11 +251,9 @@ def create_db():
             run('python3 manage.py createdb')
 
 
-def install_certs():
-    # cat pacio_li.crt pacio_li.ca-bundle > ssl_bundle.crt
-    put('configuration_files/ssl_bundle.crt', '/etc/ssl/certs/ssl_bundle.crt', use_sudo=True)
-    put('configuration_files/server.key', '/etc/ssl/certs/server.key', use_sudo=True)
+def cron():
+    run('sudo tail /var/log/cron')
 
 
-def ssh():
-    print('ssh -i {0} ec2-user@{1}'.format(AWS_SSH_PRIVATE_KEY_FILE, env.host_string))
+def ofx():
+    run('/home/ec2-user/pacioli/plugins/ofx.py')

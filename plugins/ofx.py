@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from datetime import datetime
+import os
 import sys
 
 from ofxtools import OFXClient
@@ -8,7 +9,9 @@ from ofxtools.Client import BankAcct, CcAcct
 from ofxtools.ofxalchemy import DBSession, OFXParser, Base
 from ofxtools.ofxalchemy.models import STMTTRN
 
-sys.path.insert(0, "../pacioli/")
+script_path = os.path.realpath(__file__)
+pacioli_path = os.path.join(script_path, '../pacioli/')
+sys.path.insert(0, pacioli_path)
 
 from db_config import PROD_PG_USERNAME, PROD_PG_PASSWORD, PROD_PG_HOST, PROD_PG_PORT
 from ofx_config import url, org, fid, bankid_checking, bankid_savings, checking, savings, creditcard, user, password
