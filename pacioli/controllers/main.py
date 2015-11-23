@@ -4,7 +4,7 @@ from flask import Blueprint
 from flask.ext.admin.contrib import sqla
 
 from pacioli.extensions import admin
-from pacioli.models import db, User, Role
+from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
 from sqlalchemy.ext.declarative import declarative_base
 
 main = Blueprint('main', __name__)
@@ -47,7 +47,7 @@ def register_ofx():
     class Transactions(Base):
         __table__ = db.Table('stmttrn', db.metadata, autoload=True, autoload_with=db.engine)
 
-    class Accounts(Base):
+    class AccountsFrom(Base):
         __table__ = db.Table('acctfrom', db.metadata, autoload=True, autoload_with=db.engine)
 
     class AvailableBalance(Base):
@@ -70,7 +70,7 @@ def register_ofx():
         column_default_sort = ('fitid', True)
 
     admin.add_view(TransactionsModelView(Transactions, db.session, category='OFX'))
-    admin.add_view(OFXModelView(Accounts, db.session, category='OFX'))
+    admin.add_view(OFXModelView(AccountsFrom, db.session, category='OFX'))
     admin.add_view(OFXModelView(AvailableBalance, db.session, category='OFX'))
     admin.add_view(OFXModelView(BankAccounts, db.session, category='OFX'))
     admin.add_view(OFXModelView(CreditCardAccounts, db.session, category='OFX'))
@@ -80,3 +80,8 @@ def register_ofx():
 admin.add_view(MyModelView(User, db.session, category='Admin'))
 admin.add_view(MyModelView(Role, db.session, category='Admin'))
 
+admin.add_view(MyModelView(JournalEntries, db.session, category='Bookkeeping'))
+admin.add_view(MyModelView(Subaccounts, db.session, category='Bookkeeping'))
+admin.add_view(MyModelView(Accounts, db.session, category='Bookkeeping'))
+admin.add_view(MyModelView(Classifications, db.session, category='Bookkeeping'))
+admin.add_view(MyModelView(Elements, db.session, category='Bookkeeping'))
