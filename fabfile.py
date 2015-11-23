@@ -199,6 +199,10 @@ def update():
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
 
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python3 manage.py createdb')
+
     with cd('/home/ec2-user/ofxtools/'):
         run('git pull')
         run('sudo python setup.py install')

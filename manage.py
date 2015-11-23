@@ -35,6 +35,7 @@ def createdb():
 
     db.create_all()
 
+
 @manager.command
 def create_superuser():
     if User.query.count() == 1:
