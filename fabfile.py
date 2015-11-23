@@ -207,6 +207,7 @@ def ssh():
 def update():
     # APP
     with cd('/home/ec2-user/pacioli/'):
+        run('git stash')
         run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/' + GITHUB_SSH_PRIVATE_KEY_FILE))
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
@@ -244,6 +245,8 @@ def update():
     put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
     run('sudo /etc/init.d/nginx restart')
 
+    run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
+
 
 def create_db():
     with cd('/home/ec2-user/pacioli/'):
@@ -256,4 +259,5 @@ def cron():
 
 
 def ofx():
+    put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
     run('/home/ec2-user/pacioli/plugins/ofx.py')
