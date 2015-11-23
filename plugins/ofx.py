@@ -1,20 +1,15 @@
 #!/usr/bin/python
 
 from datetime import datetime
-import os
-import sys
 
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
 from ofxtools.ofxalchemy import DBSession, OFXParser, Base
 from ofxtools.ofxalchemy.models import STMTTRN
 
-script_path = os.path.realpath(__file__)
-pacioli_path = os.path.join(script_path, '../pacioli/')
-sys.path.insert(1, pacioli_path)
-
-from db_config import PROD_PG_USERNAME, PROD_PG_PASSWORD, PROD_PG_HOST, PROD_PG_PORT
-from ofx_config import url, org, fid, bankid_checking, bankid_savings, checking, savings, creditcard, user, password
+from ofx_config import url, org, fid, bankid_checking, bankid_savings
+from ofx_config import checking, savings, creditcard, user, password
+from ofx_config import PROD_PG_USERNAME, PROD_PG_PASSWORD, PROD_PG_HOST, PROD_PG_PORT
 
 
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
