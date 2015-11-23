@@ -1,10 +1,13 @@
 from flask import url_for, redirect, request, abort
+from flask.ext.admin import BaseView, expose
 from flask_security import current_user
 from flask import Blueprint
 from flask.ext.admin.contrib import sqla
 
 from pacioli.extensions import admin
 from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
+from sqlalchemy import MetaData
+from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.ext.declarative import declarative_base
 
 main = Blueprint('main', __name__)
@@ -21,9 +24,6 @@ class MyModelView(sqla.ModelView):
         return False
 
     def _handle_view(self, name, **kwargs):
-        """
-        Override builtin _handle_view in order to redirect users when a view is not accessible.
-        """
         if not self.is_accessible():
             if current_user.is_authenticated:
                 # permission denied
@@ -33,8 +33,37 @@ class MyModelView(sqla.ModelView):
                 return redirect(url_for('security.login', next=request.url))
 
 
-def register_ofx():
-    Base = declarative_base()
+def name_for_scalar_relationship(base, local_cls, referred_cls, constraint):
+    name = referred_cls.__name__.lower()
+    local_table = local_cls.__table__
+    if name in local_table.columns:
+        newname = name + "_"
+        return newname
+    return name
+
+
+def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
+    name = referred_cls.__name__.lower() + '_collection'
+    for c in referred_cls.__table__.columns:
+        if c == name:
+            name += "_"
+    return name
+
+
+def register_ofx(app):
+    metadata = MetaData(db.engine)
+    metadata.reflect(bind=db.engine, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+    Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=db.engine)
+    Base = automap_base(metadata=metadata, declarative_base=Model)
+    Base.prepare(
+        name_for_scalar_relationship=name_for_scalar_relationship,
+        name_for_collection_relationship=name_for_collection_relationship
+    )
+
+    for cls in Base.classes:
+        cls.__table__.info = {'bind_key': 'ofx'}
+        if cls.__table__.name in app.config['MAIN_DATABASE_MODEL_MAP']:
+            globals()[app.config['MAIN_DATABASE_MODEL_MAP'][cls.__table__.name]] = cls
 
     class OFXModelView(MyModelView):
         can_create = False
@@ -43,24 +72,6 @@ def register_ofx():
         can_view_details = True
         column_display_pk = True
         column_display_all_relations = True
-
-    class Transactions(Base):
-        __table__ = db.Table('stmttrn', db.metadata, autoload=True, autoload_with=db.engine)
-
-    class AccountsFrom(Base):
-        __table__ = db.Table('acctfrom', db.metadata, autoload=True, autoload_with=db.engine)
-
-    class AvailableBalance(Base):
-        __table__ = db.Table('availbal', db.metadata, autoload=True, autoload_with=db.engine)
-
-    class BankAccounts(Base):
-        __table__ = db.Table('bankacctfrom', db.metadata, autoload=True, autoload_with=db.engine)
-
-    class CreditCardAccounts(Base):
-        __table__ = db.Table('ccacctfrom', db.metadata, autoload=True, autoload_with=db.engine)
-
-    class LedgerBalances(Base):
-        __table__ = db.Table('ledgerbal', db.metadata, autoload=True, autoload_with=db.engine)
 
     class TransactionsModelView(OFXModelView):
         columns = ['fitid', 'dtposted', 'trnamt', 'trntype', 'name', 'memo', 'checknum', 'acctfrom_id', 'acctto_id']
@@ -79,6 +90,42 @@ def register_ofx():
 
 admin.add_view(MyModelView(User, db.session, category='Admin'))
 admin.add_view(MyModelView(Role, db.session, category='Admin'))
+
+
+class ReconciliationsView(BaseView):
+    def is_accessible(self):
+        if not current_user.is_active or not current_user.is_authenticated:
+            return False
+
+        if current_user.has_role('superuser'):
+            return True
+
+        return False
+
+    def _handle_view(self, name, **kwargs):
+        if not self.is_accessible():
+            if current_user.is_authenticated:
+                # permission denied
+                abort(403)
+            else:
+                # login
+                return redirect(url_for('security.login', next=request.url))
+
+    @expose('/')
+    def index(self):
+        new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
+                                             Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+                                             db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
+                                             AccountsFrom.name.label('account'))
+                            .outerjoin(JournalEntries, JournalEntries.transaction_id ==
+                                       db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
+                            .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+                            .filter(JournalEntries.transaction_id.is_(None))
+                            .order_by(Transactions.fitid.desc()).limit(20))
+        return self.render('new_transactions.html', data=new_transactions)
+
+
+admin.add_view(ReconciliationsView(name='New Transactions', endpoint='new_transactions', category='Bookkeeping'))
 
 admin.add_view(MyModelView(JournalEntries, db.session, category='Bookkeeping'))
 admin.add_view(MyModelView(Subaccounts, db.session, category='Bookkeeping'))

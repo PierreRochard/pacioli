@@ -44,6 +44,6 @@ def create_app(object_name, env="prod"):
     app.register_blueprint(main)
 
     with app.app_context():
-        register_ofx()
+        register_ofx(app)
 
     return app

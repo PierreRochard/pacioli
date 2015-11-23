@@ -1,0 +1,54 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+{{ super() }}
+<table class="table table-striped table-bordered table-hover model-list">
+    <thead>
+        <tr>
+            <th class="column-header">
+                Account
+            </th>
+            <th class="column-header">
+                ID
+            </th>
+            <th class="column-header">
+                Date
+            </th>
+            <th class="column-header">
+                Debit
+            </th>
+            <th class="column-header">
+                Credit
+            </th>
+            <th class="column-header">
+                Description
+            </th>
+        </tr>
+    </thead>
+    {% for row in data %}
+    <tr>
+        <td>
+            {{ row.account }}
+        </td>
+        <td>
+            {{ row.id }}
+        </td>
+        <td>
+            {{ row.date.strftime('%Y-%m-%d')  }}
+        </td>
+        <td>
+            {% if row.amount > 0 %}
+            {{ "{:,.2f}".format(row.amount|abs) }}
+            {% endif %}
+        </td>
+        <td>
+            {% if row.amount < 0 %}
+            {{ "{:,.2f}".format(row.amount|abs) }}
+            {% endif %}
+        </td>
+        <td>
+            {{ row.description }}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock body %}
