@@ -48,6 +48,9 @@
         <td>
             {{ row.description }}
         </td>
+        <td>
+            <a href="{{ url_for('new_transactions.post', transaction_id=row.id) }}">Post</a>
+        </td>
     </tr>
     {% endfor %}
 </table>

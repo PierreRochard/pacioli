@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
+import csv
 import os
 
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
 from pacioli import create_app
-from pacioli.models import db, User, Role
+from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 
 # default to dev config because no one should use this in
 # production anyway
+from sqlalchemy.exc import IntegrityError
+
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
 
@@ -48,6 +51,55 @@ def create_superuser():
         admin = User.query.first()
         admin.roles.append(superuser)
         db.session.commit()
+
+
+@manager.command
+def populate_chart_of_accounts():
+    chart_of_accounts_csv = 'configuration_files/Chart of Accounts.csv'
+    with open(chart_of_accounts_csv) as csv_file:
+        reader = csv.reader(csv_file)
+        rows = [pair for pair in reader]
+        header = rows.pop(0)
+        for row in rows:
+            line = zip(header, row)
+            line = dict(line)
+
+            element = Elements()
+            element.name = line['Element']
+            try:
+                db.session.add(element)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+
+            classification = Classifications()
+            classification.name = line['Classification']
+            classification.parent = line['Element']
+            try:
+                db.session.add(classification)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+
+            account = Accounts()
+            account.name = line['Account']
+            account.cash_source = line['Cash Source']
+            account.parent = line['Classification']
+            try:
+                db.session.add(account)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+
+            subaccount = Subaccounts()
+            subaccount.name = line['Subaccount']
+            subaccount.parent = line['Account']
+            try:
+                db.session.add(subaccount)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+    return True
 
 if __name__ == "__main__":
     manager.run()

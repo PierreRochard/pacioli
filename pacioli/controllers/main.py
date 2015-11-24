@@ -32,6 +32,10 @@ class MyModelView(sqla.ModelView):
                 # login
                 return redirect(url_for('security.login', next=request.url))
 
+    can_view_details = True
+    column_display_pk = True
+    column_display_all_relations = True
+
 
 def name_for_scalar_relationship(base, local_cls, referred_cls, constraint):
     name = referred_cls.__name__.lower()
@@ -55,10 +59,8 @@ def register_ofx(app):
     metadata.reflect(bind=db.engine, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
     Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=db.engine)
     Base = automap_base(metadata=metadata, declarative_base=Model)
-    Base.prepare(
-        name_for_scalar_relationship=name_for_scalar_relationship,
-        name_for_collection_relationship=name_for_collection_relationship
-    )
+    Base.prepare(name_for_scalar_relationship=name_for_scalar_relationship,
+                 name_for_collection_relationship=name_for_collection_relationship)
 
     for cls in Base.classes:
         cls.__table__.info = {'bind_key': 'ofx'}
@@ -69,9 +71,6 @@ def register_ofx(app):
         can_create = False
         can_edit = False
         can_delete = False
-        can_view_details = True
-        column_display_pk = True
-        column_display_all_relations = True
 
     class TransactionsModelView(OFXModelView):
         columns = ['fitid', 'dtposted', 'trnamt', 'trntype', 'name', 'memo', 'checknum', 'acctfrom_id', 'acctto_id']
@@ -123,6 +122,28 @@ class ReconciliationsView(BaseView):
                             .filter(JournalEntries.transaction_id.is_(None))
                             .order_by(Transactions.fitid.desc()).limit(20))
         return self.render('new_transactions.html', data=new_transactions)
+
+    @expose('/post/<transaction_id>/')
+    def post(self, transaction_id):
+        new_journal_entry = JournalEntries()
+        transaction = (db.session.query(Transactions)
+                       .filter(db.func.concat(Transactions.fitid,
+                                              Transactions.acctfrom_id).label('id') == transaction_id).one())
+        new_journal_entry.transaction_id = transaction_id
+        new_journal_entry.transaction_source = 'ofx'
+        account = (db.session.query(AccountsFrom).filter(AccountsFrom.id == transaction.acctfrom_id).one())
+        if transaction.trnamt > 0:
+            new_journal_entry.debit_subaccount = account.name
+            new_journal_entry.credit_subaccount = 'Discretionary Costs'
+        elif transaction.trnamt <= 0:
+            new_journal_entry.debit_subaccount = 'Revenues'
+            new_journal_entry.credit_subaccount = account.name
+        new_journal_entry.functional_amount = transaction.trnamt
+        new_journal_entry.functional_currency = 'USD'
+        new_journal_entry.timestamp = transaction.dtposted
+        db.session.add(new_journal_entry)
+        db.session.commit()
+        return redirect(url_for('new_transactions.index'))
 
 
 admin.add_view(ReconciliationsView(name='New Transactions', endpoint='new_transactions', category='Bookkeeping'))
