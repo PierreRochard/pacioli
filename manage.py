@@ -5,6 +5,7 @@ import os
 
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
+from flask.ext.security.utils import encrypt_password
 from pacioli import create_app
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 
@@ -35,7 +36,7 @@ def createdb():
     """ Creates a database with all of the tables defined in
         your SQLAlchemy models
     """
-
+    # db.drop_all()
     db.create_all()
 
 
@@ -51,6 +52,16 @@ def create_superuser():
         admin = User.query.first()
         admin.roles.append(superuser)
         db.session.commit()
+
+
+@manager.option('-e', '--email', dest='email')
+@manager.option('-p', '--password', dest='password')
+def create_admin(email, password):
+    admin = User()
+    admin.email = email
+    admin.password = encrypt_password(password)
+    db.add(admin)
+    db.session.commit()
 
 
 @manager.command
