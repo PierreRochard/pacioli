@@ -6,7 +6,7 @@ from flask.ext.admin.contrib import sqla
 
 from pacioli.extensions import admin
 from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -55,9 +55,10 @@ def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
 
 
 def register_ofx(app):
-    metadata = MetaData(bind=['ofx'])
-    metadata.reflect(bind=['ofx'], only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
-    Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=['ofx'])
+    ofx_engine = create_engine(app.config['SQLALCHEMY_BINDS']['ofx'])
+    metadata = MetaData(ofx_engine)
+    metadata.reflect(bind=ofx_engine, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+    Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=ofx_engine)
     Base = automap_base(metadata=metadata, declarative_base=Model)
     Base.prepare(name_for_scalar_relationship=name_for_scalar_relationship,
                  name_for_collection_relationship=name_for_collection_relationship)
