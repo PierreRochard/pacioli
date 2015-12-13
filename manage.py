@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import csv
+from datetime import datetime
 import os
 
+from dateutil.tz import tzlocal
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
 from flask.ext.security.utils import encrypt_password
+
 from pacioli import create_app
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 
@@ -36,7 +39,7 @@ def createdb():
     """ Creates a database with all of the tables defined in
         your SQLAlchemy models
     """
-    # db.drop_all()
+    db.drop_all()
     db.create_all()
 
 
@@ -60,7 +63,9 @@ def create_admin(email, password):
     admin = User()
     admin.email = email
     admin.password = encrypt_password(password)
-    db.add(admin)
+    admin.active = True
+    admin.confirmed_at = datetime.now(tzlocal())
+    db.session.add(admin)
     db.session.commit()
 
 
