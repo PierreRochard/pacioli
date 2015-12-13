@@ -55,9 +55,9 @@ def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
 
 
 def register_ofx(app):
-    metadata = MetaData(db.engine)
-    metadata.reflect(bind=db.engine, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
-    Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=db.engine)
+    metadata = MetaData(bind=['ofx'])
+    metadata.reflect(bind=['ofx'], only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+    Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=['ofx'])
     Base = automap_base(metadata=metadata, declarative_base=Model)
     Base.prepare(name_for_scalar_relationship=name_for_scalar_relationship,
                  name_for_collection_relationship=name_for_collection_relationship)
