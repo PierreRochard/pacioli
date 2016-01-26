@@ -27,20 +27,17 @@ manager.add_command("clean", Clean())
 
 @manager.shell
 def make_shell_context():
-    """ Creates a python REPL with several default imports
-        in the context of the app
-    """
-
     return dict(app=app, db=db, User=User)
 
 
 @manager.command
 def createdb():
-    """ Creates a database with all of the tables defined in
-        your SQLAlchemy models
-    """
-    db.drop_all()
     db.create_all()
+
+
+@manager.command
+def dropdb():
+    db.drop_all()
 
 
 @manager.command
