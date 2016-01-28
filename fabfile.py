@@ -11,6 +11,7 @@ from boto3.session import Session
 from aws_config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_KEY_PAIR_NAME
 from aws_config import AWS_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, DOMAIN_NAME
 from aws_config import mx1, mx5, mx5b, mx10, mx10b, cname_name, cname_value, txt
+from aws_config import admin_email, admin_password
 
 sys.path.insert(0, "pacioli/")
 from db_config import PROD_PG_USERNAME, PROD_PG_PASSWORD
@@ -46,7 +47,7 @@ pacioli_instance = pacioli_instance[0]
 
 env.user = 'ec2-user'
 env.key_filename = AWS_SSH_PRIVATE_KEY_FILE
-env.port = 22
+env.port = 8910
 
 subnets = ec2_client.describe_subnets()['Subnets']
 availability_zones = {subnet['SubnetId']: subnet['AvailabilityZone'] for subnet in subnets}
@@ -68,9 +69,9 @@ def start_ec2():
 
     security_group = ec2_resource.SecurityGroup(instance.security_groups[0]['GroupId'])
     ssh_permission = [permission for permission in security_group.ip_permissions
-                      if 'ToPort' in permission and permission['ToPort'] == 22]
+                      if 'ToPort' in permission and permission['ToPort'] == 8910]
     if not ssh_permission:
-        security_group.authorize_ingress(IpProtocol='tcp', FromPort=22, ToPort=22, CidrIp='0.0.0.0/0')
+        security_group.authorize_ingress(IpProtocol='tcp', FromPort=8910, ToPort=8910, CidrIp='0.0.0.0/0')
         security_group.authorize_ingress(IpProtocol='tcp', FromPort=80, ToPort=80, CidrIp='0.0.0.0/0')
     instance.create_tags(Tags=[{'Key': 'Purpose', 'Value': purpose}])
 
@@ -141,7 +142,7 @@ def install():
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
     run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
-    run('sudo pip-3.4 install psycopg2')
+    run('sudo pip-3.4 install psycopg2 python-dateutil')
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
     run('mkdir ~/pacioli/logs/')
@@ -187,17 +188,36 @@ def install_ofx():
     run('sudo rm -f mycron')
 
 
+def install_cbtools():
+    with cd('/home/ec2-user/cbtools/'):
+        put('plugins/ofx_config.py', '/home/ec2-user/cbtools/config.py')
+    run('git clone https://github.com/PierreRochard/cbtools')
+    run('chmod +x /home/ec2-user/cbtools/cbtools/main.py')
+
+
 def update_cron():
     run('touch mycron')
-    run('sudo echo "30 11,23 * * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
+    run('sudo echo "30 11,23 * * * /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
+    run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && /home/ec2-user/cbtools/cbtools/main.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
 
 
+def ofx():
+    run('/home/ec2-user/pacioli/plugins/ofx.py')
+
+
+def mail():
+    run('sudo cat /var/spool/mail/root | tail -n 30')
+
+
 def install_certs():
-    # cat pacio_li.crt pacio_li.ca-bundle > ssl_bundle.crt
-    put('configuration_files/ssl_bundle.crt', '/etc/ssl/certs/ssl_bundle.crt', use_sudo=True)
-    put('configuration_files/server.key', '/etc/ssl/certs/server.key', use_sudo=True)
+    # cat pacio_li.crt pacio_li.ca-bundle > pacio_li_ssl_bundle.crt
+    put('configuration_files/pacio_li_ssl_bundle.crt', '/etc/ssl/certs/pacio_li_ssl_bundle.crt', use_sudo=True)
+    put('configuration_files/rochard_org_ssl_bundle.crt', '/etc/ssl/certs/rochard_org_ssl_bundle.crt', use_sudo=True)
+
+    put('configuration_files/pacioli_private.key', '/etc/ssl/certs/pacioli_private.key', use_sudo=True)
+    put('configuration_files/rochard_private.key', '/etc/ssl/certs/rochard_private.key', use_sudo=True)
 
 
 def ssh():
@@ -243,6 +263,7 @@ def update():
     # NGINX
     put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)
     put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
+    put('configuration_files/rochard-nginx', '/etc/nginx/sites-available/rochard', use_sudo=True)
     run('sudo /etc/init.d/nginx restart')
 
     run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
@@ -254,6 +275,13 @@ def create_db():
             run('python3 manage.py createdb')
 
 
+def create_admin():
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python3 manage.py create_admin -e {0} -p {1}'.format(admin_email, admin_password))
+            run('python3 manage.py create_superuser')
+
+
 def cron():
     run('sudo tail /var/log/cron')
 
@@ -261,3 +289,7 @@ def cron():
 def ofx():
     put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
     run('/home/ec2-user/pacioli/plugins/ofx.py')
+
+
+def error():
+    run('cat ~/pacioli/logs/supervisord_stdout.log | tail')
