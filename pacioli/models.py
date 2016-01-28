@@ -4,8 +4,8 @@ from flask.ext.sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 roles_users = db.Table('roles_users',
-                       db.Column('user_id', db.Integer(), db.ForeignKey('user.id')),
-                       db.Column('role_id', db.Integer(), db.ForeignKey('role.id')))
+                       db.Column('user_id', db.Integer(), db.ForeignKey('admin.user.id')),
+                       db.Column('role_id', db.Integer(), db.ForeignKey('admin.role.id')))
 
 
 class Role(db.Model, RoleMixin):
@@ -43,8 +43,8 @@ class JournalEntries(db.Model):
     transaction_source = db.Column(db.String)
 
     timestamp = db.Column(db.DateTime(timezone=True))
-    debit_subaccount = db.Column(db.String, db.ForeignKey('subaccounts.name'))
-    credit_subaccount = db.Column(db.String, db.ForeignKey('subaccounts.name'))
+    debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
     functional_amount = db.Column(db.Numeric)
     functional_currency = db.Column(db.String)
     source_amount = db.Column(db.Numeric)
@@ -56,7 +56,7 @@ class Subaccounts(db.Model):
     __tablename__ = 'subaccounts'
 
     name = db.Column(db.String, primary_key=True)
-    parent = db.Column(db.String, db.ForeignKey('accounts.name'))
+    parent = db.Column(db.String, db.ForeignKey('pacioli.accounts.name'))
 
     def __repr__(self):
         return self.name
@@ -68,7 +68,7 @@ class Accounts(db.Model):
 
     name = db.Column(db.String, primary_key=True)
     cash_source = db.Column(db.String)
-    parent = db.Column(db.String, db.ForeignKey('classifications.name'))
+    parent = db.Column(db.String, db.ForeignKey('pacioli.classifications.name'))
     subaccounts = db.relationship('Subaccounts',
                                   backref='account',
                                   lazy='select',
@@ -83,7 +83,7 @@ class Classifications(db.Model):
     __tablename__ = 'classifications'
 
     name = db.Column(db.String, primary_key=True)
-    parent = db.Column(db.String, db.ForeignKey('elements.name'))
+    parent = db.Column(db.String, db.ForeignKey('pacioli.elements.name'))
     accounts = db.relationship('Accounts',
                                backref='classification',
                                lazy='select',
