@@ -40,20 +40,6 @@ def dropdb():
     db.drop_all()
 
 
-@manager.command
-def create_superuser():
-    if User.query.count() == 1:
-        if not Role.query.count():
-            superuser = Role()
-            superuser.name = 'superuser'
-            superuser.description = 'superuser'
-            db.session.add(superuser)
-            db.session.commit()
-        admin = User.query.first()
-        admin.roles.append(superuser)
-        db.session.commit()
-
-
 @manager.option('-e', '--email', dest='email')
 @manager.option('-p', '--password', dest='password')
 def create_admin(email, password):
@@ -63,6 +49,15 @@ def create_admin(email, password):
     admin.active = True
     admin.confirmed_at = datetime.now(tzlocal())
     db.session.add(admin)
+    db.session.commit()
+
+    superuser = Role()
+    superuser.name = 'superuser'
+    superuser.description = 'superuser'
+    db.session.add(superuser)
+    db.session.commit()
+
+    admin.roles.append(superuser)
     db.session.commit()
 
 
