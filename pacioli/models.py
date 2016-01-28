@@ -9,12 +9,16 @@ roles_users = db.Table('roles_users',
 
 
 class Role(db.Model, RoleMixin):
+    __table_args__ = {'schema': 'admin'}
+
     id = db.Column(db.Integer(), primary_key=True)
     name = db.Column(db.String(80), unique=True)
     description = db.Column(db.String(255))
 
 
 class User(db.Model, UserMixin):
+    __table_args__ = {'schema': 'admin'}
+
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True)
     password = db.Column(db.String(255))
@@ -31,6 +35,7 @@ class User(db.Model, UserMixin):
 
 
 class JournalEntries(db.Model):
+    __table_args__ = {'schema': 'pacioli'}
     __tablename__ = 'journal_entries'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -47,6 +52,7 @@ class JournalEntries(db.Model):
 
 
 class Subaccounts(db.Model):
+    __table_args__ = {'schema': 'pacioli'}
     __tablename__ = 'subaccounts'
 
     name = db.Column(db.String, primary_key=True)
@@ -57,6 +63,7 @@ class Subaccounts(db.Model):
 
 
 class Accounts(db.Model):
+    __table_args__ = {'schema': 'pacioli'}
     __tablename__ = 'accounts'
 
     name = db.Column(db.String, primary_key=True)
@@ -72,6 +79,7 @@ class Accounts(db.Model):
 
 
 class Classifications(db.Model):
+    __table_args__ = {'schema': 'pacioli'}
     __tablename__ = 'classifications'
 
     name = db.Column(db.String, primary_key=True)
@@ -86,6 +94,7 @@ class Classifications(db.Model):
 
 
 class Elements(db.Model):
+    __table_args__ = {'schema': 'pacioli'}
     __tablename__ = 'elements'
 
     name = db.Column(db.String, primary_key=True)
@@ -95,7 +104,7 @@ class Elements(db.Model):
                                       cascade="save-update, merge, delete")
 
     def __repr__(self):
-        return self.n
+        return self.name
 
 
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
