@@ -10,11 +10,13 @@ Flask-SQLAlchemy
 Flask-Security
 Flask-Script
 Flask-WTF
+Talisman
 
 # Other
 itsdangerous
 cssmin
 jsmin
+python-dateutil
 
 # Testing
 pytest
