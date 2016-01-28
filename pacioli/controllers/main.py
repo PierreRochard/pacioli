@@ -55,7 +55,7 @@ def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
 
 
 def register_ofx(app):
-    ofx_engine = create_engine(app.config['SQLALCHEMY_BINDS']['ofx'])
+    ofx_engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
     metadata = MetaData(ofx_engine)
     metadata.reflect(bind=ofx_engine, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
     Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=ofx_engine)
@@ -64,7 +64,6 @@ def register_ofx(app):
                  name_for_collection_relationship=name_for_collection_relationship)
 
     for cls in Base.classes:
-        cls.__table__.info = {'bind_key': 'ofx'}
         if cls.__table__.name in app.config['MAIN_DATABASE_MODEL_MAP']:
             globals()[app.config['MAIN_DATABASE_MODEL_MAP'][cls.__table__.name]] = cls
 
