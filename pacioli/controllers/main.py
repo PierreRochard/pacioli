@@ -57,7 +57,7 @@ def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
 def register_ofx(app):
     ofx_engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
     metadata = MetaData(ofx_engine)
-    metadata.reflect(bind=ofx_engine, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+    metadata.reflect(bind=ofx_engine, schema='ofx', only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
     Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=ofx_engine)
     Base = automap_base(metadata=metadata, declarative_base=Model)
     Base.prepare(name_for_scalar_relationship=name_for_scalar_relationship,
