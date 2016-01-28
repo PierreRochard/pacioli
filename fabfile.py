@@ -291,5 +291,9 @@ def ofx():
     run('/home/ec2-user/pacioli/plugins/ofx.py')
 
 
-def error():
+def python_error():
     run('cat ~/pacioli/logs/supervisord_stdout.log | tail')
+
+
+def nginx_error():
+    run('cat /home/ec2-user/pacioli/logs/nginx/*.log | tail')
