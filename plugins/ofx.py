@@ -42,6 +42,29 @@ def setup(drop_tables):
         parser.instantiate()
 
 
+def results_to_table(query_results):
+    html_body = '<table style="border:1px solid black;"><thead><tr>'
+    for header in ['ID', 'Date', 'Debit', 'Credit', 'Description']:
+        html_body += '<th style="border:1px solid black;">{0}</th>'.format(header)
+    html_body += '</tr></thead><tbody>'
+    for row in query_results:
+        html_body += '<tr>'
+        for cell in row:
+            if isinstance(cell, Decimal):
+                if cell > 0:
+                    html_body += '<td style="border:1px solid black;">{0:,.2f}</td><td style="border:1px solid black;"></td>'.format(cell)
+                else:
+                    html_body += '<td style="border:1px solid black;"></td><td style="border:1px solid black;">{0:,.2f}</td>'.format(cell)
+            elif isinstance(cell, datetime):
+                cell = cell.date()
+                html_body += '<td style="border:1px solid black;">{0}</td>'.format(cell)
+            else:
+                html_body += '<td style="border:1px solid black;">{0}</td>'.format(cell)
+        html_body += '</tr>'
+    html_body += '</tbody></table>'
+    return html_body
+
+
 def update():
     start, = DBSession.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.desc()).first()
     end = datetime.today()
@@ -57,35 +80,47 @@ def update():
                         .join(ACCTFROM, ACCTFROM.id == STMTTRN.acctfrom_id)
                         .filter(STMTTRN.dtposted > start)
                         .order_by(STMTTRN.fitid.desc()).all())
-    html_body = '<table style="border:1px solid black;"><thead><tr>'
-    for header in ['ID', 'Date', 'Debit', 'Credit', 'Description']:
-        html_body += '<th style="border:1px solid black;">{0}</th>'.format(header)
-    html_body += '</tr></thead><tbody>'
-    for row in new_transactions:
-        html_body += '<tr>'
-        for cell in row:
-            if isinstance(cell, Decimal):
-                if cell > 0:
-                    html_body += '<td style="border:1px solid black;">{0:,.2f}</td><td style="border:1px solid black;"></td>'.format(cell)
-                else:
-                    html_body += '<td style="border:1px solid black;"></td><td style="border:1px solid black;">{0:,.2f}</td>'.format(cell)
-            elif isinstance(cell, datetime):
-                cell = cell.date()
-                html_body += '<td style="border:1px solid black;">{0}</td>'.format(cell)
-            else:
-                html_body += '<td style="border:1px solid black;">{0}</td>'.format(cell)
-        html_body += '</tr>'
-    html_body += '</tbody></table>'
+    html_body = results_to_table(new_transactions)
 
     send_email(recipients=['pierre@rochard.org'], subject='New Transactions', html_body=html_body)
 
+
+def check_for_old():
+    end, = DBSession.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.asc()).first()
+    for account in accounts:
+        request = client.statement_request(user, password, clientuid, [account], dtend=end)
+        response = client.download(request)
+        print(response.read())
+        response.seek(0)
+        parser = OFXParser()
+        parser.parse(response)
+        parser.instantiate()
+
+
+def export():
+    export_transactions = (DBSession.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
+                                        STMTTRN.dtposted.label('date'), STMTTRN.trnamt.label('amount'),
+                                        func.concat(STMTTRN.name, ' ', STMTTRN.memo).label('description'))
+                        .join(ACCTFROM, ACCTFROM.id == STMTTRN.acctfrom_id)
+                        .order_by(STMTTRN.fitid.desc()).all())
+    html_body = results_to_table(export_transactions)
+    with open('export.html', 'w') as html_file:
+        html_file.write(html_body)
+
+
 if __name__ == '__main__':
     ARGS = argparse.ArgumentParser()
-    ARGS.add_argument('-u', action='store_true', dest='update', default=True)
+    ARGS.add_argument('-u', action='store_true', dest='update', default=False)
     ARGS.add_argument('-s', action='store_true', dest='setup', default=False)
     ARGS.add_argument('-d', action='store_true', dest='drop_tables', default=False)
+    ARGS.add_argument('-e', action='store_true', dest='export', default=False)
+    ARGS.add_argument('-o', action='store_true', dest='old', default=False)
     args = ARGS.parse_args()
     if args.setup:
         setup(args.drop_tables)
     if args.update:
         update()
+    if args.export:
+        export()
+    if args.old:
+        check_for_old()

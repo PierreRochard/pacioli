@@ -184,7 +184,6 @@ def install_ofx():
     run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
 
 
-
 def install_cbtools():
     with cd('/home/ec2-user/cbtools/'):
         put('plugins/cb_config.py', '/home/ec2-user/cbtools/config.py')
@@ -194,7 +193,7 @@ def install_cbtools():
 
 def update_cron():
     run('touch mycron')
-    run('sudo echo "30 11,23 * * * /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
+    run('sudo echo "30 11,23 * * * /home/ec2-user/pacioli/plugins/ofx.py -u" >> mycron')
     run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && /home/ec2-user/cbtools/cbtools/main.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
@@ -281,7 +280,7 @@ def cron():
 
 
 def ofx():
-    run('/home/ec2-user/pacioli/plugins/ofx.py')
+    run('/home/ec2-user/pacioli/plugins/ofx.py -u')
 
 
 def python_error():

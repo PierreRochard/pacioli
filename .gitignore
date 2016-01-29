@@ -62,3 +62,4 @@ pacioli/db_config.py
 plugins/*_config.py
 
 #fabfile.py
+plugins/*.html
