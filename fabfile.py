@@ -174,23 +174,20 @@ def install():
 
 
 def install_ofx():
-    run('sudo yum -y install gcc git python python-pip python-setuptools python-devel')
+    run('sudo yum -y install gcc git python python-pip python-setuptools python-devel python-argparse')
     run('sudo pip install sqlalchemy psycopg2')
     with cd('/home/ec2-user/pacioli/plugins/'):
         put('plugins/ofx_config.py', 'ofx_config.py')
     run('git clone https://github.com/PierreRochard/ofxtools')
     with cd('/home/ec2-user/ofxtools/'):
         run('sudo python setup.py install')
-    run('touch mycron')
     run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
-    run('sudo echo "30 5,17 * * * ec2-user /home/ec2-user/pacioli/plugins/ofx.py" >> mycron')
-    run('sudo crontab mycron')
-    run('sudo rm -f mycron')
+
 
 
 def install_cbtools():
     with cd('/home/ec2-user/cbtools/'):
-        put('plugins/ofx_config.py', '/home/ec2-user/cbtools/config.py')
+        put('plugins/cb_config.py', '/home/ec2-user/cbtools/config.py')
     run('git clone https://github.com/PierreRochard/cbtools')
     run('chmod +x /home/ec2-user/cbtools/cbtools/main.py')
 
@@ -201,10 +198,6 @@ def update_cron():
     run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && /home/ec2-user/cbtools/cbtools/main.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
-
-
-def ofx():
-    run('/home/ec2-user/pacioli/plugins/ofx.py')
 
 
 def mail():
@@ -232,6 +225,7 @@ def update():
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
+    put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
 
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
@@ -287,7 +281,6 @@ def cron():
 
 
 def ofx():
-    put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
     run('/home/ec2-user/pacioli/plugins/ofx.py')
 
 
