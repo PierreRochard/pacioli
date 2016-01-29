@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 import argparse
 from datetime import datetime
@@ -53,8 +53,8 @@ def update():
 
 if __name__ == '__main__':
     ARGS = argparse.ArgumentParser()
-    ARGS.add_argument('-s', action='store_true', dest='setup', default=False)
     ARGS.add_argument('-u', action='store_true', dest='update', default=True)
+    ARGS.add_argument('-s', action='store_true', dest='setup', default=False)
     ARGS.add_argument('-d', action='store_true', dest='drop_tables', default=False)
     args = ARGS.parse_args()
     if args.setup:
