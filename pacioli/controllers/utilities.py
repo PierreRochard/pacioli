@@ -15,3 +15,13 @@ def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
         if c == name:
             name += "_"
     return name
+
+
+def account_formatter(view, context, model, name):
+    # `view` is current administrative view
+    # `context` is instance of jinja2.runtime.Context
+    # `model` is model instance
+    # `name` is property name
+    acct_to_account = dict(bankacctfrom='Bank Account',
+                           ccacctfrom='Credit Card')
+    return acct_to_account[getattr(model, name)]

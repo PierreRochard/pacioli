@@ -6,7 +6,8 @@ from flask.ext.admin.contrib import sqla
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.ext.declarative import declarative_base
 
-from pacioli.controllers.utilities import name_for_scalar_relationship, name_for_collection_relationship
+from pacioli.controllers.utilities import name_for_scalar_relationship, name_for_collection_relationship, \
+    account_formatter
 from pacioli.extensions import admin
 from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
 
@@ -61,6 +62,7 @@ def register_ofx(app):
         column_searchable_list = ['name']
         column_filters = column_list
         column_labels = dict(name='Name', subclass='Account Type', id='ID')
+        column_formatters = dict(subclass=account_formatter)
 
         can_edit = True
         form_columns = ['name']
