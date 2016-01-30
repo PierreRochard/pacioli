@@ -1,3 +1,10 @@
+url = 'https://ofx.chase.com'
+org = 'B1'
+fid = '10898'
+bankid_checking = ''
+bankid_savings = ''
+
+
 checking = ''
 savings = ''
 creditcard = ''
