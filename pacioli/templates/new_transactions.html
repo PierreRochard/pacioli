@@ -49,7 +49,7 @@
             {{ row.description }}
         </td>
         <td>
-            <a href="{{ url_for('new_transactions.post', transaction_id=row.id) }}">Post</a>
+            <a href="{{ url_for('ofx/new_transactions.post', transaction_id=row.id) }}">Post</a>
         </td>
     </tr>
     {% endfor %}
