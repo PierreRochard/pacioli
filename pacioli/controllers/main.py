@@ -97,7 +97,7 @@ admin.add_view(MyModelView(User, db.session, category='Admin'))
 admin.add_view(MyModelView(Role, db.session, category='Admin'))
 
 
-class ReconciliationsView(BaseView):
+class OFXReconciliationView(BaseView):
     def is_accessible(self):
         if not current_user.is_active or not current_user.is_authenticated:
             return False
@@ -110,10 +110,8 @@ class ReconciliationsView(BaseView):
     def _handle_view(self, name, **kwargs):
         if not self.is_accessible():
             if current_user.is_authenticated:
-                # permission denied
                 abort(403)
             else:
-                # login
                 return redirect(url_for('security.login', next=request.url))
 
     @expose('/')
@@ -126,7 +124,7 @@ class ReconciliationsView(BaseView):
                                        db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
                             .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
                             .filter(JournalEntries.transaction_id.is_(None))
-                            .order_by(Transactions.fitid.desc()).limit(20))
+                            .order_by(Transactions.dtposted.desc()).limit(20))
         return self.render('new_transactions.html', data=new_transactions)
 
     @expose('/post/<transaction_id>/')
@@ -149,10 +147,10 @@ class ReconciliationsView(BaseView):
         new_journal_entry.timestamp = transaction.dtposted
         db.session.add(new_journal_entry)
         db.session.commit()
-        return redirect(url_for('new_transactions.index'))
+        return redirect(url_for('ofx/new_transactions.index'))
 
 
-admin.add_view(ReconciliationsView(name='New Transactions', endpoint='new_transactions', category='Bookkeeping'))
+admin.add_view(OFXReconciliationView(name='New Transactions', endpoint='ofx/new_transactions', category='OFX'))
 
 admin.add_view(MyModelView(JournalEntries, db.session, category='Bookkeeping'))
 admin.add_view(MyModelView(Subaccounts, db.session, category='Bookkeeping'))
