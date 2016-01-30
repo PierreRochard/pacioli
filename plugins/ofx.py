@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 from decimal import Decimal
 import os
+from manage import make_shell_context
 
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
@@ -12,6 +13,9 @@ from ofxtools.ofxalchemy import DBSession as ofx_session
 from ofxtools.ofxalchemy import Base as ofx_Base
 from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 from sqlalchemy import create_engine, func
+
+from pacioli.models import JournalEntries
+from pacioli.controllers.main import *
 
 from ofx_config import url, org, fid, bankid_checking, bankid_savings
 from ofx_config import checking, user, password, clientuid, savings, creditcard
@@ -101,7 +105,7 @@ def check_for_old():
 
 def import_ofx():
     directory = '/Users/Rochard/src/pacioli/configuration_files/data/'
-    files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith('.ofx') or ofx_file.endswith('.OFX')]
+    files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith(('.ofx', '.OFX', '.qfx', '.QFX'))]
     for ofx_file_name in files:
         ofx_file_path = os.path.join(directory, ofx_file_name)
         parser = OFXParser()
@@ -120,6 +124,57 @@ def export():
         html_file.write(html_body)
 
 
+def categorize():
+    mappings = [{'account': 'Checking',
+                 'pattern': 'coinbase%',
+                 'positive_debit_account': 'Chase Checking',
+                 'positive_credit_account': 'Chase Checking - Deposits in Transit',
+                 'negative_debit_account': 'Coinbase USD Wallet - Deposits in Transit',
+                 'negative_credit_account': 'Chase Checking'},
+                {'account': 'Credit Card',
+                 'pattern': '%fresh direct%',
+                 'positive_debit_account': 'Credit Card',
+                 'positive_credit_account': 'Prepaid Groceries',
+                 'negative_debit_account': 'Prepaid Groceries',
+                 'negative_credit_account': 'Credit Card'}]
+    context = make_shell_context()
+    db = context['db']
+    app = context['app']
+    with app.app_context():
+        for mapping in mappings:
+            new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
+                                                 Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+                                                 db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
+                                                 AccountsFrom.name.label('account'))
+                                .outerjoin(JournalEntries, JournalEntries.transaction_id ==
+                                           db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
+                                .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+                                .filter(JournalEntries.transaction_id.is_(None))
+                                .filter(func.lower(Transactions.name).like(mapping['pattern']))
+                                .filter(AccountsFrom.name == mapping['account'])
+                                .order_by(Transactions.fitid.desc()).all())
+            for transaction in new_transactions:
+                new_journal_entry = JournalEntries()
+                new_journal_entry.transaction_id = transaction.id
+                new_journal_entry.transaction_source = 'ofx'
+                new_journal_entry.timestamp = transaction.date
+                if transaction.amount > 0:
+                    new_journal_entry.debit_subaccount = mapping['positive_debit_account']
+                    new_journal_entry.credit_subaccount = mapping['positive_credit_account']
+                elif transaction.amount < 0:
+                    new_journal_entry.debit_subaccount = mapping['negative_debit_account']
+                    new_journal_entry.credit_subaccount = mapping['negative_credit_account']
+                else:
+                    raise Exception()
+                new_journal_entry.functional_amount = transaction.amount
+                new_journal_entry.functional_currency = 'USD'
+                new_journal_entry.source_amount = transaction.amount
+                new_journal_entry.source_currency = 'USD'
+                db.session.add(new_journal_entry)
+                db.session.commit()
+                print(transaction.description)
+                print(transaction.account)
+
 if __name__ == '__main__':
     ARGS = argparse.ArgumentParser()
     ARGS.add_argument('-u', action='store_true', dest='update', default=False)
@@ -128,6 +183,7 @@ if __name__ == '__main__':
     ARGS.add_argument('-e', action='store_true', dest='export', default=False)
     ARGS.add_argument('-o', action='store_true', dest='old', default=False)
     ARGS.add_argument('-i', action='store_true', dest='import_ofx', default=False)
+    ARGS.add_argument('-c', action='store_true', dest='categorize', default=False)
     args = ARGS.parse_args()
     if args.setup:
         setup(args.drop_tables)
@@ -139,3 +195,5 @@ if __name__ == '__main__':
         check_for_old()
     if args.import_ofx:
         import_ofx()
+    if args.categorize:
+        categorize()
