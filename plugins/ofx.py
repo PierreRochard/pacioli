@@ -20,7 +20,7 @@ from utilities import send_email
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
                                                                                  PROD_PG_HOST, PROD_PG_PORT)
 
-engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
+engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=True)
 DBSession.configure(autocommit=True, autoflush=True, bind=engine)
 client = OFXClient(url, org, fid)
 
@@ -97,6 +97,17 @@ def check_for_old():
         parser.instantiate()
 
 
+def import_ofx():
+    import os
+    directory = '/Users/Rochard/src/pacioli/configuration_files/data/'
+    files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith('.ofx') or ofx_file.endswith('.OFX')]
+    for ofx_file_name in files:
+        ofx_file_path = os.path.join(directory, ofx_file_name)
+        parser = OFXParser()
+        parser.parse(ofx_file_path)
+        parser.instantiate()
+
+
 def export():
     export_transactions = (DBSession.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
                                         STMTTRN.dtposted.label('date'), STMTTRN.trnamt.label('amount'),
@@ -115,6 +126,7 @@ if __name__ == '__main__':
     ARGS.add_argument('-d', action='store_true', dest='drop_tables', default=False)
     ARGS.add_argument('-e', action='store_true', dest='export', default=False)
     ARGS.add_argument('-o', action='store_true', dest='old', default=False)
+    ARGS.add_argument('-i', action='store_true', dest='import_ofx', default=False)
     args = ARGS.parse_args()
     if args.setup:
         setup(args.drop_tables)
@@ -124,3 +136,5 @@ if __name__ == '__main__':
         export()
     if args.old:
         check_for_old()
+    if args.import_ofx:
+        import_ofx()
