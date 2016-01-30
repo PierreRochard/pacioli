@@ -50,7 +50,7 @@ def register_ofx(app):
             globals()[app.config['MAIN_DATABASE_MODEL_MAP'][cls.__table__.name]] = cls
 
     setattr(AccountsFrom, '__repr__', lambda self: self.name)
-    setattr(Transactions, '__repr__', lambda self: ''.join([str(self.name), str(self.memo)]))
+    # setattr(Transactions, '__repr__', lambda self: ''.join([str(self.name), str(self.memo)]))
 
     class OFXModelView(MyModelView):
         can_create = False
