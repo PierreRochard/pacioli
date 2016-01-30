@@ -7,7 +7,7 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.ext.declarative import declarative_base
 
 from pacioli.controllers.utilities import name_for_scalar_relationship, name_for_collection_relationship, \
-    account_formatter
+    account_formatter, date_formatter, currency_formatter, id_formatter, type_formatter
 from pacioli.extensions import admin
 from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
 
@@ -68,14 +68,14 @@ def register_ofx(app):
         form_columns = ['name']
 
     class TransactionsModelView(OFXModelView):
-        column_list = ['fitid', 'acctfrom', 'dtposted', 'trnamt', 'trntype', 'name', 'memo', 'checknum', 'acctto']
-
-        column_labels = dict(fitid='ID', acctfrom='From Account', dtposted='Date Posted', trnamt='Amount',
-                             trntype='Type', name='Name', memo='Memo', checknum='Check Number', acctto='To Account')
-
-        column_searchable_list = ['name', 'memo']
         column_default_sort = ('dtposted', True)
-
+        column_list = ['fitid', 'dtposted', 'acctfrom', 'trnamt','name', 'memo', 'trntype']
+        column_searchable_list = ['name', 'memo']
+        column_filters = column_list
+        column_labels = dict(fitid='ID', acctfrom='From Account', dtposted='Date Posted', trnamt='Amount',
+                             trntype='Type', name='Name', memo='Memo')
+        column_formatters = dict(fitid=id_formatter, dtposted=date_formatter, trnamt=currency_formatter,
+                                 trntype=type_formatter)
         can_edit = False
 
 
