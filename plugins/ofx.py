@@ -1,13 +1,15 @@
 #!/usr/bin/python
 
 import argparse
-from datetime import datetime, timedelta
-
+from datetime import datetime
 from decimal import Decimal
+import os
 
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
-from ofxtools.ofxalchemy import DBSession, OFXParser, Base
+from ofxtools.ofxalchemy import OFXParser
+from ofxtools.ofxalchemy import DBSession as ofx_session
+from ofxtools.ofxalchemy import Base as ofx_Base
 from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 from sqlalchemy import create_engine, func
 
@@ -21,8 +23,8 @@ SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format
                                                                                  PROD_PG_HOST, PROD_PG_PORT)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
-DBSession.configure(autocommit=True, autoflush=True, bind=engine)
-client = OFXClient(url, org, fid)
+ofx_session.configure(autocommit=True, autoflush=True, bind=engine)
+ofx_client = OFXClient(url, org, fid)
 
 accounts = [BankAcct(bankid_checking, checking, 'checking'),
             BankAcct(bankid_savings, savings, 'savings'),
@@ -31,11 +33,11 @@ accounts = [BankAcct(bankid_checking, checking, 'checking'),
 
 def setup(drop_tables):
     if drop_tables:
-        Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+        ofx_Base.metadata.drop_all(engine)
+    ofx_Base.metadata.create_all(engine)
     for account in accounts:
-        request = client.statement_request(user, password, clientuid, [account])
-        response = client.download(request)
+        request = ofx_client.statement_request(user, password, clientuid, [account])
+        response = ofx_client.download(request)
         parser = OFXParser()
         response.seek(0)
         parser.parse(response)
@@ -66,15 +68,15 @@ def results_to_table(query_results):
 
 
 def update():
-    start, = DBSession.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.desc()).first()
+    start, = ofx_session.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.desc()).first()
     end = datetime.today()
     for account in accounts:
-        request = client.statement_request(user, password, clientuid, [account], dtstart=start, dtend=end)
-        response = client.download(request)
+        request = ofx_client.statement_request(user, password, clientuid, [account], dtstart=start, dtend=end)
+        response = ofx_client.download(request)
         parser = OFXParser()
         parser.parse(response)
         parser.instantiate()
-    new_transactions = (DBSession.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
+    new_transactions = (ofx_session.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
                                         STMTTRN.dtposted.label('date'), STMTTRN.trnamt.label('amount'),
                                         func.concat(STMTTRN.name, ' ', STMTTRN.memo).label('description'))
                         .join(ACCTFROM, ACCTFROM.id == STMTTRN.acctfrom_id)
@@ -86,10 +88,10 @@ def update():
 
 
 def check_for_old():
-    end, = DBSession.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.asc()).first()
+    end, = ofx_session.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.asc()).first()
     for account in accounts:
-        request = client.statement_request(user, password, clientuid, [account], dtend=end)
-        response = client.download(request)
+        request = ofx_client.statement_request(user, password, clientuid, [account], dtend=end)
+        response = ofx_client.download(request)
         print(response.read())
         response.seek(0)
         parser = OFXParser()
@@ -98,7 +100,6 @@ def check_for_old():
 
 
 def import_ofx():
-    import os
     directory = '/Users/Rochard/src/pacioli/configuration_files/data/'
     files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith('.ofx') or ofx_file.endswith('.OFX')]
     for ofx_file_name in files:
@@ -109,7 +110,7 @@ def import_ofx():
 
 
 def export():
-    export_transactions = (DBSession.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
+    export_transactions = (ofx_session.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
                                         STMTTRN.dtposted.label('date'), STMTTRN.trnamt.label('amount'),
                                         func.concat(STMTTRN.name, ' ', STMTTRN.memo).label('description'))
                         .join(ACCTFROM, ACCTFROM.id == STMTTRN.acctfrom_id)
