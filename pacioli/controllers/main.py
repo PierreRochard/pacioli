@@ -3,12 +3,12 @@ from flask.ext.admin import BaseView, expose
 from flask_security import current_user
 from flask import Blueprint
 from flask.ext.admin.contrib import sqla
-
-from pacioli.extensions import admin
-from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
-from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.ext.declarative import declarative_base
+
+from pacioli.controllers.utilities import name_for_scalar_relationship, name_for_collection_relationship
+from pacioli.extensions import admin
+from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
 
 main = Blueprint('main', __name__)
 
@@ -34,32 +34,13 @@ class MyModelView(sqla.ModelView):
 
     can_view_details = True
     column_display_pk = True
-    column_display_all_relations = True
-
-
-def name_for_scalar_relationship(base, local_cls, referred_cls, constraint):
-    name = referred_cls.__name__.lower()
-    local_table = local_cls.__table__
-    if name in local_table.columns:
-        newname = name + "_"
-        return newname
-    return name
-
-
-def name_for_collection_relationship(base, local_cls, referred_cls, constraint):
-    name = referred_cls.__name__.lower() + '_collection'
-    for c in referred_cls.__table__.columns:
-        if c == name:
-            name += "_"
-    return name
+    column_display_all_relations = False
 
 
 def register_ofx(app):
-    ofx_engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
-    metadata = MetaData(ofx_engine)
-    metadata.reflect(bind=ofx_engine, schema='ofx', only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
-    Model = declarative_base(metadata=metadata, cls=(db.Model,), bind=ofx_engine)
-    Base = automap_base(metadata=metadata, declarative_base=Model)
+    db.metadata.reflect(bind=db.engine, schema='ofx', only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+    Model = declarative_base(metadata=db.metadata, cls=(db.Model,), bind=db.engine)
+    Base = automap_base(metadata=db.metadata, declarative_base=Model)
     Base.prepare(name_for_scalar_relationship=name_for_scalar_relationship,
                  name_for_collection_relationship=name_for_collection_relationship)
 
@@ -67,24 +48,45 @@ def register_ofx(app):
         if cls.__table__.name in app.config['MAIN_DATABASE_MODEL_MAP']:
             globals()[app.config['MAIN_DATABASE_MODEL_MAP'][cls.__table__.name]] = cls
 
+    setattr(AccountsFrom, '__repr__', lambda self: self.name)
+    setattr(Transactions, '__repr__', lambda self: self.name + self.memo)
+
     class OFXModelView(MyModelView):
         can_create = False
-        can_edit = False
         can_delete = False
 
+    class AccountsFromModelView(OFXModelView):
+        column_default_sort = ('id', False)
+        column_list = ['id', 'name', 'subclass']
+        column_searchable_list = ['name']
+        column_filters = column_list
+        column_labels = dict(name='Name', subclass='Account Type', id='ID')
+
+        can_edit = True
+        form_columns = ['name']
+
     class TransactionsModelView(OFXModelView):
+        can_edit = False
+
         columns = ['fitid', 'dtposted', 'trnamt', 'trntype', 'name', 'memo', 'checknum', 'acctfrom_id', 'acctto_id']
 
         column_list = columns
         column_searchable_list = ['name', 'memo']
-        column_default_sort = ('fitid', True)
+        column_default_sort = ('dtposted', True)
 
-    admin.add_view(TransactionsModelView(Transactions, db.session, category='OFX'))
-    admin.add_view(OFXModelView(AccountsFrom, db.session, category='OFX'))
-    admin.add_view(OFXModelView(AvailableBalance, db.session, category='OFX'))
-    admin.add_view(OFXModelView(BankAccounts, db.session, category='OFX'))
-    admin.add_view(OFXModelView(CreditCardAccounts, db.session, category='OFX'))
-    admin.add_view(OFXModelView(LedgerBalances, db.session, category='OFX'))
+
+    admin.add_view(TransactionsModelView(Transactions, db.session,
+                                         name='Transactions', category='OFX', endpoint='ofx/transactions'))
+    admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
+                                         name='Accounts', category='OFX', endpoint='ofx/accounts'))
+    admin.add_view(OFXModelView(AvailableBalances, db.session,
+                                name='Available Balances', category='OFX', endpoint='ofx/available-balances'))
+    admin.add_view(OFXModelView(BankAccounts, db.session,
+                                name='Bank Accounts', category='OFX', endpoint='ofx/bank-accounts'))
+    admin.add_view(OFXModelView(CreditCardAccounts, db.session,
+                                name='Credit Card Accounts', category='OFX', endpoint='ofx/credit-card-accounts'))
+    admin.add_view(OFXModelView(Balances, db.session,
+                                name='Balances', category='OFX', endpoint='ofx/balances'))
 
 
 admin.add_view(MyModelView(User, db.session, category='Admin'))

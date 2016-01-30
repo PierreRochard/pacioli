@@ -20,7 +20,7 @@ from utilities import send_email
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
                                                                                  PROD_PG_HOST, PROD_PG_PORT)
 
-engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=True)
+engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
 DBSession.configure(autocommit=True, autoflush=True, bind=engine)
 client = OFXClient(url, org, fid)
 
