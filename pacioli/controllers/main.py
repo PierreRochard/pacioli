@@ -68,13 +68,15 @@ def register_ofx(app):
         form_columns = ['name']
 
     class TransactionsModelView(OFXModelView):
-        can_edit = False
+        column_list = ['fitid', 'acctfrom', 'dtposted', 'trnamt', 'trntype', 'name', 'memo', 'checknum', 'acctto']
 
-        columns = ['fitid', 'dtposted', 'trnamt', 'trntype', 'name', 'memo', 'checknum', 'acctfrom_id', 'acctto_id']
+        column_labels = dict(fitid='ID', acctfrom='From Account', dtposted='Date Posted', trnamt='Amount',
+                             trntype='Type', name='Name', memo='Memo', checknum='Check Number', acctto='To Account')
 
-        column_list = columns
         column_searchable_list = ['name', 'memo']
         column_default_sort = ('dtposted', True)
+
+        can_edit = False
 
 
     admin.add_view(TransactionsModelView(Transactions, db.session,
