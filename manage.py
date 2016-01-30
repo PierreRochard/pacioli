@@ -63,7 +63,7 @@ def create_admin(email, password):
 
 @manager.command
 def populate_chart_of_accounts():
-    chart_of_accounts_csv = 'configuration_files/Chart of Accounts.csv'
+    chart_of_accounts_csv = os.path.join(os.path.dirname(__file__), 'configuration_files', 'Chart of Accounts.csv')
     with open(chart_of_accounts_csv) as csv_file:
         reader = csv.reader(csv_file)
         rows = [pair for pair in reader]
