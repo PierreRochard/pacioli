@@ -63,3 +63,5 @@ plugins/*_config.py
 
 #fabfile.py
 plugins/*.html
+
+plugins/*.xlsx

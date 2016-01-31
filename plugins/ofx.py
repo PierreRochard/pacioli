@@ -4,8 +4,6 @@ import argparse
 from datetime import datetime
 from decimal import Decimal
 import os
-from manage import make_shell_context
-
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
 from ofxtools.ofxalchemy import OFXParser
@@ -14,14 +12,16 @@ from ofxtools.ofxalchemy import Base as ofx_Base
 from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 from sqlalchemy import create_engine, func
 
+from manage import make_shell_context
 from pacioli.models import JournalEntries
-from pacioli.controllers.main import *
+from pacioli.controllers.main import Transactions, AccountsFrom
 
 from ofx_config import url, org, fid, bankid_checking, bankid_savings
 from ofx_config import checking, user, password, clientuid, savings, creditcard
 from ofx_config import PROD_PG_USERNAME, PROD_PG_PASSWORD, PROD_PG_HOST, PROD_PG_PORT
 
 from utilities import send_email
+from xlrd import open_workbook
 
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
                                                                                  PROD_PG_HOST, PROD_PG_PORT)
@@ -125,18 +125,16 @@ def export():
 
 
 def categorize():
-    mappings = [{'account': 'Checking',
-                 'pattern': 'coinbase%',
-                 'positive_debit_account': 'Chase Checking',
-                 'positive_credit_account': 'Chase Checking - Deposits in Transit',
-                 'negative_debit_account': 'Coinbase USD Wallet - Deposits in Transit',
-                 'negative_credit_account': 'Chase Checking'},
-                {'account': 'Credit Card',
-                 'pattern': '%fresh direct%',
-                 'positive_debit_account': 'Credit Card',
-                 'positive_credit_account': 'Prepaid Groceries',
-                 'negative_debit_account': 'Prepaid Groceries',
-                 'negative_credit_account': 'Credit Card'}]
+    book = open_workbook('ofx_mappings.xlsx')
+    sheet = book.sheet_by_index(0)
+
+    keys = [sheet.cell(0, col_index).value for col_index in xrange(sheet.ncols)]
+
+    mappings = []
+    for row_index in xrange(1, sheet.nrows):
+        d = {keys[col_index]: sheet.cell(row_index, col_index).value
+             for col_index in xrange(sheet.ncols)}
+        mappings.append(d)
     context = make_shell_context()
     db = context['db']
     app = context['app']
@@ -150,7 +148,7 @@ def categorize():
                                            db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
                                 .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
                                 .filter(JournalEntries.transaction_id.is_(None))
-                                .filter(func.lower(Transactions.name).like(mapping['pattern']))
+                                .filter(func.lower(Transactions.name).like('%' + mapping['pattern'].lower() + '%'))
                                 .filter(AccountsFrom.name == mapping['account'])
                                 .order_by(Transactions.fitid.desc()).all())
             for transaction in new_transactions:
