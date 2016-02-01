@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 from decimal import Decimal
 import os
+import sys
 
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
@@ -14,6 +15,7 @@ from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 import psycopg2
 from sqlalchemy import create_engine, func
 
+sys.path.insert(0, "..")
 from manage import make_shell_context
 from pacioli.models import JournalEntries
 from pacioli.controllers.main import Transactions, AccountsFrom
