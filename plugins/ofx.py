@@ -1,8 +1,12 @@
 #!/usr/bin/python
 
 import argparse
-from datetime import datetime
+import traceback
+import urllib2
+from datetime import datetime, date
 from decimal import Decimal
+from pprint import pformat
+
 import os
 import sys
 
@@ -15,7 +19,7 @@ from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 import psycopg2
 from sqlalchemy import create_engine, func
 
-sys.path.insert(0, "..")
+# sys.path.append("..")
 from manage import make_shell_context
 from pacioli.models import JournalEntries
 from pacioli.controllers.main import Transactions, AccountsFrom
@@ -34,8 +38,8 @@ engine = create_engine(SQLALCHEMY_DATABASE_URI, echo=False)
 ofx_session.configure(autocommit=True, autoflush=True, bind=engine)
 ofx_client = OFXClient(url, org, fid)
 
-accounts = [BankAcct(bankid_checking, checking, 'checking'),
-            BankAcct(bankid_savings, savings, 'savings'),
+accounts = [BankAcct(bankid_checking, checking, 'Checking'),
+            BankAcct(bankid_savings, savings, 'Savings'),
             CcAcct(creditcard)]
 
 
@@ -77,13 +81,28 @@ def results_to_table(query_results):
 
 def update():
     start, = ofx_session.query(STMTTRN.dtposted).order_by(STMTTRN.dtposted.desc()).first()
-    end = datetime.today()
+    start = start.date()
+    end = date.today()
     for account in accounts:
         request = ofx_client.statement_request(user, password, clientuid, [account], dtstart=start, dtend=end)
-        response = ofx_client.download(request)
+        try:
+            response = ofx_client.download(request)
+            parser = OFXParser()
+            parser.parse(response)
+            parser.instantiate()
+        except urllib2.HTTPError:
+            exc_info = sys.exc_info()
+            tb = traceback.format_exception(*exc_info)
+            print(tb)
+
+    directory = '/Users/Rochard/src/pacioli/configuration_files/data/'
+    files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith(('.ofx', '.OFX', '.qfx', '.QFX'))]
+    for ofx_file_name in files:
+        ofx_file_path = os.path.join(directory, ofx_file_name)
         parser = OFXParser()
-        parser.parse(response)
+        parser.parse(ofx_file_path)
         parser.instantiate()
+
     new_transactions = (ofx_session.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
                                         STMTTRN.dtposted.label('date'), STMTTRN.trnamt.label('amount'),
                                         func.concat(STMTTRN.name, ' ', STMTTRN.memo).label('description'))
@@ -91,6 +110,8 @@ def update():
                         .filter(STMTTRN.dtposted > start)
                         .order_by(STMTTRN.fitid.desc()).all())
     html_body = results_to_table(new_transactions)
+
+    categorize()
 
     send_email(recipients=['pierre@rochard.org'], subject='New Transactions', html_body=html_body)
 
