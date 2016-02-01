@@ -74,6 +74,14 @@ def register_ofx(app):
                                  trntype=type_formatter)
         can_edit = False
 
+    class NewTransactionsView(OFXModelView):
+        column_default_sort = ('date', True)
+        column_searchable_list = ['description']
+        column_filters = ['id', 'date', 'amount', 'description', 'account']
+        column_labels = dict(id='ID')
+        column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter)
+
+        can_edit = False
 
         # @expose('/post/<transaction_id>/')
         # def post(self, transaction_id):
@@ -98,7 +106,7 @@ def register_ofx(app):
         #     return redirect(url_for('ofx/new_transactions.index'))
 
 
-    admin.add_view(OFXModelView(NewTransactions, db.session,
+    admin.add_view(NewTransactionsView(NewTransactions, db.session,
                                          name='New Transactions', category='OFX', endpoint='ofx/new-transactions'))
     admin.add_view(TransactionsModelView(Transactions, db.session,
                                          name='Transactions', category='OFX', endpoint='ofx/transactions'))
