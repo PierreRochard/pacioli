@@ -7,6 +7,8 @@ from datetime import datetime, date
 from decimal import Decimal
 from pprint import pformat
 
+import shutil
+
 import os
 import sys
 
@@ -96,12 +98,14 @@ def update():
             print(tb)
 
     directory = '/Users/Rochard/src/pacioli/configuration_files/data/'
+    old_directory = os.path.join(directory, 'old')
     files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith(('.ofx', '.OFX', '.qfx', '.QFX'))]
     for ofx_file_name in files:
         ofx_file_path = os.path.join(directory, ofx_file_name)
         parser = OFXParser()
         parser.parse(ofx_file_path)
         parser.instantiate()
+        shutil.move(ofx_file_path, os.path.join(old_directory, ofx_file_name))
 
     new_transactions = (ofx_session.query(func.concat(STMTTRN.fitid, STMTTRN.acctfrom_id).label('id'),
                                         STMTTRN.dtposted.label('date'), STMTTRN.trnamt.label('amount'),
