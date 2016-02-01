@@ -4,12 +4,14 @@ import argparse
 from datetime import datetime
 from decimal import Decimal
 import os
+
 from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
 from ofxtools.ofxalchemy import OFXParser
 from ofxtools.ofxalchemy import DBSession as ofx_session
 from ofxtools.ofxalchemy import Base as ofx_Base
 from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
+import psycopg2
 from sqlalchemy import create_engine, func
 
 from manage import make_shell_context
@@ -173,6 +175,27 @@ def categorize():
                 print(transaction.description)
                 print(transaction.account)
 
+
+def create_view():
+    connection = psycopg2.connect(database='pacioli', user=PROD_PG_USERNAME, password=PROD_PG_PASSWORD,
+                                  host=PROD_PG_HOST, port=PROD_PG_PORT)
+    connection.autocommit = True
+    cursor = connection.cursor()
+    cursor.execute("""
+    DROP MATERIALIZED VIEW ofx.new_transactions;
+    CREATE VIEW ofx.new_transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+            ofx.stmttrn.dtposted AS date,
+            ofx.stmttrn.trnamt AS amount,
+            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+            ofx.acctfrom.name AS account
+        FROM ofx.stmttrn
+        LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
+                ofx.stmttrn.acctfrom_id)
+        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+        WHERE pacioli.journal_entries.transaction_id IS NULL ORDER BY ofx.stmttrn.dtposted DESC;
+    """)
+
+
 if __name__ == '__main__':
     ARGS = argparse.ArgumentParser()
     ARGS.add_argument('-u', action='store_true', dest='update', default=False)
@@ -182,6 +205,7 @@ if __name__ == '__main__':
     ARGS.add_argument('-o', action='store_true', dest='old', default=False)
     ARGS.add_argument('-i', action='store_true', dest='import_ofx', default=False)
     ARGS.add_argument('-c', action='store_true', dest='categorize', default=False)
+    ARGS.add_argument('-v', action='store_true', dest='create_view', default=False)
     args = ARGS.parse_args()
     if args.setup:
         setup(args.drop_tables)
@@ -195,3 +219,5 @@ if __name__ == '__main__':
         import_ofx()
     if args.categorize:
         categorize()
+    if args.create_view:
+        create_view()
