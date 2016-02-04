@@ -95,7 +95,8 @@ def update():
         except urllib2.HTTPError:
             exc_info = sys.exc_info()
             tb = traceback.format_exception(*exc_info)
-            print(tb)
+            send_email(recipients=['pierre@rochard.org'], subject='New Transactions', text_body=str(tb))
+            sys.exit(0)
 
     directory = '/Users/Rochard/src/pacioli/configuration_files/data/'
     old_directory = os.path.join(directory, 'old')
