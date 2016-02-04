@@ -1,5 +1,6 @@
 from flask import Blueprint
 from flask import url_for, redirect, request, abort
+from flask.ext.admin import expose
 from flask.ext.admin.contrib import sqla
 from flask_security import current_user
 from sqlalchemy import PrimaryKeyConstraint
@@ -51,6 +52,7 @@ def register_ofx(app):
     class OFXModelView(MyModelView):
         can_create = False
         can_delete = False
+        can_export = True
 
     class AccountsFromModelView(OFXModelView):
         column_default_sort = ('id', False)
@@ -83,6 +85,14 @@ def register_ofx(app):
 
         can_edit = False
 
+        list_template = 'new_transactions_categorization.html'
+
+        # @expose('/', methods=('GET', 'POST'))
+        # def index_view(self):
+        #      self._template_args['foo'] = 'bar'
+        #      return super(NewTransactionsView, self).index_view()
+        #
+
         # @expose('/post/<transaction_id>/')
         # def post(self, transaction_id):
         #     new_journal_entry = JournalEntries()
@@ -112,14 +122,10 @@ def register_ofx(app):
                                          name='Transactions', category='OFX', endpoint='ofx/transactions'))
     admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
                                          name='Accounts', category='OFX', endpoint='ofx/accounts'))
-    admin.add_view(OFXModelView(AvailableBalances, db.session,
-                                name='Available Balances', category='OFX', endpoint='ofx/available-balances'))
     admin.add_view(OFXModelView(BankAccounts, db.session,
                                 name='Bank Accounts', category='OFX', endpoint='ofx/bank-accounts'))
     admin.add_view(OFXModelView(CreditCardAccounts, db.session,
                                 name='Credit Card Accounts', category='OFX', endpoint='ofx/credit-card-accounts'))
-    admin.add_view(OFXModelView(Balances, db.session,
-                                name='Balances', category='OFX', endpoint='ofx/balances'))
 
 
 admin.add_view(MyModelView(User, db.session, category='Admin'))

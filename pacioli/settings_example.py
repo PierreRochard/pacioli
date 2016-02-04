@@ -59,12 +59,12 @@ class Config(object):
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+
     MAIN_DATABASE_MODEL_MAP = {'acctfrom': 'AccountsFrom',
-                               'availbal': 'AvailableBalances',
                                'bankacctfrom': 'BankAccounts',
                                'ccacctfrom': 'CreditCardAccounts',
-                               'ledgerbal': 'Balances',
-                               'stmttrn': 'Transactions'}
+                               'stmttrn': 'Transactions',
+                               'new_transactions': 'NewTransactions'}
 
 
 class ProdConfig(Config):

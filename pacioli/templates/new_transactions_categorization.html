@@ -1,0 +1,13 @@
+{% extends 'admin/model/list.html' %}
+
+{% block body %}
+    <h2>New Transactions</h2>
+    <br>
+    {% if search %}
+    {{ search }}
+    <br>
+        {{ foo }}
+    <br>
+    {% endif %}
+    {{ super() }}
+{% endblock %}

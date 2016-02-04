@@ -33,6 +33,22 @@ class User(db.Model, UserMixin):
     login_count = db.Column(db.Integer)
     roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users'))
 
+user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+
+
+class Mappings(db.Model):
+    __table_args__ = (db.UniqueConstraint('plugin', 'keyword', name='mappings_unique_constraint'),
+                      {"schema": "pacioli"})
+    __tablename__ = 'mappings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    plugin = db.Column(db.String)
+    keyword = db.Column(db.String)
+    positive_debit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_credit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_debit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_credit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+
 
 class JournalEntries(db.Model):
     __table_args__ = {'schema': 'pacioli'}
@@ -107,4 +123,3 @@ class Elements(db.Model):
         return self.name
 
 
-user_datastore = SQLAlchemyUserDatastore(db, User, Role)
