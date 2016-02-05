@@ -44,10 +44,10 @@ class Mappings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     plugin = db.Column(db.String)
     keyword = db.Column(db.String)
-    positive_debit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    positive_credit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    negative_debit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    negative_credit_account = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
 
 
 class JournalEntries(db.Model):
@@ -75,7 +75,7 @@ class Subaccounts(db.Model):
     parent = db.Column(db.String, db.ForeignKey('pacioli.accounts.name'))
 
     def __repr__(self):
-        return self.name
+        return '{0} - {1}'.format(self.parent, self.name)
 
 
 class Accounts(db.Model):

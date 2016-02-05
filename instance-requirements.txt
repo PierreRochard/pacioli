@@ -17,6 +17,8 @@ itsdangerous
 cssmin
 jsmin
 python-dateutil
+psycopg2
+xlrd
 
 # Testing
 pytest

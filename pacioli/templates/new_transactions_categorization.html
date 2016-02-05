@@ -2,11 +2,19 @@
 
 {% block body %}
     <h2>New Transactions</h2>
-    <br>
     {% if search %}
-    {{ search }}
-    <br>
-        {{ foo }}
+        <form  action="{{ url_for('ofx/new-transactions.index_view')}}" method="POST"  class="form-inline">
+        <div class="form-group">
+            <label>Revenue Account</label>
+            {{ new_mapping_form.positive_credit_subaccount() }}
+        </div>
+        <div class="form-group">
+            <label>Expense Account</label>
+            {{ new_mapping_form.negative_debit_subaccount() }}
+        </div>
+            {{ new_mapping_form.keyword(value=search) }}
+        <input class="btn btn-primary" type=submit value="Apply">
+        </form>
     <br>
     {% endif %}
     {{ super() }}

@@ -1,5 +1,6 @@
 from flask import Flask
 from flask.ext.security import Security
+from pacioli.controllers.ofx_views import register_ofx
 from talisman import Talisman
 from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
@@ -7,7 +8,7 @@ from flask_mail import Mail
 
 from pacioli import assets
 from pacioli.models import db, User, Role, user_datastore
-from pacioli.controllers.main import main, register_ofx
+from pacioli.controllers.main import main
 
 from pacioli.extensions import (
     cache,
