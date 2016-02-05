@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import argparse
 import traceback
@@ -21,7 +21,7 @@ from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 import psycopg2
 from sqlalchemy import create_engine, func
 
-sys.path.append("..")
+# sys.path.append("..")
 from manage import make_shell_context
 from pacioli.models import JournalEntries
 from pacioli.controllers.main import Transactions, AccountsFrom

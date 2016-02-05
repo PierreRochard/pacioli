@@ -142,7 +142,7 @@ def install():
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
     run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
-    run('sudo pip-3.4 install psycopg2 python-dateutil')
+    run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
     run('mkdir ~/pacioli/logs/')
@@ -193,8 +193,8 @@ def install_cbtools():
 
 def update_cron():
     run('touch mycron')
-    run('sudo echo "30 11,23 * * * /home/ec2-user/pacioli/plugins/ofx.py -u" >> mycron')
-    run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && /home/ec2-user/cbtools/cbtools/main.py" >> mycron')
+    run('sudo echo "30 11,23 * * * cd /home/ec2-user/pacioli/plugins/ && python ofx.py -u" >> mycron')
+    run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && python cbtools/main.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
 
@@ -225,6 +225,7 @@ def update():
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
     put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
+    put('plugins/ofx_mappings.xlsx', '/home/ec2-user/pacioli/plugins/ofx_mappings.xlsx')
 
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
@@ -280,7 +281,9 @@ def cron():
 
 
 def ofx():
-    run('/home/ec2-user/pacioli/plugins/ofx.py -u')
+    put('plugins/ofx_mappings.xlsx', '/home/ec2-user/pacioli/plugins/ofx_mappings.xlsx')
+    with cd('/home/ec2-user/pacioli/plugins/'):
+        run('python ofx.py -u')
 
 
 def python_error():
