@@ -15,8 +15,11 @@ class Config(object):
     SECURITY_URL_PREFIX = None
     SECURITY_FLASH_MESSAGES = True
     SECURITY_PASSWORD_HASH = "pbkdf2_sha512"
+
+    ## Update the salt
     SECURITY_PASSWORD_SALT = ""
     SECURITY_EMAIL_SENDER = "you@localhost"
+
     SECURITY_TOKEN_AUTHENTICATION_KEY = 'auth_token'
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'
     SECURITY_DEFAULT_HTTP_AUTH_REALM = 'Login Required'
@@ -45,7 +48,7 @@ class Config(object):
     SECURITY_PASSWORDLESS = False
     SECURITY_CHANGEABLE = False
 
-    # Email
+    # Update your mail settings, for Google 2FA: https://security.google.com/settings/security/apppasswords
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
     MAIL_USE_TLS = False
@@ -59,7 +62,6 @@ class Config(object):
     CACHE_TYPE = 'simple'
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
 
     MAIN_DATABASE_MODEL_MAP = {'acctfrom': 'AccountsFrom',
                                'bankacctfrom': 'BankAccounts',
