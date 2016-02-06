@@ -5,6 +5,7 @@ from flask_security import current_user
 
 from pacioli.extensions import admin
 from pacioli.models import db, User, Role, JournalEntries, Subaccounts, Accounts, Classifications, Elements
+from wtforms import TextField, StringField
 
 main = Blueprint('main', __name__)
 
@@ -35,12 +36,16 @@ class PacioliModelView(sqla.ModelView):
     column_display_all_relations = False
 
 
-
 admin.add_view(PacioliModelView(User, db.session, category='Admin'))
 admin.add_view(PacioliModelView(Role, db.session, category='Admin'))
 
+
+class TaxonomyModelView(PacioliModelView):
+    form_extra_fields = dict(name=StringField('Name'))
+
+
 admin.add_view(PacioliModelView(JournalEntries, db.session, category='Bookkeeping'))
-admin.add_view(PacioliModelView(Subaccounts, db.session, category='Bookkeeping'))
-admin.add_view(PacioliModelView(Accounts, db.session, category='Bookkeeping'))
-admin.add_view(PacioliModelView(Classifications, db.session, category='Bookkeeping'))
-admin.add_view(PacioliModelView(Elements, db.session, category='Bookkeeping'))
+admin.add_view(TaxonomyModelView(Subaccounts, db.session, category='Bookkeeping'))
+admin.add_view(TaxonomyModelView(Accounts, db.session, category='Bookkeeping'))
+admin.add_view(TaxonomyModelView(Classifications, db.session, category='Bookkeeping'))
+admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
