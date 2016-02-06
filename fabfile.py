@@ -233,6 +233,7 @@ def update():
 
     with cd('/home/ec2-user/ofxtools/'):
         run('git pull')
+        run('sudo python3 setup.py install')
         run('sudo python setup.py install')
 
     with cd('/home/ec2-user/pacioli/logs/'):
@@ -244,6 +245,10 @@ def update():
         run('git checkout develop')
         run('git pull')
         run('sudo python3 setup.py install')
+        run('sudo python setup.py install')
+
+    run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     # GUNICORN
     put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')
