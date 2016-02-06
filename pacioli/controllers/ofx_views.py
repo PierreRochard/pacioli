@@ -58,6 +58,8 @@ def sync_ofx():
 
         response = ofx_client.download(request)
         parser = OFXParser()
+        print(response.read())
+        response.seek(0)
         parser.parse(response)
         parser.instantiate()
         connection.synced_at = datetime.now(tzlocal())
