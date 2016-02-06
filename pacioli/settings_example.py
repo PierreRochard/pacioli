@@ -1,4 +1,10 @@
-from pacioli.db_config import PROD_PACIOLI_URI
+PROD_PG_USERNAME = 'localuser'
+PROD_PG_PASSWORD = ''
+PROD_PG_HOST = 'localhost'
+PROD_PG_PORT = 5432
+
+PROD_PACIOLI_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
+                                                                          PROD_PG_HOST, PROD_PG_PORT)
 
 
 class Config(object):
@@ -41,7 +47,7 @@ class Config(object):
 
     # Email
     MAIL_SERVER = 'smtp.gmail.com'
-    MAIL_PORT = 587
+    MAIL_PORT = 465
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
     MAIL_USERNAME = 'you@gmail.com'
