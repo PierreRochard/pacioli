@@ -138,7 +138,6 @@ def install():
     run('sudo yum -y install gcc git python34 python34-pip python34-setuptools python34-devel postgresql94-devel')
     put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, use_sudo=True)
     run('sudo chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
-    run('rm -rf pacioli')
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
     run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
@@ -220,15 +219,9 @@ def update():
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
-    put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
-    put('plugins/ofx_mappings.xlsx', '/home/ec2-user/pacioli/plugins/ofx_mappings.xlsx')
 
-    run('sudo pip-3.4 --upgrade install -r /home/ec2-user/pacioli/instance-requirements.txt')
-    run('sudo pip --upgrade install -r /home/ec2-user/pacioli/instance-requirements.txt')
-
-    with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
-            run('python3 manage.py createdb')
+    run('sudo pip-3.4 install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     with cd('/home/ec2-user/ofxtools/'):
         run('git pull')
@@ -240,6 +233,10 @@ def update():
         run('git pull')
         run('sudo python3 setup.py install')
         run('sudo python setup.py install')
+
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python3 manage.py createdb')
 
     with cd('/home/ec2-user/pacioli/logs/'):
         run('sudo rm -f *.log')
@@ -261,8 +258,6 @@ def update():
     put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
     put('configuration_files/rochard-nginx', '/etc/nginx/sites-available/rochard', use_sudo=True)
     run('sudo /etc/init.d/nginx restart')
-
-    run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
 
 
 def create_db():
