@@ -36,13 +36,28 @@ class User(db.Model, UserMixin):
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 
 
+class Connection(db.Model):
+    __table_args__ = {'schema': 'admin'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String)
+    url = db.Column(db.String)
+    org = db.Column(db.String)
+    fid = db.Column(db.String)
+    routing_number = db.Column(db.String)
+    account_number = db.Column(db.String)
+    user = db.Column(db.String)
+    password = db.Column(db.String)
+    clientuid = db.Column(db.String)
+
+
 class Mappings(db.Model):
     __table_args__ = (db.UniqueConstraint('plugin', 'keyword', name='mappings_unique_constraint'),
                       {"schema": "pacioli"})
     __tablename__ = 'mappings'
 
     id = db.Column(db.Integer, primary_key=True)
-    plugin = db.Column(db.String)
+    source = db.Column(db.String)
     keyword = db.Column(db.String)
     positive_debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
     positive_credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))

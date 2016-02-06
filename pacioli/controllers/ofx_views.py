@@ -6,7 +6,7 @@ from sqlalchemy.ext.automap import automap_base
 from wtforms import Form, HiddenField
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
 
-from pacioli.controllers.main import PacioliModelView, redirect_url
+from pacioli.controllers.main import PacioliModelView
 from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
                                            id_formatter, type_formatter)
 from pacioli.extensions import admin
@@ -105,7 +105,7 @@ def register_ofx(app):
             if request.method == 'POST':
                 form = request.form.copy().to_dict()
                 new_mapping = Mappings()
-                new_mapping.plugin = 'ofx'
+                new_mapping.source = 'ofx'
                 new_mapping.keyword = form['keyword']
                 new_mapping.positive_credit_subaccount = form['subaccount']
                 new_mapping.negative_debit_subaccount = form['subaccount']
@@ -114,7 +114,7 @@ def register_ofx(app):
                     db.session.commit()
                 except IntegrityError:
                     db.session.rollback()
-                mapping_id, = (db.session.query(Mappings.id).filter(Mappings.plugin == 'ofx')
+                mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                                .filter(Mappings.keyword == form['keyword']).one())
                 apply_single_mapping(mapping_id)
                 return redirect(url_for('ofx/new-transactions.index_view'))
@@ -133,7 +133,7 @@ def register_ofx(app):
         @expose('/<expense_account>/<keyword>')
         def favorite(self, expense_account, keyword):
             new_mapping = Mappings()
-            new_mapping.plugin = 'ofx'
+            new_mapping.source = 'ofx'
             new_mapping.keyword = keyword
             new_mapping.positive_credit_subaccount = expense_account
             new_mapping.negative_debit_subaccount = expense_account
@@ -142,7 +142,7 @@ def register_ofx(app):
                 db.session.commit()
             except IntegrityError:
                 db.session.rollback()
-            mapping_id, = (db.session.query(Mappings.id).filter(Mappings.plugin == 'ofx')
+            mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                            .filter(Mappings.keyword == keyword).one())
             apply_single_mapping(mapping_id)
             return redirect(url_for('ofx/new-transactions.index_view'))
