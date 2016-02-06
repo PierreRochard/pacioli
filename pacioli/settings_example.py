@@ -8,6 +8,8 @@ PROD_PACIOLI_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_P
 
 
 class Config(object):
+
+    # Update the CSRF secret key
     SECRET_KEY = ''
 
     # Flask Security Core

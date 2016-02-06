@@ -1,8 +1,6 @@
 from fabric.context_managers import shell_env
 import os
-from pprint import pformat
 import sys
-import time
 
 from fabric.api import cd, env, get, put
 from fabric.operations import run
@@ -14,7 +12,7 @@ from aws_config import mx1, mx5, mx5b, mx10, mx10b, cname_name, cname_value, txt
 from aws_config import admin_email, admin_password
 
 sys.path.insert(0, "pacioli/")
-from db_config import PROD_PG_USERNAME, PROD_PG_PASSWORD
+from settings import PROD_PG_USERNAME, PROD_PG_PASSWORD
 
 purpose = 'pacioli-deployment'
 
@@ -149,7 +147,6 @@ def install():
         run('sudo python3 setup.py install')
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
-    put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
     run('mkdir ~/pacioli/logs/')
 
     run('git clone https://github.com/mattupstate/flask-security')
@@ -218,7 +215,6 @@ def update():
         run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/' + GITHUB_SSH_PRIVATE_KEY_FILE))
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
-    put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
 
     run('sudo pip-3.4 install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
     run('sudo pip install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
