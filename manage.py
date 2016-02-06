@@ -38,8 +38,37 @@ def make_shell_context():
 
 @manager.command
 def createdb():
+    try:
+        db.engine.execute('CREATE SCHEMA admin;')
+    except ProgrammingError:
+        pass
+    try:
+        db.engine.execute('CREATE SCHEMA ofx;')
+    except ProgrammingError:
+        pass
+    try:
+        db.engine.execute('CREATE SCHEMA pacioli;')
+    except ProgrammingError:
+        pass
+
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
+    try:
+        db.engine.execute('DROP VIEW ofx.new_transactions;')
+    except ProgrammingError:
+        pass
+    db.engine.execute("""
+    CREATE VIEW ofx.new_transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+            ofx.stmttrn.dtposted AS date,
+            ofx.stmttrn.trnamt AS amount,
+            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+            ofx.acctfrom.name AS account
+        FROM ofx.stmttrn
+        LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
+                ofx.stmttrn.acctfrom_id)
+        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+        WHERE pacioli.journal_entries.transaction_id IS NULL ORDER BY ofx.stmttrn.dtposted DESC;
+    """)
 
 
 @manager.command
@@ -66,26 +95,6 @@ def create_admin(email, password):
 
     admin.roles.append(superuser)
     db.session.commit()
-
-
-@manager.command
-def create_view():
-    try:
-        db.engine.execute('DROP VIEW ofx.new_transactions;')
-    except ProgrammingError:
-        pass
-    db.engine.execute("""
-    CREATE VIEW ofx.new_transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
-            ofx.stmttrn.dtposted AS date,
-            ofx.stmttrn.trnamt AS amount,
-            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-            ofx.acctfrom.name AS account
-        FROM ofx.stmttrn
-        LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
-                ofx.stmttrn.acctfrom_id)
-        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
-        WHERE pacioli.journal_entries.transaction_id IS NULL ORDER BY ofx.stmttrn.dtposted DESC;
-    """)
 
 
 @manager.command

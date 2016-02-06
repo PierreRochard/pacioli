@@ -50,18 +50,12 @@ aws_config.py
 
 *.pem
 
-pacioli-gunicorn
-gunicorn_configuration.py
-
-supervisord.conf
-
 configuration_files
 
 pacioli/db_config.py
 
 plugins/*_config.py
 
-#fabfile.py
 plugins/*.html
 
 plugins/*.xlsx
