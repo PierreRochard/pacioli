@@ -1,5 +1,7 @@
 from flask import Flask
 from flask.ext.security import Security
+from sqlalchemy.exc import InvalidRequestError
+
 from pacioli.controllers.ofx_views import register_ofx
 from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
@@ -36,6 +38,9 @@ def create_app(object_name, env="prod"):
     app.register_blueprint(main)
 
     with app.app_context():
-        register_ofx(app)
+        try:
+            register_ofx(app)
+        except InvalidRequestError:
+            pass
 
     return app
