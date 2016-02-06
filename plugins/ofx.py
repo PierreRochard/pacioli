@@ -117,8 +117,6 @@ def update():
                         .order_by(STMTTRN.fitid.desc()).all())
     html_body = results_to_table(new_transactions)
 
-    categorize()
-
     send_email(recipients=['pierre@rochard.org'], subject='New Transactions', html_body=html_body)
 
 
@@ -154,55 +152,55 @@ def export():
     with open('export.html', 'w') as html_file:
         html_file.write(html_body)
 
-
-def categorize():
-    book = open_workbook('ofx_mappings.xlsx')
-    sheet = book.sheet_by_index(0)
-
-    keys = [sheet.cell(0, col_index).value for col_index in xrange(sheet.ncols)]
-
-    mappings = []
-    for row_index in xrange(1, sheet.nrows):
-        d = {keys[col_index]: sheet.cell(row_index, col_index).value
-             for col_index in xrange(sheet.ncols)}
-        mappings.append(d)
-    context = make_shell_context()
-    db = context['db']
-    app = context['app']
-    with app.app_context():
-        for mapping in mappings:
-            new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
-                                                 Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
-                                                 db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
-                                                 AccountsFrom.name.label('account'))
-                                .outerjoin(JournalEntries, JournalEntries.transaction_id ==
-                                           db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
-                                .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
-                                .filter(JournalEntries.transaction_id.is_(None))
-                                .filter(func.lower(Transactions.name).like('%' + mapping['pattern'].lower() + '%'))
-                                .filter(AccountsFrom.name == mapping['account'])
-                                .order_by(Transactions.fitid.desc()).all())
-            for transaction in new_transactions:
-                new_journal_entry = JournalEntries()
-                new_journal_entry.transaction_id = transaction.id
-                new_journal_entry.transaction_source = 'ofx'
-                new_journal_entry.timestamp = transaction.date
-                if transaction.amount > 0:
-                    new_journal_entry.debit_subaccount = mapping['positive_debit_account']
-                    new_journal_entry.credit_subaccount = mapping['positive_credit_account']
-                elif transaction.amount < 0:
-                    new_journal_entry.debit_subaccount = mapping['negative_debit_account']
-                    new_journal_entry.credit_subaccount = mapping['negative_credit_account']
-                else:
-                    raise Exception()
-                new_journal_entry.functional_amount = transaction.amount
-                new_journal_entry.functional_currency = 'USD'
-                new_journal_entry.source_amount = transaction.amount
-                new_journal_entry.source_currency = 'USD'
-                db.session.add(new_journal_entry)
-                db.session.commit()
-                print(transaction.description)
-                print(transaction.account)
+#
+# def categorize():
+#     book = open_workbook('ofx_mappings.xlsx')
+#     sheet = book.sheet_by_index(0)
+#
+#     keys = [sheet.cell(0, col_index).value for col_index in xrange(sheet.ncols)]
+#
+#     mappings = []
+#     for row_index in xrange(1, sheet.nrows):
+#         d = {keys[col_index]: sheet.cell(row_index, col_index).value
+#              for col_index in xrange(sheet.ncols)}
+#         mappings.append(d)
+#     context = make_shell_context()
+#     db = context['db']
+#     app = context['app']
+#     with app.app_context():
+#         for mapping in mappings:
+#             new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
+#                                                  Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+#                                                  db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
+#                                                  AccountsFrom.name.label('account'))
+#                                 .outerjoin(JournalEntries, JournalEntries.transaction_id ==
+#                                            db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
+#                                 .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+#                                 .filter(JournalEntries.transaction_id.is_(None))
+#                                 .filter(func.lower(Transactions.name).like('%' + mapping['pattern'].lower() + '%'))
+#                                 .filter(AccountsFrom.name == mapping['account'])
+#                                 .order_by(Transactions.fitid.desc()).all())
+#             for transaction in new_transactions:
+#                 new_journal_entry = JournalEntries()
+#                 new_journal_entry.transaction_id = transaction.id
+#                 new_journal_entry.transaction_source = 'ofx'
+#                 new_journal_entry.timestamp = transaction.date
+#                 if transaction.amount > 0:
+#                     new_journal_entry.debit_subaccount = mapping['positive_debit_account']
+#                     new_journal_entry.credit_subaccount = mapping['positive_credit_account']
+#                 elif transaction.amount < 0:
+#                     new_journal_entry.debit_subaccount = mapping['negative_debit_account']
+#                     new_journal_entry.credit_subaccount = mapping['negative_credit_account']
+#                 else:
+#                     raise Exception()
+#                 new_journal_entry.functional_amount = transaction.amount
+#                 new_journal_entry.functional_currency = 'USD'
+#                 new_journal_entry.source_amount = transaction.amount
+#                 new_journal_entry.source_currency = 'USD'
+#                 db.session.add(new_journal_entry)
+#                 db.session.commit()
+#                 print(transaction.description)
+#                 print(transaction.account)
 
 
 def create_view():
