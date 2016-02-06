@@ -1,9 +1,4 @@
-from talisman.talisman import ONE_YEAR_IN_SECS, SAMEORIGIN, DENY
-import tempfile
-
-from pacioli.db_config import DEV_PACIOLI_URI, DEV_OFX_URI, PROD_PACIOLI_URI, PROD_OFX_URI
-
-db_file = tempfile.NamedTemporaryFile()
+from pacioli.db_config import PROD_PACIOLI_URI
 
 
 class Config(object):
