@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 from dateutil.tz import tzlocal
@@ -9,11 +9,15 @@ from flask.ext.migrate import MigrateCommand, Migrate
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
 from flask.ext.security.utils import encrypt_password
-from sqlalchemy.exc import IntegrityError
+from flask_mail import Message
+from ofxtools.ofxalchemy import Base as OFX_Base
+from ofxtools.ofxalchemy import OFXParser
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
-from pacioli import create_app
+from pacioli import create_app, mail
+from pacioli.controllers.utilities import results_to_table
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
-
+from pacioli.controllers.ofx_views import sync_ofx
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -35,12 +39,13 @@ def make_shell_context():
 @manager.command
 def createdb():
     db.create_all()
+    OFX_Base.metadata.create_all(db.engine)
 
 
 @manager.command
 def dropdb():
     db.drop_all()
-
+    OFX_Base.metadata.drop_all(db.engine)
 
 @manager.option('-e', '--email', dest='email')
 @manager.option('-p', '--password', dest='password')
@@ -61,6 +66,54 @@ def create_admin(email, password):
 
     admin.roles.append(superuser)
     db.session.commit()
+
+
+@manager.command
+def create_view():
+    try:
+        db.engine.execute('DROP VIEW ofx.new_transactions;')
+    except ProgrammingError:
+        pass
+    db.engine.execute("""
+    CREATE VIEW ofx.new_transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+            ofx.stmttrn.dtposted AS date,
+            ofx.stmttrn.trnamt AS amount,
+            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+            ofx.acctfrom.name AS account
+        FROM ofx.stmttrn
+        LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
+                ofx.stmttrn.acctfrom_id)
+        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+        WHERE pacioli.journal_entries.transaction_id IS NULL ORDER BY ofx.stmttrn.dtposted DESC;
+    """)
+
+
+@manager.command
+def import_ofx():
+    directory = 'configuration_files/data/'
+    files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith(('.ofx', '.OFX', '.qfx', '.QFX'))]
+    for ofx_file_name in files:
+        ofx_file_path = os.path.join(directory, ofx_file_name)
+        parser = OFXParser()
+        parser.parse(ofx_file_path)
+        parser.instantiate()
+
+
+@manager.command
+def update_ofx():
+    sync_ofx()
+    from pacioli.controllers.ofx_views import Transactions, AccountsFrom
+    start = datetime.now().date() - timedelta(days=1)
+    new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
+                                        Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+                                        db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'))
+                        .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+                        .filter(Transactions.dtposted > start)
+                        .order_by(Transactions.fitid.desc()).all())
+    if new_transactions:
+        html_body = results_to_table(new_transactions)
+        msg = Message('New Transactions', recipients=['pierre@rochard.org'], html=html_body)
+        mail.send(msg)
 
 
 @manager.command

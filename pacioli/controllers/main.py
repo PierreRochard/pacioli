@@ -38,11 +38,9 @@ class ConnectionsModelView(PacioliModelView):
             model.created_at = datetime.now(tzlocal())
             db.session.commit()
 
-    @expose('/sync_all/')
-    def sync_all(self):
-        for connection in db.session.query(Connections).all():
-            if connection.source == 'ofx':
-                sync_ofx(connection.id)
+    @expose('/sync_connections/')
+    def sync_connections(self):
+        sync_ofx()
         return redirect(url_for('connections.index_view'))
 
 

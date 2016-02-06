@@ -143,6 +143,12 @@ def install():
         GITHUB_SSH_PRIVATE_KEY_FILE))
     run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
     run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
+
+    run('git clone https://github.com/PierreRochard/ofxtools')
+    with cd('/home/ec2-user/ofxtools/'):
+        run('sudo python setup.py install')
+        run('sudo python3 setup.py install')
+
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     put('pacioli/db_config.py', '/home/ec2-user/pacioli/pacioli/db_config.py')
     run('mkdir ~/pacioli/logs/')
@@ -151,6 +157,7 @@ def install():
     with cd('flask-security'):
         run('git checkout develop')
         run('sudo python3 setup.py install')
+        run('sudo python setup.py install')
 
     # SUPERVISORD
     run('sudo easy_install supervisor')
@@ -173,17 +180,6 @@ def install():
     run('sudo /etc/init.d/nginx start')
 
 
-def install_ofx():
-    run('sudo yum -y install gcc git python python-pip python-setuptools python-devel python-argparse')
-    run('sudo pip install sqlalchemy psycopg2')
-    with cd('/home/ec2-user/pacioli/plugins/'):
-        put('plugins/ofx_config.py', 'ofx_config.py')
-    run('git clone https://github.com/PierreRochard/ofxtools')
-    with cd('/home/ec2-user/ofxtools/'):
-        run('sudo python setup.py install')
-    run('chmod +x /home/ec2-user/pacioli/plugins/ofx.py')
-
-
 def install_cbtools():
     with cd('/home/ec2-user/cbtools/'):
         put('plugins/cb_config.py', '/home/ec2-user/cbtools/config.py')
@@ -193,8 +189,8 @@ def install_cbtools():
 
 def update_cron():
     run('touch mycron')
-    run('sudo echo "30 11,23 * * * cd /home/ec2-user/pacioli/plugins/ && python ofx.py -u" >> mycron')
-    run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && python cbtools/main.py" >> mycron')
+    run('sudo echo "30 11,23 * * * cd /home/ec2-user/pacioli/plugins/ && python manage.py update_ofx" >> mycron')
+    # run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && python cbtools/main.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
 
@@ -227,8 +223,8 @@ def update():
     put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
     put('plugins/ofx_mappings.xlsx', '/home/ec2-user/pacioli/plugins/ofx_mappings.xlsx')
 
-    run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
-    run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip-3.4 --upgrade install -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip --upgrade install -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
@@ -239,16 +235,17 @@ def update():
         run('sudo python3 setup.py install')
         run('sudo python setup.py install')
 
-    with cd('/home/ec2-user/pacioli/logs/'):
-        run('sudo rm -f *.log')
-    with cd('/home/ec2-user/pacioli/logs/nginx/'):
-        run('sudo rm -f *.log')
-
     with cd('flask-security'):
         run('git checkout develop')
         run('git pull')
         run('sudo python3 setup.py install')
         run('sudo python setup.py install')
+
+    with cd('/home/ec2-user/pacioli/logs/'):
+        run('sudo rm -f *.log')
+    with cd('/home/ec2-user/pacioli/logs/nginx/'):
+        run('sudo rm -f *.log')
+
 
     # GUNICORN
     put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')

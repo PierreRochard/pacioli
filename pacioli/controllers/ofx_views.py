@@ -19,35 +19,34 @@ from pacioli.extensions import admin
 from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connections
 
 
-def sync_ofx(connection_id):
-    connection = db.session.query(Connections).filter(Connections.id == connection_id).one()
-    if connection.type in ['Checking', 'Savings']:
-        start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
-                  .join(BankAccounts, BankAccounts.id == AccountsFrom.id)
-                  .filter(BankAccounts.acctid == connection.account_number)
-                  .order_by(Transactions.dtposted.desc()).first())
-        account = BankAcct(connection.routing_number, connection.account_number, connection.type)
-    elif connection.type in ['Credit Card']:
-        start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
-                  .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
-                  .filter(CreditCardAccounts.acctid == connection.account_number)
-                  .order_by(Transactions.dtposted.desc()).first())
-        account = CcAcct(connection.account_number)
-    else:
-        return
-    start = start.date()
-    end = date.today()
+def sync_ofx():
+    for connection in db.session.query(Connections).filter(Connections.source == 'ofx').all():
+        if connection.type in ['Checking', 'Savings']:
+            start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
+                      .join(BankAccounts, BankAccounts.id == AccountsFrom.id)
+                      .filter(BankAccounts.acctid == connection.account_number)
+                      .order_by(Transactions.dtposted.desc()).first())
+            account = BankAcct(connection.routing_number, connection.account_number, connection.type)
+        elif connection.type in ['Credit Card']:
+            start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
+                      .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
+                      .filter(CreditCardAccounts.acctid == connection.account_number)
+                      .order_by(Transactions.dtposted.desc()).first())
+            account = CcAcct(connection.account_number)
+        else:
+            return
+        start = start.date()
+        end = date.today()
 
-    ofx_client = OFXClient(connection.url, connection.org, connection.fid)
-    request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
-                                           [account], dtstart=start, dtend=end)
-    response = ofx_client.download(request)
-    parser = OFXParser()
-    parser.parse(response)
-    parser.instantiate()
-    connection.synced_at = datetime.now(tzlocal())
-    db.session.commit()
-    return
+        ofx_client = OFXClient(connection.url, connection.org, connection.fid)
+        request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
+                                               [account], dtstart=start, dtend=end)
+        response = ofx_client.download(request)
+        parser = OFXParser()
+        parser.parse(response)
+        parser.instantiate()
+        connection.synced_at = datetime.now(tzlocal())
+        db.session.commit()
 
 
 def apply_all_mappings():

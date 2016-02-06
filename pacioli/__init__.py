@@ -1,32 +1,23 @@
 from flask import Flask
 from flask.ext.security import Security
 from pacioli.controllers.ofx_views import register_ofx
-from talisman import Talisman
 from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
-from flask_mail import Mail
 
 from pacioli import assets
 from pacioli.models import db, User, Role, user_datastore
 from pacioli.controllers.main import main
 
-from pacioli.extensions import (
-    cache,
-    assets_env,
-    debug_toolbar,
-    admin
-)
+from pacioli.extensions import cache, assets_env, debug_toolbar, admin, mail
 
 
 def create_app(object_name, env="prod"):
-
     app = Flask(__name__)
 
     app.config.from_object(object_name)
     app.config['ENV'] = env
-    # Talisman(app)
     db.init_app(app)
-    mail = Mail(app)
+    mail.init_app(app)
     security = Security(app, user_datastore)
 
     @security.context_processor

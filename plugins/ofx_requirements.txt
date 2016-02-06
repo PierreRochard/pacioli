@@ -1,5 +1,0 @@
-psycopg2
-sqlalchemy
-ofxtools
-openpyxl
-xlrd
