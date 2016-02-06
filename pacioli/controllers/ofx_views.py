@@ -36,9 +36,9 @@ def sync_ofx():
         elif connection.type in ['Credit Card']:
             try:
                 start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
-                      .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
-                      .filter(CreditCardAccounts.acctid == connection.account_number)
-                      .order_by(Transactions.dtposted.desc()).first())
+                          .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
+                          .filter(CreditCardAccounts.acctid == connection.account_number)
+                          .order_by(Transactions.dtposted.desc()).first())
                 start = start.date()
                 end = date.today()
             except TypeError:
@@ -49,8 +49,13 @@ def sync_ofx():
             return
 
         ofx_client = OFXClient(connection.url, connection.org, connection.fid)
-        request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
-                                               [account], dtstart=start, dtend=end)
+        if start and end:
+            request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
+                                                   [account], dtstart=start, dtend=end)
+        else:
+            request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
+                                                   [account])
+
         response = ofx_client.download(request)
         parser = OFXParser()
         parser.parse(response)
@@ -68,7 +73,7 @@ def apply_single_mapping(mapping_id):
     matched_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
                                              Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
                                              db.func.concat(Transactions.name, ' ', Transactions.memo).label(
-                                                 'description'),
+                                                     'description'),
                                              AccountsFrom.name.label('account_name'))
                             .outerjoin(JournalEntries, JournalEntries.transaction_id ==
                                        db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
