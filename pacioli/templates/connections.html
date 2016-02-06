@@ -1,0 +1,13 @@
+{% extends 'admin/model/list.html' %}
+
+{% block body %}
+    <h2>Connections</h2>
+    <div class="btn-group" role="group">
+        <a class="btn btn-default" type="button" href="{{ url_for('connections.sync_all') }}">
+        Sync All
+        </a>
+    </div>
+    <br>
+    <br>
+    {{ super() }}
+{% endblock %}

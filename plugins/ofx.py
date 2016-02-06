@@ -2,11 +2,13 @@
 
 import argparse
 import traceback
-import urllib2
+try:
+    from urllib2 import HTTPError
+except ImportError:
+    from urllib.error import HTTPError
 from datetime import datetime, date
 from decimal import Decimal
 from pprint import pformat
-
 import shutil
 
 import os
@@ -16,7 +18,7 @@ from ofxtools import OFXClient
 from ofxtools.Client import BankAcct, CcAcct
 from ofxtools.ofxalchemy import OFXParser
 from ofxtools.ofxalchemy import DBSession as ofx_session
-from ofxtools.ofxalchemy import Base as ofx_Base
+from ofxtools.ofxalchemy import Base as OFX_Base
 from ofxtools.ofxalchemy.models import STMTTRN, ACCTFROM
 import psycopg2
 from sqlalchemy import create_engine, func
@@ -24,7 +26,7 @@ from sqlalchemy import create_engine, func
 # sys.path.append("..")
 from manage import make_shell_context
 from pacioli.models import JournalEntries
-from pacioli.controllers.main import Transactions, AccountsFrom
+from pacioli.controllers.ofx_views import Transactions, AccountsFrom
 
 from ofx_config import url, org, fid, bankid_checking, bankid_savings
 from ofx_config import checking, user, password, clientuid, savings, creditcard
@@ -47,8 +49,8 @@ accounts = [BankAcct(bankid_checking, checking, 'Checking'),
 
 def setup(drop_tables):
     if drop_tables:
-        ofx_Base.metadata.drop_all(engine)
-    ofx_Base.metadata.create_all(engine)
+        OFX_Base.metadata.drop_all(engine)
+    OFX_Base.metadata.create_all(engine)
     for account in accounts:
         request = ofx_client.statement_request(user, password, clientuid, [account])
         response = ofx_client.download(request)
@@ -92,7 +94,7 @@ def update():
             parser = OFXParser()
             parser.parse(response)
             parser.instantiate()
-        except urllib2.HTTPError:
+        except HTTPError:
             exc_info = sys.exc_info()
             tb = traceback.format_exception(*exc_info)
             send_email(recipients=['pierre@rochard.org'], subject='New Transactions', text_body=str(tb))

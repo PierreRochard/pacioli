@@ -36,10 +36,11 @@ class User(db.Model, UserMixin):
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 
 
-class Connection(db.Model):
+class Connections(db.Model):
     __table_args__ = {'schema': 'admin'}
 
     id = db.Column(db.Integer, primary_key=True)
+    source = db.Column(db.String)
     type = db.Column(db.String)
     url = db.Column(db.String)
     org = db.Column(db.String)
@@ -50,9 +51,12 @@ class Connection(db.Model):
     password = db.Column(db.String)
     clientuid = db.Column(db.String)
 
+    created_at = db.Column(db.DateTime(timezone=True))
+    synced_at = db.Column(db.DateTime(timezone=True))
+
 
 class Mappings(db.Model):
-    __table_args__ = (db.UniqueConstraint('plugin', 'keyword', name='mappings_unique_constraint'),
+    __table_args__ = (db.UniqueConstraint('source', 'keyword', name='mappings_unique_constraint'),
                       {"schema": "pacioli"})
     __tablename__ = 'mappings'
 

@@ -1,33 +1,72 @@
+from datetime import datetime, date
+
+from dateutil.tz import tzlocal
 from flask import redirect, request, url_for
 from flask.ext.admin import expose
+from ofxtools import OFXClient
+from ofxtools.ofxalchemy import OFXParser
+from ofxtools.Client import CcAcct, BankAcct
 from sqlalchemy import PrimaryKeyConstraint, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
 from wtforms import Form, HiddenField
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
 
-from pacioli.controllers.main import PacioliModelView
+from pacioli.controllers import PacioliModelView
 from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
                                            id_formatter, type_formatter)
 from pacioli.extensions import admin
-from pacioli.models import db, Subaccounts, Mappings, JournalEntries
+from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connections
+
+
+def sync_ofx(connection_id):
+    connection = db.session.query(Connections).filter(Connections.id == connection_id).one()
+    if connection.type in ['Checking', 'Savings']:
+        start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
+                  .join(BankAccounts, BankAccounts.id == AccountsFrom.id)
+                  .filter(BankAccounts.acctid == connection.account_number)
+                  .order_by(Transactions.dtposted.desc()).first())
+        account = BankAcct(connection.routing_number, connection.account_number, connection.type)
+    elif connection.type in ['Credit Card']:
+        start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
+                  .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
+                  .filter(CreditCardAccounts.acctid == connection.account_number)
+                  .order_by(Transactions.dtposted.desc()).first())
+        account = CcAcct(connection.account_number)
+    else:
+        return
+    start = start.date()
+    end = date.today()
+
+    ofx_client = OFXClient(connection.url, connection.org, connection.fid)
+    request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
+                                           [account], dtstart=start, dtend=end)
+    response = ofx_client.download(request)
+    parser = OFXParser()
+    parser.parse(response)
+    parser.instantiate()
+    connection.synced_at = datetime.now(tzlocal())
+    db.session.commit()
+    return
 
 
 def apply_all_mappings():
     pass
 
+
 def apply_single_mapping(mapping_id):
     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
     matched_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
-                                                 Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
-                                                 db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
-                                                 AccountsFrom.name.label('account_name'))
-                                .outerjoin(JournalEntries, JournalEntries.transaction_id ==
-                                           db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
-                                .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
-                                .filter(JournalEntries.transaction_id.is_(None))
-                                .filter(func.lower(Transactions.name).like('%' + mapping.keyword.lower() + '%'))
-                                .order_by(Transactions.fitid.desc()).all())
+                                             Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+                                             db.func.concat(Transactions.name, ' ', Transactions.memo).label(
+                                                 'description'),
+                                             AccountsFrom.name.label('account_name'))
+                            .outerjoin(JournalEntries, JournalEntries.transaction_id ==
+                                       db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
+                            .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+                            .filter(JournalEntries.transaction_id.is_(None))
+                            .filter(func.lower(Transactions.name).like('%' + mapping.keyword.lower() + '%'))
+                            .order_by(Transactions.fitid.desc()).all())
     for transaction in matched_transactions:
         new_journal_entry = JournalEntries()
         new_journal_entry.transaction_id = transaction.id
@@ -125,6 +164,7 @@ def register_ofx(app):
             class NewOFXTransactionMapping(Form):
                 keyword = HiddenField()
                 subaccount = QuerySelectField(query_factory=available_subaccounts, allow_blank=False)
+
             new_mapping_form = NewOFXTransactionMapping()
 
             self._template_args['new_mapping_form'] = new_mapping_form
