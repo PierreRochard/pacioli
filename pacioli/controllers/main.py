@@ -42,6 +42,7 @@ admin.add_view(PacioliModelView(Role, db.session, category='Admin'))
 
 class TaxonomyModelView(PacioliModelView):
     form_extra_fields = dict(name=StringField('Name'))
+    column_searchable_list = ['name']
 
 
 admin.add_view(PacioliModelView(JournalEntries, db.session, category='Bookkeeping'))

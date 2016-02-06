@@ -227,6 +227,9 @@ def update():
     put('plugins/ofx_config.py', '/home/ec2-user/pacioli/plugins/ofx_config.py')
     put('plugins/ofx_mappings.xlsx', '/home/ec2-user/pacioli/plugins/ofx_mappings.xlsx')
 
+    run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
+
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
             run('python3 manage.py createdb')
@@ -246,9 +249,6 @@ def update():
         run('git pull')
         run('sudo python3 setup.py install')
         run('sudo python setup.py install')
-
-    run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
-    run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     # GUNICORN
     put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')

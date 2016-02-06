@@ -1,4 +1,4 @@
-from flask import redirect, request
+from flask import redirect, request, url_for
 from flask.ext.admin import expose
 from sqlalchemy import PrimaryKeyConstraint, func
 from sqlalchemy.exc import IntegrityError
@@ -107,8 +107,8 @@ def register_ofx(app):
                 new_mapping = Mappings()
                 new_mapping.plugin = 'ofx'
                 new_mapping.keyword = form['keyword']
-                new_mapping.positive_credit_subaccount = form['positive_credit_subaccount']
-                new_mapping.negative_debit_subaccount = form['negative_debit_subaccount']
+                new_mapping.positive_credit_subaccount = form['subaccount']
+                new_mapping.negative_debit_subaccount = form['subaccount']
                 try:
                     db.session.add(new_mapping)
                     db.session.commit()
@@ -117,19 +117,35 @@ def register_ofx(app):
                 mapping_id, = (db.session.query(Mappings.id).filter(Mappings.plugin == 'ofx')
                                .filter(Mappings.keyword == form['keyword']).one())
                 apply_single_mapping(mapping_id)
-                return redirect(redirect_url())
+                return redirect(url_for('ofx/new-transactions.index_view'))
 
             def available_subaccounts():
-                return Subaccounts.query.order_by(Subaccounts.parent)
+                return Subaccounts.query.order_by(Subaccounts.parent).order_by(Subaccounts.name)
 
             class NewOFXTransactionMapping(Form):
                 keyword = HiddenField()
-                positive_credit_subaccount = QuerySelectField(query_factory=available_subaccounts, allow_blank=False)
-                negative_debit_subaccount = QuerySelectField(query_factory=available_subaccounts, allow_blank=False)
+                subaccount = QuerySelectField(query_factory=available_subaccounts, allow_blank=False)
             new_mapping_form = NewOFXTransactionMapping()
 
             self._template_args['new_mapping_form'] = new_mapping_form
             return super(NewTransactionsView, self).index_view()
+
+        @expose('/<expense_account>/<keyword>')
+        def favorite(self, expense_account, keyword):
+            new_mapping = Mappings()
+            new_mapping.plugin = 'ofx'
+            new_mapping.keyword = keyword
+            new_mapping.positive_credit_subaccount = expense_account
+            new_mapping.negative_debit_subaccount = expense_account
+            try:
+                db.session.add(new_mapping)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+            mapping_id, = (db.session.query(Mappings.id).filter(Mappings.plugin == 'ofx')
+                           .filter(Mappings.keyword == keyword).one())
+            apply_single_mapping(mapping_id)
+            return redirect(url_for('ofx/new-transactions.index_view'))
 
 
             # @expose('/post/<transaction_id>/')
