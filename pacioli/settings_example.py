@@ -13,7 +13,7 @@ class Config(object):
     SECURITY_BLUEPRINT_NAME = 'security'
     SECURITY_URL_PREFIX = None
     SECURITY_FLASH_MESSAGES = True
-    SECURITY_PASSWORD_HASH = ""
+    SECURITY_PASSWORD_HASH = "pbkdf2_sha512"
     SECURITY_PASSWORD_SALT = ""
     SECURITY_EMAIL_SENDER = "you@localhost"
     SECURITY_TOKEN_AUTHENTICATION_KEY = 'auth_token'
@@ -69,52 +69,10 @@ class Config(object):
 
 class ProdConfig(Config):
     SQLALCHEMY_DATABASE_URI = PROD_PACIOLI_URI
-    # Talisman
-    # force_https = True
-    # force_https_permanent = True
-    # frame_options = SAMEORIGIN
-    # frame_options_allow_from = None
-    # strict_transport_security = True
-    # strict_transport_security_max_age = ONE_YEAR_IN_SECS
-    # strict_transport_security_include_subdomains = True
-    # content_security_policy = {'default-src': ['\'self\'', 'https:'],
-    #                            'style-src': ['\'self\'', 'unsafe-inline']}
-    # csp = {'default-src': ['\'self\'', 'https:'],
-    #                            'style-src': ['\'self\'', 'unsafe-inline']}
-    # session_cookie_secure = True
-    # session_cookie_http_only = True
 
 
 class DevConfig(Config):
     DEBUG = True
-
     DEBUG_TB_INTERCEPT_REDIRECTS = True
-
-    # SQLALCHEMY_DATABASE_URI = DEV_PACIOLI_URI
-    # SQLALCHEMY_BINDS = {'ofx': DEV_OFX_URI}
-
     SQLALCHEMY_DATABASE_URI = PROD_PACIOLI_URI
-
     ASSETS_DEBUG = True
-
-    # Talisman
-    # force_https = False
-    # force_https_permanent = False
-    # frame_options = DENY
-    # frame_options_allow_from = False
-    # strict_transport_security = False
-    # strict_transport_security_max_age = ONE_YEAR_IN_SECS
-    # strict_transport_security_include_subdomains = False
-    # content_security_policy = {'default-src': '\'self\''}
-    # session_cookie_secure = True
-    # session_cookie_http_only = False
-
-
-class TestConfig(Config):
-    DEBUG = True
-    DEBUG_TB_INTERCEPT_REDIRECTS = False
-
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + db_file.name
-    SQLALCHEMY_ECHO = True
-
-    WTF_CSRF_ENABLED = False
