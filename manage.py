@@ -76,6 +76,7 @@ def dropdb():
     db.drop_all()
     OFX_Base.metadata.drop_all(db.engine)
 
+
 @manager.option('-e', '--email', dest='email')
 @manager.option('-p', '--password', dest='password')
 def create_admin(email, password):
