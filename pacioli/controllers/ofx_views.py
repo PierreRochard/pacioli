@@ -6,10 +6,50 @@ from wtforms import Form, HiddenField
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
 
 from pacioli.controllers.main import PacioliModelView, redirect_url
-from pacioli.controllers.utilities import account_formatter, date_formatter, currency_formatter, id_formatter, \
-    type_formatter
+from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
+                                           id_formatter, type_formatter)
 from pacioli.extensions import admin
 from pacioli.models import db, Subaccounts, Mappings
+
+
+def apply_all_mappings():
+    pass
+
+def apply_single_mapping(mapping_id):
+#     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
+#     matched_transactions = new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
+#                                                  Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+#                                                  db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
+#                                                  AccountsFrom.name.label('account'))
+#                                 .outerjoin(JournalEntries, JournalEntries.transaction_id ==
+#                                            db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
+#                                 .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+#                                 .filter(JournalEntries.transaction_id.is_(None))
+#                                 .filter(func.lower(Transactions.name).like('%' + mapping['pattern'].lower() + '%'))
+#                                 .filter(AccountsFrom.name == mapping['account'])
+#                                 .order_by(Transactions.fitid.desc()).all())
+#             for transaction in new_transactions:
+#                 new_journal_entry = JournalEntries()
+#                 new_journal_entry.transaction_id = transaction.id
+#                 new_journal_entry.transaction_source = 'ofx'
+#                 new_journal_entry.timestamp = transaction.date
+#                 if transaction.amount > 0:
+#                     new_journal_entry.debit_subaccount = mapping['positive_debit_account']
+#                     new_journal_entry.credit_subaccount = mapping['positive_credit_account']
+#                 elif transaction.amount < 0:
+#                     new_journal_entry.debit_subaccount = mapping['negative_debit_account']
+#                     new_journal_entry.credit_subaccount = mapping['negative_credit_account']
+#                 else:
+#                     raise Exception()
+#                 new_journal_entry.functional_amount = transaction.amount
+#                 new_journal_entry.functional_currency = 'USD'
+#                 new_journal_entry.source_amount = transaction.amount
+#                 new_journal_entry.source_currency = 'USD'
+#                 db.session.add(new_journal_entry)
+#                 db.session.commit()
+#                 print(transaction.description)
+#                 print(transaction.account)
+    pass
 
 
 def register_ofx(app):
@@ -23,8 +63,6 @@ def register_ofx(app):
             globals()[app.config['MAIN_DATABASE_MODEL_MAP'][cls.__table__.name]] = cls
 
     setattr(AccountsFrom, '__repr__', lambda self: self.name)
-
-    # setattr(Transactions, '__repr__', lambda self: ''.join([str(self.name), str(self.memo)]))
 
     class OFXModelView(PacioliModelView):
         can_create = False
@@ -76,6 +114,9 @@ def register_ofx(app):
                 new_mapping.negative_debit_subaccount = form['negative_debit_subaccount']
                 db.session.add(new_mapping)
                 db.session.commit()
+                mapping_id, = (db.session.query(Mappings.id).filter(Mappings.plugin == 'ofx')
+                               .filter(Mappings.keyword == form['keyword']).one())
+                apply_single_mapping(mapping_id)
                 return redirect(redirect_url())
 
             def available_subaccounts():

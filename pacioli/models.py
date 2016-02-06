@@ -51,7 +51,9 @@ class Mappings(db.Model):
 
 
 class JournalEntries(db.Model):
-    __table_args__ = {'schema': 'pacioli'}
+    __table_args__ = (db.UniqueConstraint('transaction_id', 'transaction_source',
+                                          name='journal_entries_unique_constraint'),
+                      {'schema': 'pacioli'})
     __tablename__ = 'journal_entries'
 
     id = db.Column(db.Integer, primary_key=True)

@@ -5,24 +5,26 @@ from datetime import datetime
 import os
 
 from dateutil.tz import tzlocal
+from flask.ext.migrate import MigrateCommand, Migrate
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
 from flask.ext.security.utils import encrypt_password
+from sqlalchemy.exc import IntegrityError
 
 from pacioli import create_app
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 
-# default to dev config because no one should use this in
-# production anyway
-from sqlalchemy.exc import IntegrityError
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
 
 manager = Manager(app)
+migrate = Migrate(app, db)
+
 manager.add_command("server", Server())
 manager.add_command("show-urls", ShowUrls())
 manager.add_command("clean", Clean())
+manager.add_command('db', MigrateCommand)
 
 
 @manager.shell
