@@ -1,6 +1,7 @@
 from flask import redirect, request
 from flask.ext.admin import expose
-from sqlalchemy import PrimaryKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
 from wtforms import Form, HiddenField
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
@@ -9,47 +10,43 @@ from pacioli.controllers.main import PacioliModelView, redirect_url
 from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
                                            id_formatter, type_formatter)
 from pacioli.extensions import admin
-from pacioli.models import db, Subaccounts, Mappings
+from pacioli.models import db, Subaccounts, Mappings, JournalEntries
 
 
 def apply_all_mappings():
     pass
 
 def apply_single_mapping(mapping_id):
-#     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-#     matched_transactions = new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
-#                                                  Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
-#                                                  db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
-#                                                  AccountsFrom.name.label('account'))
-#                                 .outerjoin(JournalEntries, JournalEntries.transaction_id ==
-#                                            db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
-#                                 .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
-#                                 .filter(JournalEntries.transaction_id.is_(None))
-#                                 .filter(func.lower(Transactions.name).like('%' + mapping['pattern'].lower() + '%'))
-#                                 .filter(AccountsFrom.name == mapping['account'])
-#                                 .order_by(Transactions.fitid.desc()).all())
-#             for transaction in new_transactions:
-#                 new_journal_entry = JournalEntries()
-#                 new_journal_entry.transaction_id = transaction.id
-#                 new_journal_entry.transaction_source = 'ofx'
-#                 new_journal_entry.timestamp = transaction.date
-#                 if transaction.amount > 0:
-#                     new_journal_entry.debit_subaccount = mapping['positive_debit_account']
-#                     new_journal_entry.credit_subaccount = mapping['positive_credit_account']
-#                 elif transaction.amount < 0:
-#                     new_journal_entry.debit_subaccount = mapping['negative_debit_account']
-#                     new_journal_entry.credit_subaccount = mapping['negative_credit_account']
-#                 else:
-#                     raise Exception()
-#                 new_journal_entry.functional_amount = transaction.amount
-#                 new_journal_entry.functional_currency = 'USD'
-#                 new_journal_entry.source_amount = transaction.amount
-#                 new_journal_entry.source_currency = 'USD'
-#                 db.session.add(new_journal_entry)
-#                 db.session.commit()
-#                 print(transaction.description)
-#                 print(transaction.account)
-    pass
+    mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
+    matched_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
+                                                 Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
+                                                 db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'),
+                                                 AccountsFrom.name.label('account_name'))
+                                .outerjoin(JournalEntries, JournalEntries.transaction_id ==
+                                           db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
+                                .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+                                .filter(JournalEntries.transaction_id.is_(None))
+                                .filter(func.lower(Transactions.name).like('%' + mapping.keyword.lower() + '%'))
+                                .order_by(Transactions.fitid.desc()).all())
+    for transaction in matched_transactions:
+        new_journal_entry = JournalEntries()
+        new_journal_entry.transaction_id = transaction.id
+        new_journal_entry.transaction_source = 'ofx'
+        new_journal_entry.timestamp = transaction.date
+        if transaction.amount > 0:
+            new_journal_entry.debit_subaccount = transaction.account_name
+            new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount
+        elif transaction.amount < 0:
+            new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount
+            new_journal_entry.credit_subaccount = transaction.account_name
+        else:
+            raise Exception()
+        new_journal_entry.functional_amount = transaction.amount
+        new_journal_entry.functional_currency = 'USD'
+        new_journal_entry.source_amount = transaction.amount
+        new_journal_entry.source_currency = 'USD'
+        db.session.add(new_journal_entry)
+        db.session.commit()
 
 
 def register_ofx(app):
@@ -112,15 +109,18 @@ def register_ofx(app):
                 new_mapping.keyword = form['keyword']
                 new_mapping.positive_credit_subaccount = form['positive_credit_subaccount']
                 new_mapping.negative_debit_subaccount = form['negative_debit_subaccount']
-                db.session.add(new_mapping)
-                db.session.commit()
+                try:
+                    db.session.add(new_mapping)
+                    db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
                 mapping_id, = (db.session.query(Mappings.id).filter(Mappings.plugin == 'ofx')
                                .filter(Mappings.keyword == form['keyword']).one())
                 apply_single_mapping(mapping_id)
                 return redirect(redirect_url())
 
             def available_subaccounts():
-                return Subaccounts.query
+                return Subaccounts.query.order_by(Subaccounts.parent)
 
             class NewOFXTransactionMapping(Form):
                 keyword = HiddenField()
