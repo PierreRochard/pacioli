@@ -96,28 +96,25 @@ def dropdb():
 @manager.option('-e', '--email', dest='email')
 @manager.option('-p', '--password', dest='password')
 def create_admin(email, password):
-    admin = User()
-    admin.email = email
-    admin.password = encrypt_password(password)
-    admin.active = True
-    admin.confirmed_at = datetime.now(tzlocal())
     try:
+        admin = User()
+        admin.email = email
+        admin.password = encrypt_password(password)
+        admin.active = True
+        admin.confirmed_at = datetime.now(tzlocal())
         db.session.add(admin)
         db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
 
-    superuser = Role()
-    superuser.name = 'superuser'
-    superuser.description = 'superuser'
-    try:
+        superuser = Role()
+        superuser.name = 'superuser'
+        superuser.description = 'superuser'
         db.session.add(superuser)
+        db.session.commit()
+
+        admin.roles.append(superuser)
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-
-    admin.roles.append(superuser)
-    db.session.commit()
 
 
 @manager.command
