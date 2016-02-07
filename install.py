@@ -58,3 +58,4 @@ admin_password = str(uuid.uuid4()).replace('-', '')
 print subprocess.Popen([python, 'manage.py', 'create_admin', '-e', 'admin@localhost', '-p', admin_password],
                        stdout=subprocess.PIPE).stdout.read()
 
+print 'admin@localhost password: {0}'.format(admin_password)
