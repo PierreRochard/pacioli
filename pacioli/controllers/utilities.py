@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 
@@ -17,7 +17,13 @@ def currency_formatter(view, context, model, name):
 
 
 def date_formatter(view, context, model, name):
-    return getattr(model, name).strftime('%Y-%m-%d')
+    date_object = getattr(model, name)
+    if isinstance(date_object, datetime) or isinstance(date_object, date):
+        return date_object.strftime('%Y-%m-%d')
+    elif not date_object:
+        return ''
+    else:
+        return str(date_object)
 
 
 def id_formatter(view, context, model, name):

@@ -38,6 +38,7 @@ user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 
 class Connections(db.Model):
     __table_args__ = {'schema': 'admin'}
+    __tablename__ = 'connections'
 
     id = db.Column(db.Integer, primary_key=True)
     source = db.Column(db.String)
@@ -57,7 +58,7 @@ class Connections(db.Model):
 
 class Mappings(db.Model):
     __table_args__ = (db.UniqueConstraint('source', 'keyword', name='mappings_unique_constraint'),
-                      {"schema": "pacioli"})
+                      {'schema': 'admin'})
     __tablename__ = 'mappings'
 
     id = db.Column(db.Integer, primary_key=True)

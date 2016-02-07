@@ -5,6 +5,7 @@ from flask import Blueprint
 from flask import url_for, redirect
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
+from pacioli.controllers.utilities import date_formatter
 from wtforms import StringField
 
 from pacioli.controllers import PacioliModelView
@@ -17,7 +18,12 @@ from pacioli.models import (db, User, Role, JournalEntries, Subaccounts,
 main = Blueprint('main', __name__)
 
 
-admin.add_view(PacioliModelView(User, db.session, category='Admin'))
+class UserModelView(PacioliModelView):
+    column_list = ('id', 'email', 'active', 'confirmed_at', 'current_login_at',
+                   'last_login_ip', 'current_login_ip', 'login_count')
+    column_formatters = dict(confirmed_at=date_formatter, current_login_at=date_formatter)
+
+admin.add_view(UserModelView(User, db.session, category='Admin'))
 admin.add_view(PacioliModelView(Role, db.session, category='Admin'))
 
 
@@ -44,8 +50,16 @@ class ConnectionsModelView(PacioliModelView):
         return redirect(url_for('connections.index_view'))
 
 
+class MappingsModelView(PacioliModelView):
+    form_choices = dict(source=[('ofx', 'ofx')])
+    column_display_all_relations = True
+    column_list = ('id', 'source', 'keyword', 'positive_debit_subaccount',
+                   'positive_credit_subaccount', 'negative_debit_subaccount', 'negative_credit_subaccount')
+    form_columns = column_list
+
+
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
-admin.add_view(PacioliModelView(Mappings, db.session, category='Admin'))
+admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
 
 
 class TaxonomyModelView(PacioliModelView):
