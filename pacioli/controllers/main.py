@@ -11,7 +11,7 @@ from pacioli.controllers import PacioliModelView
 from pacioli.controllers.ofx_views import sync_ofx
 from pacioli.extensions import admin
 from pacioli.models import (db, User, Role, JournalEntries, Subaccounts,
-                            Accounts, Classifications, Elements, Connections)
+                            Accounts, Classifications, Elements, Connections, Mappings)
 
 
 main = Blueprint('main', __name__)
@@ -45,6 +45,7 @@ class ConnectionsModelView(PacioliModelView):
 
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
+admin.add_view(PacioliModelView(Mappings, db.session, category='Admin'))
 
 
 class TaxonomyModelView(PacioliModelView):
