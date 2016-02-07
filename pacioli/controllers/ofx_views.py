@@ -142,6 +142,7 @@ def register_ofx(app):
         column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
                                  type=type_formatter)
         can_edit = False
+        list_template = 'transactions.html'
 
     class NewTransactionsView(OFXModelView):
         column_default_sort = ('date', True)
@@ -152,7 +153,7 @@ def register_ofx(app):
 
         can_edit = False
 
-        list_template = 'new_transactions_categorization.html'
+        list_template = 'new_transactions.html'
 
         @expose('/', methods=('GET', 'POST'))
         def index_view(self):
