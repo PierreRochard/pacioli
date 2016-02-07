@@ -27,10 +27,10 @@ def sync_ofx():
     for connection in db.session.query(Connections).filter(Connections.source == 'ofx').all():
         if connection.type in ['Checking', 'Savings']:
             try:
-                start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
+                start, = (db.session.query(Transactions.date).join(AccountsFrom)
                           .join(BankAccounts, BankAccounts.id == AccountsFrom.id)
                           .filter(BankAccounts.acctid == connection.account_number)
-                          .order_by(Transactions.dtposted.desc()).first())
+                          .order_by(Transactions.date.desc()).first())
                 start = start.date()
                 end = date.today()
             except TypeError:
@@ -39,10 +39,10 @@ def sync_ofx():
             account = BankAcct(connection.routing_number, connection.account_number, connection.type)
         elif connection.type in ['Credit Card']:
             try:
-                start, = (db.session.query(Transactions.dtposted).join(AccountsFrom)
+                start, = (db.session.query(Transactions.date).join(AccountsFrom)
                           .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
                           .filter(CreditCardAccounts.acctid == connection.account_number)
-                          .order_by(Transactions.dtposted.desc()).first())
+                          .order_by(Transactions.date.desc()).first())
                 start = start.date()
                 end = date.today()
             except TypeError:
@@ -77,28 +77,23 @@ def apply_all_mappings():
 
 def apply_single_mapping(mapping_id):
     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-    matched_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
-                                             Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
-                                             db.func.concat(Transactions.name, ' ', Transactions.memo).label(
-                                                     'description'),
-                                             AccountsFrom.name.label('account_name'))
-                            .outerjoin(JournalEntries, JournalEntries.transaction_id ==
-                                       db.func.concat(Transactions.fitid, Transactions.acctfrom_id))
-                            .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
+    matched_transactions = (db.session.query(Transactions.id,  Transactions.date, Transactions.amount,
+                                             Transactions.description, Transactions.account)
+                            .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
                             .filter(JournalEntries.transaction_id.is_(None))
-                            .filter(func.lower(Transactions.name).like('%' + mapping.keyword.lower() + '%'))
-                            .order_by(Transactions.fitid.desc()).all())
+                            .filter(func.lower(Transactions.description).like('%' + mapping.keyword.lower() + '%'))
+                            .order_by(Transactions.date.desc()).all())
     for transaction in matched_transactions:
         new_journal_entry = JournalEntries()
         new_journal_entry.transaction_id = transaction.id
         new_journal_entry.transaction_source = 'ofx'
         new_journal_entry.timestamp = transaction.date
         if transaction.amount > 0:
-            new_journal_entry.debit_subaccount = transaction.account_name
+            new_journal_entry.debit_subaccount = transaction.account
             new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount
         elif transaction.amount < 0:
             new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount
-            new_journal_entry.credit_subaccount = transaction.account_name
+            new_journal_entry.credit_subaccount = transaction.account
         else:
             raise Exception()
         new_journal_entry.functional_amount = transaction.amount
@@ -111,6 +106,7 @@ def apply_single_mapping(mapping_id):
 
 def register_ofx(app):
     db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+    db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
     db.metadata.tables['ofx.new_transactions'].append_constraint(PrimaryKeyConstraint('id', name='new_transactions_pk'))
 
     Base = automap_base(metadata=db.metadata)
@@ -138,14 +134,13 @@ def register_ofx(app):
         form_columns = ['name']
 
     class TransactionsModelView(OFXModelView):
-        column_default_sort = ('dtposted', True)
-        column_list = ['fitid', 'dtposted', 'acctfrom', 'trnamt', 'name', 'memo', 'trntype']
-        column_searchable_list = ['name', 'memo']
+        column_default_sort = ('date', True)
+        column_list = ['id', 'date', 'account', 'amount', 'description', 'type']
+        column_searchable_list = ['description']
         column_filters = column_list
-        column_labels = dict(fitid='ID', acctfrom='From Account', dtposted='Date Posted', trnamt='Amount',
-                             trntype='Type', name='Name', memo='Memo')
-        column_formatters = dict(fitid=id_formatter, dtposted=date_formatter, trnamt=currency_formatter,
-                                 trntype=type_formatter)
+        column_labels = dict(id='ID', account='From Account', date='Date Posted')
+        column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
+                                 type=type_formatter)
         can_edit = False
 
     class NewTransactionsView(OFXModelView):

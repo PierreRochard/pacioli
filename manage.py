@@ -69,6 +69,22 @@ def createdb():
         JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
         WHERE pacioli.journal_entries.transaction_id IS NULL ORDER BY ofx.stmttrn.dtposted DESC;
     """)
+    try:
+        db.engine.execute('DROP VIEW ofx.transactions;')
+    except ProgrammingError:
+        pass
+    db.engine.execute("""
+    CREATE VIEW ofx.transactions AS
+        SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+               ofx.stmttrn.dtposted AS date,
+               ofx.stmttrn.trnamt AS amount,
+               concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+               ofx.stmttrn.trntype as type,
+               ofx.acctfrom.name AS account
+        FROM ofx.stmttrn
+        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+        ORDER BY ofx.stmttrn.dtposted DESC;
+    """)
 
 
 @manager.command
