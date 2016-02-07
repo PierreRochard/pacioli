@@ -122,7 +122,7 @@ def update_ofx():
                         .order_by(Transactions.fitid.desc()).all())
     if new_transactions:
         html_body = results_to_table(new_transactions)
-        msg = Message('New Transactions', recipients=['pierre@rochard.org'], html=html_body)
+        msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
 
 
