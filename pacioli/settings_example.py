@@ -1,15 +1,27 @@
-PROD_PG_USERNAME = 'localuser'
+
+# -> Update your database settings
+
+PROD_PG_USERNAME = 'postgres'
 PROD_PG_PASSWORD = ''
+
+DEV_PG_USERNAME = 'postgres'
+DEV_PG_PASSWORD = ''
+
 PROD_PG_HOST = 'localhost'
 PROD_PG_PORT = 5432
+
+DEV_PG_HOST = 'localhost'
+DEV_PG_PORT = 5432
 
 PROD_PACIOLI_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(PROD_PG_USERNAME, PROD_PG_PASSWORD,
                                                                           PROD_PG_HOST, PROD_PG_PORT)
 
+DEV_PACIOLI_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(DEV_PG_USERNAME, DEV_PG_PASSWORD,
+                                                                         DEV_PG_HOST, DEV_PG_PORT)
+
 
 class Config(object):
-
-    # Update the CSRF secret key
+    # -> Update the CSRF secret key
     SECRET_KEY = ''
 
     # Flask Security Core
@@ -18,7 +30,7 @@ class Config(object):
     SECURITY_FLASH_MESSAGES = True
     SECURITY_PASSWORD_HASH = "pbkdf2_sha512"
 
-    ## Update the salt
+    # -> Update the salt and email address
     SECURITY_PASSWORD_SALT = ""
     SECURITY_EMAIL_SENDER = "you@localhost"
 
@@ -50,13 +62,13 @@ class Config(object):
     SECURITY_PASSWORDLESS = False
     SECURITY_CHANGEABLE = False
 
-    # Update your mail settings, for Google 2FA: https://security.google.com/settings/security/apppasswords
+    # -> Update your mail settings, for Google 2FA: https://security.google.com/settings/security/apppasswords
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
     MAIL_USERNAME = 'you@gmail.com'
-    MAIL_PASSWORD = ''
+    MAIL_PASSWORD = 'YOUR_APP_PASSWORD'
     MAIL_DEFAULT_SENDER = 'you@gmail.com'
     MAIL_MAX_EMAILS = None
     MAIL_ASCII_ATTACHMENTS = False
@@ -73,7 +85,7 @@ class Config(object):
 
 
 class ProdConfig(Config):
-    SQLALCHEMY_DATABASE_URI = PROD_PACIOLI_URI
+    SQLALCHEMY_DATABASE_URI = DEV_PACIOLI_URI
 
 
 class DevConfig(Config):
