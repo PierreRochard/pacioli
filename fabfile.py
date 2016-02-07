@@ -11,8 +11,8 @@ from aws_config import AWS_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, DO
 from aws_config import mx1, mx5, mx5b, mx10, mx10b, cname_name, cname_value, txt
 from aws_config import admin_email, admin_password
 
-sys.path.insert(0, "pacioli/")
-from settings import PROD_PG_USERNAME, PROD_PG_PASSWORD
+from pacioli.settings import PROD_PG_USERNAME, PROD_PG_PASSWORD
+print(os.path.dirname(os.path.realpath(__file__)))
 
 purpose = 'pacioli-deployment'
 
@@ -26,7 +26,7 @@ ec2_resource = session.resource('ec2')
 rds_client = session.client('rds')
 
 route53_client = session.client('route53')
-
+print(AWS_SSH_PRIVATE_KEY_FILE)
 if not os.path.isfile(AWS_SSH_PRIVATE_KEY_FILE):
     key = ec2_client.create_key_pair(KeyName=AWS_KEY_PAIR_NAME)
     with open(AWS_SSH_PRIVATE_KEY_FILE, 'w') as f:
@@ -133,18 +133,18 @@ def create_dns_records():
 
 def install():
     # APP
-    run('sudo yum -y install gcc git python34 python34-pip python34-setuptools python34-devel postgresql94-devel')
+    packages = 'gcc git python python-pip python-setuptools python-devel postgresql94-devel libxslt-devel libxml-devel'
+    run('sudo yum -y install ' + packages)
     put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, use_sudo=True)
     run('sudo chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
-    run('sudo pip-3.4 install -r /home/ec2-user/pacioli/instance-requirements.txt')
     run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     run('git clone https://github.com/PierreRochard/ofxtools')
     with cd('/home/ec2-user/ofxtools/'):
         run('sudo python setup.py install')
-        run('sudo python3 setup.py install')
+        run('sudo python setup.py install')
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     run('mkdir ~/pacioli/logs/')
@@ -152,7 +152,7 @@ def install():
     run('git clone https://github.com/mattupstate/flask-security')
     with cd('flask-security'):
         run('git checkout develop')
-        run('sudo python3 setup.py install')
+        run('sudo python setup.py install')
         run('sudo python setup.py install')
 
     # SUPERVISORD
@@ -164,7 +164,7 @@ def install():
     run('supervisorctl restart pacioli')
 
     # GUNICORN
-    run('sudo pip-3.4 install gunicorn')
+    run('sudo pip install gunicorn')
     put('configuration_files/gunicorn_configuration.py', '~/pacioli/gunicorn_configuration.py')
 
     # NGINX
@@ -213,32 +213,29 @@ def update():
     with cd('/home/ec2-user/pacioli/'):
         run('git stash')
         run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/' + GITHUB_SSH_PRIVATE_KEY_FILE))
-
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
 
-    run('sudo pip-3.4 install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
     run('sudo pip install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     with cd('/home/ec2-user/ofxtools/'):
         run('git pull')
-        run('sudo python3 setup.py install')
+        run('sudo python setup.py install')
         run('sudo python setup.py install')
 
     with cd('flask-security'):
         run('git checkout develop')
         run('git pull')
-        run('sudo python3 setup.py install')
+        run('sudo python setup.py install')
         run('sudo python setup.py install')
 
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
-            run('python3 manage.py createdb')
+            run('python manage.py createdb')
 
     with cd('/home/ec2-user/pacioli/logs/'):
         run('sudo rm -f *.log')
     with cd('/home/ec2-user/pacioli/logs/nginx/'):
         run('sudo rm -f *.log')
-
 
     # GUNICORN
     put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')
@@ -259,14 +256,14 @@ def update():
 def create_db():
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
-            run('python3 manage.py createdb')
+            run('python manage.py createdb')
 
 
 def create_admin():
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
-            run('python3 manage.py create_admin -e {0} -p {1}'.format(admin_email, admin_password))
-            run('python3 manage.py create_superuser')
+            run('python manage.py create_admin -e {0} -p {1}'.format(admin_email, admin_password))
+            run('python manage.py create_superuser')
 
 
 def cron():
