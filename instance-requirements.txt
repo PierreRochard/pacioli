@@ -16,6 +16,7 @@ alembic
 itsdangerous
 cssmin
 jsmin
+premailer
 python-dateutil
 psycopg2
 

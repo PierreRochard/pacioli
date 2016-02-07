@@ -27,8 +27,8 @@ def sync_ofx():
     for connection in db.session.query(Connections).filter(Connections.source == 'ofx').all():
         if connection.type in ['Checking', 'Savings']:
             try:
-                start, = (db.session.query(Transactions.date).join(AccountsFrom)
-                          .join(BankAccounts, BankAccounts.id == AccountsFrom.id)
+                start, = (db.session.query(Transactions.date)
+                          .join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
                           .filter(BankAccounts.acctid == connection.account_number)
                           .order_by(Transactions.date.desc()).first())
                 start = start.date()
@@ -39,7 +39,8 @@ def sync_ofx():
             account = BankAcct(connection.routing_number, connection.account_number, connection.type)
         elif connection.type in ['Credit Card']:
             try:
-                start, = (db.session.query(Transactions.date).join(AccountsFrom)
+                start, = (db.session.query(Transactions.date)
+                          .join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
                           .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
                           .filter(CreditCardAccounts.acctid == connection.account_number)
                           .order_by(Transactions.date.desc()).first())

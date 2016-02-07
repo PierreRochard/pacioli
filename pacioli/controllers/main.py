@@ -56,7 +56,7 @@ class MappingsModelView(PacioliModelView):
     column_list = ('id', 'source', 'keyword', 'positive_debit_subaccount',
                    'positive_credit_subaccount', 'negative_debit_subaccount', 'negative_credit_subaccount')
     form_columns = column_list
-
+    column_sortable_list = column_list
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))

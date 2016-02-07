@@ -1,5 +1,9 @@
 from datetime import datetime, date
 from decimal import Decimal
+import os
+
+from jinja2 import Template
+from premailer import transform
 
 
 def account_formatter(view, context, model, name):
@@ -34,26 +38,23 @@ def type_formatter(view, context, model, name):
     return getattr(model, name).lower().title()
 
 
-def results_to_table(query_results):
-    html_body = '<table style="border:1px solid black;"><thead><tr>'
-    for header in ['ID', 'Date', 'Debit', 'Credit', 'Description']:
-        html_body += '<th style="border:1px solid black;">{0}</th>'.format(header)
-    html_body += '</tr></thead><tbody>'
-    for row in query_results:
-        html_body += '<tr>'
-        for cell in row:
-            if isinstance(cell, Decimal):
-                if cell > 0:
-                    html_body += '<td style="border:1px solid black;">{0:,.2f}</td><td style="border:1px solid black;"></td>'.format(cell)
-                else:
-                    html_body += '<td style="border:1px solid black;"></td><td style="border:1px solid black;">{0:,.2f}</td>'.format(cell)
-            elif isinstance(cell, datetime):
-                cell = cell.date()
-                html_body += '<td style="border:1px solid black;">{0}</td>'.format(cell)
-            else:
-                html_body += '<td style="border:1px solid black;">{0}</td>'.format(cell)
-        html_body += '</tr>'
-    html_body += '</tbody></table>'
-    return html_body
+def results_to_email_template(title, table_caption, table_header, query_results):
+    templates_directory = os.path.abspath(__file__ + "/../../templates")
 
+    email_template = os.path.join(templates_directory, 'email_table_template.html')
+    with open(email_template, 'r') as html_template:
+        html_template_string = html_template.read()
 
+    css_template = os.path.join(templates_directory, 'email_bootstrap.min.css')
+    with open(css_template, 'r') as css:
+        css_string = css.read()
+
+    template = Template(html_template_string)
+
+    html_body = template.render(title=title,
+                                css=css_string,
+                                table_caption=table_caption,
+                                table_header=table_header,
+                                table_rows=query_results).encode('utf-8')
+
+    return transform(html_body).encode('utf-8')

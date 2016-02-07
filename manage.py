@@ -15,7 +15,7 @@ from ofxtools.ofxalchemy import OFXParser
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
-from pacioli.controllers.utilities import results_to_table
+from pacioli.controllers.utilities import results_to_table, results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 from pacioli.controllers.ofx_views import sync_ofx
 
@@ -62,7 +62,8 @@ def createdb():
             ofx.stmttrn.dtposted AS date,
             ofx.stmttrn.trnamt AS amount,
             concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-            ofx.acctfrom.name AS account
+            ofx.acctfrom.name AS account,
+            ofx.stmttrn.acctfrom_id as account_id
         FROM ofx.stmttrn
         LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
                 ofx.stmttrn.acctfrom_id)
@@ -80,7 +81,8 @@ def createdb():
                ofx.stmttrn.trnamt AS amount,
                concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
                ofx.stmttrn.trntype as type,
-               ofx.acctfrom.name AS account
+               ofx.acctfrom.name AS account,
+               ofx.stmttrn.acctfrom_id as account_id
         FROM ofx.stmttrn
         JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
         ORDER BY ofx.stmttrn.dtposted DESC;
@@ -132,15 +134,19 @@ def import_ofx():
 def update_ofx():
     sync_ofx()
     from pacioli.controllers.ofx_views import Transactions, AccountsFrom
-    start = datetime.now().date() - timedelta(days=1)
-    new_transactions = (db.session.query(db.func.concat(Transactions.fitid, Transactions.acctfrom_id).label('id'),
-                                        Transactions.dtposted.label('date'), Transactions.trnamt.label('amount'),
-                                        db.func.concat(Transactions.name, ' ', Transactions.memo).label('description'))
-                        .join(AccountsFrom, AccountsFrom.id == Transactions.acctfrom_id)
-                        .filter(Transactions.dtposted > start)
-                        .order_by(Transactions.fitid.desc()).all())
+    start = datetime.now().date() - timedelta(days=5)
+    new_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
+                                         Transactions.description, Transactions.account)
+                        .filter(Transactions.date > start)
+                        .order_by(Transactions.date.desc()).all())
     if new_transactions:
-        html_body = results_to_table(new_transactions)
+        header = ['ID', 'Date', 'Amount', 'Description', 'Account']
+        transactions = [[cell for cell in row] for row in new_transactions]
+        for row in transactions:
+            row[0] = '...' + str(row[0])[-4:-1]
+            row[1] = row[1].date()
+            row[2] = '{0:,.2f}'.format(row[2])
+        html_body = results_to_email_template('New Transactions', '', header, transactions)
         msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
 
