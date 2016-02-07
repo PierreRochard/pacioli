@@ -1,12 +1,12 @@
 from datetime import datetime, date
 
 from dateutil.tz import tzlocal
-from flask import redirect, request, url_for
+from flask import redirect, request, url_for, current_app
 from flask.ext.admin import expose
 from ofxtools import OFXClient
-from ofxtools.ofxalchemy import OFXParser
+from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.Client import CcAcct, BankAcct
-from sqlalchemy import PrimaryKeyConstraint, func
+from sqlalchemy import PrimaryKeyConstraint, func, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
 from wtforms import Form, HiddenField
@@ -58,8 +58,11 @@ def sync_ofx():
 
         response = ofx_client.download(request)
         parser = OFXParser()
+        engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
+        DBSession.configure(bind=engine)
         parser.parse(response)
         parser.instantiate()
+        DBSession.commit()
         connection.synced_at = datetime.now(tzlocal())
         db.session.commit()
 
