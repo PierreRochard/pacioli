@@ -1,9 +1,9 @@
-import uuid
-
 import os
 import shutil
 import subprocess
 import sys
+import uuid
+
 
 python = sys.executable
 
