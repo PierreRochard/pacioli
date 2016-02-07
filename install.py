@@ -47,7 +47,7 @@ settings_file = os.path.join(pacioli_directory, 'settings.py')
 example_settings_file = os.path.join(pacioli_directory, 'settings_example.py')
 if not os.path.exists(settings_file):
     shutil.copy(example_settings_file, settings_file)
-    print 'Update pacioli/settings.py before proceeding.'
+    print 'Update pacioli/settings.py and then run this script again.'
     sys.exit(0)
 
 print subprocess.Popen([python, 'manage.py', 'createdb'], stdout=subprocess.PIPE).stdout.read()

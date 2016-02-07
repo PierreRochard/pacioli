@@ -1,37 +1,7 @@
-git clone https://github.com/PierreRochard/pacioli
 
-git clone https://github.com/mattupstate/flask-security
-
-git clone https://github.com/PierreRochard/ofxtools
-
-pip install -r pacioli/instance-requirements.txt
-
-
-cd ofxtools/
-
-python setup.py install
-
-cd ..
-
-cd flask-security/
-
-git checkout develop
-
-python setup.py install
-
-python manage.py createdb
-
-python manage.py create_admin -e you@gmail.com -p password
-
-python manage.py populate_chart_of_accounts
-
-python manage.py populate_chart_of_accounts
-
-python manage.py db init
-
-python manage.py db migrate
-
-python manage.py db upgrade
-
-
-
+1. Install [PostgreSQL](http://www.postgresql.org/)
+2. Create a user and a new database called "pacioli" ([Instructions](http://killtheyak.com/use-postgresql-with-django-flask/))
+3. python -m venv venv;
+4. . venv/bin/activate
+5. python install.py
+6. python manage.py runserver
