@@ -101,14 +101,20 @@ def create_admin(email, password):
     admin.password = encrypt_password(password)
     admin.active = True
     admin.confirmed_at = datetime.now(tzlocal())
-    db.session.add(admin)
-    db.session.commit()
+    try:
+        db.session.add(admin)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
 
     superuser = Role()
     superuser.name = 'superuser'
     superuser.description = 'superuser'
-    db.session.add(superuser)
-    db.session.commit()
+    try:
+        db.session.add(superuser)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
 
     admin.roles.append(superuser)
     db.session.commit()
