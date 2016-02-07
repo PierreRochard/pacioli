@@ -20,6 +20,10 @@ from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connection
 
 
 def sync_ofx():
+    for account in db.session.query(AccountsFrom).filter(AccountsFrom.name.is_(None)).all():
+        account.name = ''
+        db.session.commit()
+
     for connection in db.session.query(Connections).filter(Connections.source == 'ofx').all():
         if connection.type in ['Checking', 'Savings']:
             try:

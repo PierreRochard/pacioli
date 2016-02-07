@@ -8,7 +8,6 @@ Flask-DebugToolbar
 Flask-Login
 Flask-Migrate
 Flask-SQLAlchemy
-Flask-Security
 Flask-Script
 Flask-WTF
 
