@@ -15,7 +15,7 @@ from ofxtools.ofxalchemy import OFXParser
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
-from pacioli.controllers.utilities import results_to_table, results_to_email_template
+from pacioli.controllers.utilities import results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 from pacioli.controllers.ofx_views import sync_ofx
 
