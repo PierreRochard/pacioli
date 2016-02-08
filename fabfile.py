@@ -26,7 +26,6 @@ ec2_resource = session.resource('ec2')
 rds_client = session.client('rds')
 
 route53_client = session.client('route53')
-print(AWS_SSH_PRIVATE_KEY_FILE)
 if not os.path.isfile(AWS_SSH_PRIVATE_KEY_FILE):
     key = ec2_client.create_key_pair(KeyName=AWS_KEY_PAIR_NAME)
     with open(AWS_SSH_PRIVATE_KEY_FILE, 'w') as f:
@@ -184,11 +183,13 @@ def install_cbtools():
 
 
 def update_cron():
-    run('touch mycron')
-    run('sudo echo "30 11,23 * * * cd /home/ec2-user/pacioli/ && python manage.py update_ofx" >> mycron')
-    # run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && python cbtools/main.py" >> mycron')
-    run('sudo crontab mycron')
-    run('sudo rm -f mycron')
+    with open('remote_cron', 'w') as cron_file:
+        cron_file.write('pacioli_ENV=prod\n')
+        cron_file.write('30 11 * * * cd /home/ec2-user/pacioli/ && python manage.py update_ofx\n')
+    put('remote_cron', 'remote_cron', use_sudo=True)
+    run('sudo crontab remote_cron')
+    run('sudo rm -f remote_cron')
+    os.remove('remote_cron')
 
 
 def mail():
