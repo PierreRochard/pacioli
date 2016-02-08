@@ -59,3 +59,11 @@ print subprocess.Popen([python, 'manage.py', 'create_admin', '-e', 'admin@localh
                        stdout=subprocess.PIPE).stdout.read()
 
 print 'admin@localhost password: {0}'.format(admin_password)
+
+with open('mycron', 'w') as cron_file:
+    cron_file.write('30 11,23 * * * cd {0} && python manage.py update_ofx'.format(
+            os.path.dirname(os.path.abspath(__file__))))
+
+print subprocess.Popen(['crontab', 'mycron'], stdout=subprocess.PIPE).stdout.read()
+
+os.remove('mycron')
