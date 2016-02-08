@@ -185,7 +185,7 @@ def install_cbtools():
 
 def update_cron():
     run('touch mycron')
-    run('sudo echo "30 11,23 * * * cd /home/ec2-user/pacioli/plugins/ && python manage.py update_ofx" >> mycron')
+    run('sudo echo "30 11,23 * * * cd /home/ec2-user/pacioli/ && python manage.py update_ofx" >> mycron')
     # run('sudo echo "30 11,23 * * * cd /home/ec2-user/cbtools/ && python cbtools/main.py" >> mycron')
     run('sudo crontab mycron')
     run('sudo rm -f mycron')
@@ -268,12 +268,6 @@ def create_admin():
 
 def cron():
     run('sudo tail /var/log/cron')
-
-
-def ofx():
-    put('plugins/ofx_mappings.xlsx', '/home/ec2-user/pacioli/plugins/ofx_mappings.xlsx')
-    with cd('/home/ec2-user/pacioli/plugins/'):
-        run('python ofx.py -u')
 
 
 def python_error():
