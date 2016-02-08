@@ -134,7 +134,7 @@ def import_ofx():
 def update_ofx():
     sync_ofx()
     from pacioli.controllers.ofx_views import Transactions, AccountsFrom
-    start = datetime.now().date() - timedelta(days=5)
+    start = datetime.now().date() - timedelta(days=1)
     new_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
                                          Transactions.description, Transactions.account)
                         .filter(Transactions.date > start)
