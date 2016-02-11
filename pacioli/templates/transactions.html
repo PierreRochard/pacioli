@@ -1,5 +1,11 @@
 {% extends 'admin/model/list.html' %}
 
+{% block model_menu_bar_before_filters %}
+    <li>
+    <a href="{{ get_url('ofx/new-transactions.apply_all_mappings_view') }}" title="Apply Mappings">Apply Mappings</a>
+    </li>
+{% endblock %}
+
 {% block body %}
     <h2>Transactions</h2>
     {{ super() }}
