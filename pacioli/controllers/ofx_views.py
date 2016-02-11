@@ -73,7 +73,32 @@ def sync_ofx():
 
 
 def apply_all_mappings():
-    pass
+    for mapping in db.session.query(Mappings).all():
+        matched_transactions = (db.session.query(Transactions.id,  Transactions.date, Transactions.amount,
+                                                 Transactions.description, Transactions.account)
+                                .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
+                                .filter(JournalEntries.transaction_id.is_(None))
+                                .filter(func.lower(Transactions.description).like('%' + mapping.keyword.lower() + '%'))
+                                .order_by(Transactions.date.desc()).all())
+        for transaction in matched_transactions:
+            new_journal_entry = JournalEntries()
+            new_journal_entry.transaction_id = transaction.id
+            new_journal_entry.transaction_source = 'ofx'
+            new_journal_entry.timestamp = transaction.date
+            if transaction.amount > 0:
+                new_journal_entry.debit_subaccount = transaction.account
+                new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount
+            elif transaction.amount < 0:
+                new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount
+                new_journal_entry.credit_subaccount = transaction.account
+            else:
+                raise Exception()
+            new_journal_entry.functional_amount = transaction.amount
+            new_journal_entry.functional_currency = 'USD'
+            new_journal_entry.source_amount = transaction.amount
+            new_journal_entry.source_currency = 'USD'
+            db.session.add(new_journal_entry)
+            db.session.commit()
 
 
 def apply_single_mapping(mapping_id):
@@ -205,6 +230,10 @@ def register_ofx(app):
             apply_single_mapping(mapping_id)
             return redirect(url_for('ofx/new-transactions.index_view'))
 
+        @expose('/apply-all-mappings/')
+        def apply_all_mappings_view(self):
+            apply_all_mappings()
+            return redirect(url_for('ofx/new-transactions.index_view'))
 
             # @expose('/post/<transaction_id>/')
             # def post(self, transaction_id):

@@ -1,42 +1,34 @@
 Element,Classification,Account,Cash Source,Subaccount
-Assets,Current Assets,Cash,,Chase Checking
-Assets,Current Assets,Cash,,Chase Checking - Deposits in Transit
-Assets,Current Assets,Cash,,Chase Savings
-Assets,Current Assets,Cash,,Chase Savings - Deposits in Transit
-Assets,Current Assets,Cash,,Coinbase USD Wallet
-Assets,Current Assets,Cash,,Coinbase USD Wallet - Deposits in Transit
-Assets,Current Assets,Cash,,Coinbase Exchange USD Trading Account
-Assets,Current Assets,Cash,,Coinbase Exchange USD Trading Account - Deposits in Transit
-Assets,Current Assets,Bitcoins,,Armory
-Assets,Current Assets,Bitcoins,,Bitcoin-QT
-Assets,Current Assets,Bitcoins,,Electrum
-Assets,Current Assets,Bitcoins,,MultiBit
+Assets,Current Assets,Cash,,Checking
+Assets,Current Assets,Cash,,Checking - Deposits in Transit
+Assets,Current Assets,Cash,,Savings
+Assets,Current Assets,Cash,,Savings - Deposits in Transit
 Assets,Current Assets,Accounts Receivable,Operating,Accounts Receivable
-Assets,Current Assets,Prepaids,Operating,Prepaid Groceries
-Assets,Current Assets,Prepaids,Operating,Prepaid Transportation
-Assets,Current Assets,Prepaids,Operating,Prepaid Public Transportation
-Assets,Current Assets,Inventory,Operating,Inventory
+Assets,Current Assets,Prepaid Expenses,Operating,Prepaid Groceries
+Assets,Current Assets,Prepaid Expenses,Operating,Prepaid Public Transportation
 Assets,Current Assets,Prepaid Expenses,Operating,Prepaid Expenses
-Assets,Long-term Investments,Bitcoins,Investing,Cold Wallet
 Liabilities,Current Liabilities,Accounts Payable,Operating,Accounts Payable
 Liabilities,Current Liabilities,Accounts Payable,Operating,Credit Card
-Liabilities,Long-term Liabilities,Notes Payable,Financing,Notes Payable
-Liabilities,Long-term Liabilities,Student Loans,Financing,Student Loans - Payment in Transit
+Liabilities,Long-term Liabilities,Notes Payable,Financing,Student Loans
+Liabilities,Long-term Liabilities,Notes Payable,Financing,Student Loans - Payment in Transit
 Capital Contributions,Personal Equity,Personal Equity,Financing,Personal Equity
 Capital Distributions,Personal Equity,Personal Equity,Financing,Personal Equity
-Revenues,Revenues,Revenues,Operating,Revenues
-Revenues,Revenues,Salary,Operating,Salary
-Expenses,Fixed Costs,Rent Expense,Operating,Rent
-Expenses,Fixed Costs,Utilities Expense,Operating,Gas
-Expenses,Fixed Costs,Utilities Expense,Operating,Electricity
-Expenses,Fixed Costs,Communications Expense,Operating,Cell Phone
-Expenses,Fixed Costs,Communications Expense,Operating,Internet
-Expenses,Fixed Costs,Medical Expense,Operating,Medical Insurance
-Expenses,Fixed Costs,Transportation Expense,Operating,Public transportation
-Expenses,Fixed Costs,Groceries Expense,Operating,Groceries
-Expenses,Fixed Costs,Interest Expense,Operating,Interest
-Expenses,Discretionary Costs,Discretionary Costs,Operating,Discretionary Costs
-Expenses,Discretionary Costs,Discretionary Costs,Operating,Amazon Suspense Account
+Revenues,Revenues,Employment Income,Operating,Salary
+Revenues,Revenues,Employment Income,Operating,Bonus
+Expenses,Fixed Costs,Housing Expenses,Operating,Rent
+Expenses,Fixed Costs,Utilities Expenses,Operating,Gas
+Expenses,Fixed Costs,Utilities Expenses,Operating,Electricity
+Expenses,Fixed Costs,Utilities Expenses,Operating,Cell Phone
+Expenses,Fixed Costs,Utilities Expenses,Operating,Internet
+Expenses,Fixed Costs,Medical Expenses,Operating,Insurance
+Expenses,Fixed Costs,Medical Expenses,Operating,Copay
+Expenses,Fixed Costs,Medical Expenses,Operating,Other Out of Pocket
+Expenses,Fixed Costs,Transportation Expenses,Operating,Public transportation
+Expenses,Fixed Costs,Transportation Expenses,Operating,Taxi
+Expenses,Fixed Costs,Groceries Expenses,Operating,Groceries
+Expenses,Fixed Costs,Interest Expense,Operating,Student Loan Interest
+Expenses,Discretionary Costs,Personal Expenses,Operating,Personal Expenses
+Expenses,Discretionary Costs,Personal Expenses,Operating,Amazon Suspense Account
 Expenses,Discretionary Costs,Restaurant Expense,Operating,Restaurants
 Expenses,Discretionary Costs,Entertainment Expense,Operating,Entertainment
 Expenses,Discretionary Costs,Clothing Expense,Operating,Clothing

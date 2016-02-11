@@ -61,3 +61,5 @@ plugins/*.html
 plugins/*.xlsx
 
 libraries/
+
+Chart of Accounts.csv

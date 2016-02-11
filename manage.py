@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 from pacioli import create_app, mail
 from pacioli.controllers.utilities import results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
-from pacioli.controllers.ofx_views import sync_ofx
+from pacioli.controllers.ofx_views import sync_ofx, apply_all_mappings
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -149,11 +149,12 @@ def update_ofx():
         html_body = results_to_email_template('New Transactions', '', header, transactions)
         msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
+    apply_all_mappings()
 
 
 @manager.command
 def populate_chart_of_accounts():
-    chart_of_accounts_csv = os.path.join(os.path.dirname(__file__), 'Chart of Accounts.csv')
+    chart_of_accounts_csv = os.path.join(os.path.dirname(__file__), 'Generic Chart of Accounts.csv')
     with open(chart_of_accounts_csv) as csv_file:
         reader = csv.reader(csv_file)
         rows = [pair for pair in reader]
