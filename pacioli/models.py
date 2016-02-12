@@ -33,6 +33,7 @@ class User(db.Model, UserMixin):
     login_count = db.Column(db.Integer)
     roles = db.relationship('Role', secondary=roles_users, backref=db.backref('users'))
 
+
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 
 
@@ -64,10 +65,18 @@ class Mappings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     source = db.Column(db.String)
     keyword = db.Column(db.String)
-    positive_debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    positive_credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    negative_debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    negative_credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+
+    positive_debit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_debit_subaccount = db.relationship('Subaccounts', foreign_keys=[positive_debit_subaccount_id])
+
+    positive_credit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_credit_subaccount = db.relationship('Subaccounts', foreign_keys=[positive_credit_subaccount_id])
+
+    negative_debit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_debit_subaccount = db.relationship('Subaccounts', foreign_keys=[negative_debit_subaccount_id])
+
+    negative_credit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_credit_subaccount = db.relationship('Subaccounts', foreign_keys=[negative_credit_subaccount_id])
 
 
 class JournalEntries(db.Model):
@@ -143,5 +152,3 @@ class Elements(db.Model):
 
     def __repr__(self):
         return self.name
-
-

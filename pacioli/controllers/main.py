@@ -4,6 +4,7 @@ from dateutil.tz import tzlocal
 from flask import Blueprint
 from flask import url_for, redirect
 from flask.ext.admin import expose
+from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.security.utils import encrypt_password
 from pacioli.controllers.utilities import date_formatter
 from wtforms import StringField
@@ -57,6 +58,9 @@ class MappingsModelView(PacioliModelView):
                    'positive_credit_subaccount', 'negative_debit_subaccount', 'negative_credit_subaccount')
     form_columns = column_list
     column_sortable_list = column_list
+    subaccount_loader = dict(fields=('name',), page_size=10, placeholder='-')
+    form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
+                          negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))

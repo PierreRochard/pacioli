@@ -260,6 +260,12 @@ def create_db():
             run('python manage.py createdb')
 
 
+def populate_chart_of_accounts():
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python manage.py populate_chart_of_accounts')
+
+
 def create_admin():
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):

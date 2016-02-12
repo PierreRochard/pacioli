@@ -63,3 +63,5 @@ plugins/*.xlsx
 libraries/
 
 Chart of Accounts.csv
+
+migrations/versions
