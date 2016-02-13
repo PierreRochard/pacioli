@@ -148,7 +148,7 @@ def install():
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     run('mkdir ~/pacioli/logs/')
 
-    run('git clone https://github.com/mattupstate/flask-security')
+    run('git clone https://github.com/PierreRochard/flask-security')
     with cd('flask-security'):
         run('git checkout develop')
         run('sudo python setup.py install')

@@ -26,7 +26,7 @@ else:
 
 flask_security_directory = os.path.join(library_directory, 'flask-security')
 if not os.path.exists(flask_security_directory):
-    print subprocess.Popen(['git', 'clone', 'https://github.com/mattupstate/flask-security', flask_security_directory],
+    print subprocess.Popen(['git', 'clone', 'https://github.com/PierreRochard/flask-security', flask_security_directory],
                            stdout=subprocess.PIPE).stdout.read()
     print subprocess.Popen(['git', 'checkout', 'develop'], cwd=flask_security_directory,
                            stdout=subprocess.PIPE).stdout.read()

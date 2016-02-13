@@ -62,6 +62,7 @@ def createdb():
             ofx.stmttrn.dtposted AS date,
             ofx.stmttrn.trnamt AS amount,
             concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+               ofx.stmttrn.trntype as type,
             ofx.acctfrom.name AS account,
             ofx.stmttrn.acctfrom_id as account_id
         FROM ofx.stmttrn
@@ -91,7 +92,7 @@ def createdb():
 
 @manager.command
 def dropdb():
-    db.drop_all()
+    # db.drop_all()
     OFX_Base.metadata.drop_all(db.engine)
 
 

@@ -88,6 +88,8 @@ class JournalEntries(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     transaction_id = db.Column(db.String)
     transaction_source = db.Column(db.String)
+    mapping_id = db.Column(db.Integer, db.ForeignKey('admin.mappings.id'))
+    mapping = db.relationship('Mappings', backref='journal_entries',)
 
     timestamp = db.Column(db.DateTime(timezone=True))
     debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))

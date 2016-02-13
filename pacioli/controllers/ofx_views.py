@@ -87,9 +87,9 @@ def apply_all_mappings():
             new_journal_entry.timestamp = transaction.date
             if transaction.amount > 0:
                 new_journal_entry.debit_subaccount = transaction.account
-                new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount
+                new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
             elif transaction.amount < 0:
-                new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount
+                new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
                 new_journal_entry.credit_subaccount = transaction.account
             else:
                 raise Exception()
@@ -112,13 +112,14 @@ def apply_single_mapping(mapping_id):
     for transaction in matched_transactions:
         new_journal_entry = JournalEntries()
         new_journal_entry.transaction_id = transaction.id
+        new_journal_entry.mapping_id = mapping_id
         new_journal_entry.transaction_source = 'ofx'
         new_journal_entry.timestamp = transaction.date
         if transaction.amount > 0:
             new_journal_entry.debit_subaccount = transaction.account
-            new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount
+            new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
         elif transaction.amount < 0:
-            new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount
+            new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
             new_journal_entry.credit_subaccount = transaction.account
         else:
             raise Exception()
@@ -172,10 +173,12 @@ def register_ofx(app):
 
     class NewTransactionsView(OFXModelView):
         column_default_sort = ('date', True)
+        column_list = ['id', 'date', 'account', 'amount', 'description', 'type']
         column_searchable_list = ['description']
-        column_filters = ['id', 'date', 'amount', 'description', 'account']
+        column_filters = column_list
         column_labels = dict(id='ID')
-        column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter)
+        column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
+                                 type=type_formatter)
 
         can_edit = False
 
@@ -189,8 +192,8 @@ def register_ofx(app):
                 new_mapping = Mappings()
                 new_mapping.source = 'ofx'
                 new_mapping.keyword = form['keyword']
-                new_mapping.positive_credit_subaccount = form['subaccount']
-                new_mapping.negative_debit_subaccount = form['subaccount']
+                new_mapping.positive_credit_subaccount_id = form['subaccount']
+                new_mapping.negative_debit_subaccount_id = form['subaccount']
                 try:
                     db.session.add(new_mapping)
                     db.session.commit()
@@ -218,8 +221,8 @@ def register_ofx(app):
             new_mapping = Mappings()
             new_mapping.source = 'ofx'
             new_mapping.keyword = keyword
-            new_mapping.positive_credit_subaccount = expense_account
-            new_mapping.negative_debit_subaccount = expense_account
+            new_mapping.positive_credit_subaccount_id = expense_account
+            new_mapping.negative_debit_subaccount_id = expense_account
             try:
                 db.session.add(new_mapping)
                 db.session.commit()

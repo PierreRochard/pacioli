@@ -19,6 +19,7 @@ jsmin
 premailer
 python-dateutil
 psycopg2
+pytz
 
 # Testing
 pytest
