@@ -1,7 +1,7 @@
 from datetime import datetime, date
 
 from dateutil.tz import tzlocal
-from flask import redirect, request, url_for, current_app, abort
+from flask import redirect, request, url_for, current_app
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField
@@ -12,7 +12,6 @@ from sqlalchemy import PrimaryKeyConstraint, func, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
 from wtforms import Form, HiddenField
-from wtforms.ext.sqlalchemy.fields import QuerySelectField
 
 from pacioli.controllers import PacioliModelView
 from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
@@ -184,8 +183,8 @@ def register_ofx(app):
         can_edit = False
         list_template = 'new_transactions.html'
 
-        ajax_subaccount_loader = QueryAjaxModelLoader('subaccounts', db.session,
-                                                      Subaccounts, fields=['name'], page_size=10)
+        ajax_subaccount_loader = QueryAjaxModelLoader('subaccounts', db.session, Subaccounts, fields=['name'],
+                                                      page_size=10, placeholder='Expense Subaccount')
 
         form_ajax_refs = {'subaccounts': ajax_subaccount_loader}
 

@@ -1,32 +1,50 @@
 {% extends 'admin/model/list.html' %}
 {% block model_menu_bar_before_filters %}
     <li>
-    <a href="{{ get_url('ofx/new-transactions.apply_all_mappings_view') }}" title="Apply Mappings">Apply Mappings</a>
+    <a href="{{ get_url('ofx/new-transactions.apply_all_mappings_view') }}" title="Apply All Mappings">Apply All Mappings</a>
     </li>
 {% endblock %}
 
-{% block body %}
-    <h2>New Transactions</h2>
+{% block model_menu_bar_after_filters %}
+
     {% if search %}
+        <li>
         <form  action="{{ url_for('ofx/new-transactions.index_view')}}" method="POST"  class="form-inline">
         <div class="form-group">
-            <label>Account</label>
             {{ new_mapping_form.subaccount() }}
         </div>
             {{ new_mapping_form.keyword(value=search) }}
         <input class="btn btn-primary" type=submit value="Apply">
         </form>
+        </li>
+        <li class="dropdown">
+            <a class="dropdown-toggle" data-toggle="dropdown" href="javascript:void(0)">
+                Favorites<b class="caret"></b>
+            </a>
+            <ul class="dropdown-menu">
+                <li>
+                    <a href="{{ url_for('ofx/new-transactions.favorite', expense_account='Restaurants', keyword=search) }}">
+                        Restaurant
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('ofx/new-transactions.favorite', expense_account='Groceries', keyword=search) }}">
+                        Groceries
+                    </a>
+                </li>
+            </ul>
+        </li>
     <br>
         <div class="btn-group" role="group">
-        <a class="btn btn-default" type="button" href="{{ url_for('ofx/new-transactions.favorite', expense_account='Restaurants', keyword=search) }}">
-        Restaurant
-        </a>
-        <a class="btn btn-default" type="button" href="{{ url_for('ofx/new-transactions.favorite', expense_account='Groceries', keyword=search) }}">
-        Groceries
-        </a>
+
         </div>
         <br>
         <br>
     {% endif %}
+    {{ super() }}
+{% endblock %}
+
+{% block body %}
+    <h2>New Transactions</h2>
     {{ super() }}
 {% endblock %}

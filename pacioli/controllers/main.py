@@ -4,7 +4,6 @@ from dateutil.tz import tzlocal
 from flask import Blueprint
 from flask import url_for, redirect
 from flask.ext.admin import expose
-from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.security.utils import encrypt_password
 from pacioli.controllers.utilities import date_formatter
 from wtforms import StringField
