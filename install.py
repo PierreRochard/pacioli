@@ -36,11 +36,20 @@ else:
     print subprocess.Popen(['git', 'pull'], cwd=flask_security_directory,
                            stdout=subprocess.PIPE).stdout.read()
 
+flask_admin_directory = os.path.join(library_directory, 'flask-admin')
+if not os.path.exists(flask_admin_directory):
+    print subprocess.Popen(['git', 'clone', 'https://github.com/PierreRochard/flask-admin', flask_admin_directory],
+                           stdout=subprocess.PIPE).stdout.read()
+else:
+    print subprocess.Popen(['git', 'pull'], stdout=subprocess.PIPE, cwd=flask_admin_directory).stdout.read()
+
 
 print subprocess.Popen([python, 'setup.py', 'install'], stdout=subprocess.PIPE,
                        cwd=ofxtools_directory).stdout.read()
 print subprocess.Popen([python, 'setup.py', 'install'], stdout=subprocess.PIPE,
                        cwd=flask_security_directory).stdout.read()
+print subprocess.Popen([python, 'setup.py', 'install'], stdout=subprocess.PIPE,
+                       cwd=flask_admin_directory).stdout.read()
 
 pacioli_directory = os.path.join(os.path.dirname(__file__), 'pacioli')
 settings_file = os.path.join(pacioli_directory, 'settings.py')

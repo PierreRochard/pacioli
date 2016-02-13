@@ -143,7 +143,6 @@ def install():
     run('git clone https://github.com/PierreRochard/ofxtools')
     with cd('/home/ec2-user/ofxtools/'):
         run('sudo python setup.py install')
-        run('sudo python setup.py install')
 
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
     run('mkdir ~/pacioli/logs/')
@@ -152,6 +151,9 @@ def install():
     with cd('flask-security'):
         run('git checkout develop')
         run('sudo python setup.py install')
+
+    run('git clone https://github.com/PierreRochard/flask-admin')
+    with cd('flask-admin'):
         run('sudo python setup.py install')
 
     # SUPERVISORD
@@ -218,15 +220,17 @@ def update():
 
     run('sudo pip install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
 
-    with cd('/home/ec2-user/ofxtools/'):
+    with cd('ofxtools'):
         run('git pull')
-        run('sudo python setup.py install')
         run('sudo python setup.py install')
 
     with cd('flask-security'):
         run('git checkout develop')
         run('git pull')
         run('sudo python setup.py install')
+
+    with cd('flask-admin'):
+        run('git pull')
         run('sudo python setup.py install')
 
     with cd('/home/ec2-user/pacioli/'):
