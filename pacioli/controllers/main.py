@@ -61,7 +61,6 @@ class MappingsModelView(PacioliModelView):
     subaccount_loader = dict(fields=('name',), page_size=10, placeholder='-')
     form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
-    inline_models = (JournalEntries,)
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))

@@ -1,8 +1,10 @@
 from datetime import datetime, date
 
 from dateutil.tz import tzlocal
-from flask import redirect, request, url_for, current_app
+from flask import redirect, request, url_for, current_app, abort
 from flask.ext.admin import expose
+from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
+from flask.ext.admin.model.fields import AjaxSelectField
 from ofxtools import OFXClient
 from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.Client import CcAcct, BankAcct
@@ -179,10 +181,13 @@ def register_ofx(app):
         column_labels = dict(id='ID')
         column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
                                  type=type_formatter)
-
         can_edit = False
-
         list_template = 'new_transactions.html'
+
+        ajax_subaccount_loader = QueryAjaxModelLoader('subaccounts', db.session,
+                                                      Subaccounts, fields=['name'], page_size=10)
+
+        form_ajax_refs = {'subaccounts': ajax_subaccount_loader}
 
         @expose('/', methods=('GET', 'POST'))
         def index_view(self):
@@ -204,12 +209,9 @@ def register_ofx(app):
                 apply_single_mapping(mapping_id)
                 return redirect(url_for('ofx/new-transactions.index_view'))
 
-            def available_subaccounts():
-                return Subaccounts.query.order_by(Subaccounts.parent).order_by(Subaccounts.name)
-
             class NewOFXTransactionMapping(Form):
                 keyword = HiddenField()
-                subaccount = QuerySelectField(query_factory=available_subaccounts, allow_blank=False)
+                subaccount = AjaxSelectField(loader=self.ajax_subaccount_loader, allow_blank=False)
 
             new_mapping_form = NewOFXTransactionMapping()
 
