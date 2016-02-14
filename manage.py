@@ -50,6 +50,10 @@ def createdb():
         db.engine.execute('CREATE SCHEMA pacioli;')
     except ProgrammingError:
         pass
+    try:
+        db.engine.execute('CREATE SCHEMA amazon;')
+    except ProgrammingError:
+        pass
 
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
