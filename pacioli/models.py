@@ -1,7 +1,6 @@
-from flask.ext.security import RoleMixin, UserMixin, SQLAlchemyUserDatastore, Security
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask.ext.security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
+from pacioli.extensions import db
 
-db = SQLAlchemy()
 
 roles_users = db.Table('roles_users',
                        db.Column('user_id', db.Integer(), db.ForeignKey('admin.user.id')),
@@ -154,3 +153,72 @@ class Elements(db.Model):
 
     def __repr__(self):
         return self.name
+
+
+class AmazonCategories(db.Model):
+    __table_args__ = {'schema': 'amazon'}
+    __tablename__ = 'categories'
+
+    name = db.Column(db.String, primary_key=True)
+
+    items = db.relationship('AmazonItems',
+                            backref='category',
+                            lazy="select",
+                            cascade="save-update, merge, delete")
+
+    def __repr__(self):
+        return self.name
+
+
+class AmazonOrders(db.Model):
+    __table_args__ = {'schema': 'amazon'}
+    __tablename__ = 'orders'
+
+    id = db.Column(db.String, primary_key=True)
+    order_date = db.Column(db.Date)
+
+    items = db.relationship('AmazonItems',
+                            backref='order',
+                            lazy="select",
+                            cascade="save-update, merge, delete")
+
+    def __repr__(self):
+        return self.id
+
+
+class AmazonItems(db.Model):
+    __table_args__ = {'schema': 'amazon'}
+    __tablename__ = 'items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.String, db.ForeignKey('amazon.orders.id'))
+    title = db.Column(db.String)
+    category_id = db.Column(db.String, db.ForeignKey('amazon.categories.id'))
+    isbn = db.Column(db.String)
+    unspsc_code = db.Column(db.Integer)
+    website = db.Column(db.String)
+    release_date = db.Column(db.Date)
+    condition = db.Column(db.String)
+    seller = db.Column(db.String)
+    list_price_per_unit = db.Column(db.Numeric)
+    purchase_price_per_unit = db.Column(db.Numeric)
+    quantity = db.Column(db.Integer)
+    payment_instrument_type = db.Column(db.String)
+    ordering_customer_email = db.Column(db.String)
+    shipment_date = db.Column(db.Date)
+    shipping_address_name = db.Column(db.String)
+    shipping_address_street_1 = db.Column(db.String)
+    shipping_address_street_2 = db.Column(db.String)
+    shipping_address_city = db.Column(db.String)
+    shipping_address_state = db.Column(db.String)
+    shipping_address_zip = db.Column(db.String)
+    order_status = db.Column(db.String)
+    carrier_name_and_tracking_number = db.Column(db.String)
+    item_subtotal = db.Column(db.Numeric)
+    item_subtotal_tax = db.Column(db.Numeric)
+    item_total = db.Column(db.Numeric)
+    buyer_name = db.Column(db.String)
+    currency = db.Column(db.String)
+
+    def __repr__(self):
+        return self.title

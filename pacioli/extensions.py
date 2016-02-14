@@ -2,6 +2,7 @@ from flask.ext.admin import Admin
 from flask.ext.cache import Cache
 from flask.ext.debugtoolbar import DebugToolbarExtension
 from flask.ext.mail import Mail
+from flask.ext.sqlalchemy import SQLAlchemy
 from flask_assets import Environment
 
 cache = Cache()
@@ -16,3 +17,5 @@ admin = Admin(url='/',
               template_mode='bootstrap3')
 
 mail = Mail()
+
+db = SQLAlchemy()
