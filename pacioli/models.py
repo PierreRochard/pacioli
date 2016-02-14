@@ -193,7 +193,7 @@ class AmazonItems(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.String, db.ForeignKey('amazon.orders.id'))
     title = db.Column(db.String)
-    category_id = db.Column(db.String, db.ForeignKey('amazon.categories.id'))
+    category_id = db.Column(db.String, db.ForeignKey('amazon.categories.name'))
     isbn = db.Column(db.String)
     unspsc_code = db.Column(db.Integer)
     website = db.Column(db.String)
