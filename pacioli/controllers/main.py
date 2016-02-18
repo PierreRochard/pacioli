@@ -33,6 +33,9 @@ class ConnectionsModelView(PacioliModelView):
                    'account_number', 'user', 'synced_at')
     form_choices = dict(type=[('Checking', 'Checking'), ('Savings', 'Savings'), ('Credit Card', 'Credit Card')],
                         source=[('ofx', 'ofx')])
+    column_editable_list = column_list[1:]
+    column_labels = dict(id='ID', url='URL', fid='FID')
+    column_formatters = dict(synced_at=date_formatter)
 
     def create_model(self, form):
         # TODO: store the password in an encrypted form
@@ -60,6 +63,8 @@ class MappingsModelView(PacioliModelView):
     subaccount_loader = dict(fields=('name',), page_size=10, placeholder='-')
     form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
+
+    column_editable_list = ('keyword',)
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
