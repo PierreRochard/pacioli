@@ -75,7 +75,12 @@ class TaxonomyModelView(PacioliModelView):
     column_searchable_list = ['name']
 
 
-admin.add_view(PacioliModelView(JournalEntries, db.session, category='Bookkeeping'))
+class JournalEntriesView(PacioliModelView):
+    column_list = ('transaction_id', 'transaction_source', 'timestamp', 'functional_amount')
+    column_formatters = dict(timestamp=date_formatter)
+
+
+admin.add_view(JournalEntriesView(JournalEntries, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Subaccounts, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Accounts, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Classifications, db.session, category='Bookkeeping'))

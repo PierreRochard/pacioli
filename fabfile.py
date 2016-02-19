@@ -287,3 +287,9 @@ def python_error():
 
 def nginx_error():
     run('cat /home/ec2-user/pacioli/logs/nginx/*.log | tail')
+
+
+def update_ofx():
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python manage.py update_ofx')
