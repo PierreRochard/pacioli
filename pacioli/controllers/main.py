@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from dateutil.tz import tzlocal
-from flask import Blueprint
 from flask import url_for, redirect
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
@@ -13,9 +12,6 @@ from pacioli.controllers.ofx_views import sync_ofx
 from pacioli.extensions import admin
 from pacioli.models import (db, User, Role, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, Connections, Mappings)
-
-
-main = Blueprint('main', __name__)
 
 
 class UserModelView(PacioliModelView):
@@ -32,7 +28,7 @@ class ConnectionsModelView(PacioliModelView):
     column_list = ('id', 'source', 'type', 'url', 'org', 'fid', 'routing_number',
                    'account_number', 'user', 'synced_at')
     form_choices = dict(type=[('Checking', 'Checking'), ('Savings', 'Savings'), ('Credit Card', 'Credit Card')],
-                        source=[('ofx', 'ofx')])
+                        source=[('ofx', 'ofx'), ('amazon', 'amazon'), ('gmail', 'gmail')])
     column_editable_list = column_list[1:]
     column_labels = dict(id='ID', url='URL', fid='FID')
     column_formatters = dict(synced_at=date_formatter)
