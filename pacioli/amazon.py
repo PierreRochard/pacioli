@@ -12,7 +12,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 
-def request_report():
+def request_amazon_report():
     br = mechanize.Browser()
     br.set_handle_robots(False)
     br.addheaders = [('User-agent',

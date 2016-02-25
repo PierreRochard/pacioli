@@ -12,6 +12,7 @@ from flask.ext.security.utils import encrypt_password
 from flask_mail import Message
 from ofxtools.ofxalchemy import Base as OFX_Base
 from ofxtools.ofxalchemy import OFXParser
+from pacioli.amazon import fetch_amazon_email_download, request_amazon_report
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
@@ -155,6 +156,16 @@ def update_ofx():
         msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
     apply_all_mappings()
+
+
+@manager.command
+def submit_amazon_report_request():
+    request_amazon_report()
+
+
+@manager.command
+def import_amazon_report():
+    fetch_amazon_email_download()
 
 
 @manager.command
