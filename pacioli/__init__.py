@@ -2,13 +2,13 @@ from flask import Flask
 from flask.ext.security import Security
 from sqlalchemy.exc import InvalidRequestError
 
-from pacioli.controllers.ofx_views import register_ofx
 from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
 
 from pacioli import assets
+import pacioli.controllers.main
+from pacioli.controllers.ofx_views import register_ofx
 from pacioli.models import db, User, Role, user_datastore
-from pacioli.controllers.main import main
 
 from pacioli.extensions import cache, assets_env, debug_toolbar, admin, mail
 
@@ -35,12 +35,11 @@ def create_app(object_name, env="prod"):
     for name, bundle in assets_loader.load_bundles().items():
         assets_env.register(name, bundle)
 
-    app.register_blueprint(main)
-
     with app.app_context():
         try:
             register_ofx(app)
         except InvalidRequestError:
             pass
 
+    import pacioli.controllers.amazon_views
     return app
