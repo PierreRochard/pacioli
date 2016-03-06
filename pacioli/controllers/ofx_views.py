@@ -94,9 +94,9 @@ def apply_all_mappings():
                 new_journal_entry.credit_subaccount = transaction.account
             else:
                 raise Exception()
-            new_journal_entry.functional_amount = transaction.amount
+            new_journal_entry.functional_amount = abs(transaction.amount)
             new_journal_entry.functional_currency = 'USD'
-            new_journal_entry.source_amount = transaction.amount
+            new_journal_entry.source_amount = abs(transaction.amount)
             new_journal_entry.source_currency = 'USD'
             db.session.add(new_journal_entry)
             db.session.commit()
@@ -124,9 +124,9 @@ def apply_single_mapping(mapping_id):
             new_journal_entry.credit_subaccount = transaction.account
         else:
             raise Exception()
-        new_journal_entry.functional_amount = transaction.amount
+        new_journal_entry.functional_amount = abs(transaction.amount)
         new_journal_entry.functional_currency = 'USD'
-        new_journal_entry.source_amount = transaction.amount
+        new_journal_entry.source_amount = abs(transaction.amount)
         new_journal_entry.source_currency = 'USD'
         db.session.add(new_journal_entry)
         db.session.commit()
