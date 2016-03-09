@@ -4,9 +4,9 @@ from sqlalchemy.exc import ProgrammingError
 
 def create_trigger_function():
     try:
-        db.engine.execute('DROP FUNCTION pacioli.subaccount_insert() CASCADE;')
+        db.engine.execute('DROP FUNCTION pacioli.subaccount_insert(pacioli.journal_entries) CASCADE;')
     except ProgrammingError:
-        pass
+        raise
 
     try:
         db.engine.execute("""
