@@ -4,6 +4,11 @@ from sqlalchemy.exc import ProgrammingError
 
 def create_trigger_function():
     try:
+        db.engine.execute('DROP FUNCTION pacioli.subaccount_insert() CASCADE;')
+    except ProgrammingError:
+        pass
+
+    try:
         db.engine.execute("""
         CREATE FUNCTION pacioli.subaccount_insert(new pacioli.journal_entries) RETURNS VOID AS $$
           DECLARE
@@ -80,8 +85,8 @@ def create_trigger_function():
 
     try:
         db.engine.execute('DROP FUNCTION pacioli.subaccount_insert_triggered() CASCADE;')
-    except:
-        raise
+    except ProgrammingError:
+        pass
 
     try:
         db.engine.execute("""

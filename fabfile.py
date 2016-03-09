@@ -236,6 +236,7 @@ def update():
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
             run('python manage.py createdb')
+            run('python manage.py update_trial_balances')
 
     with cd('/home/ec2-user/pacioli/logs/'):
         run('sudo rm -f *.log')
