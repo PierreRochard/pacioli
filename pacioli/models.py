@@ -77,6 +77,9 @@ class Mappings(db.Model):
     negative_credit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
     negative_credit_subaccount = db.relationship('Subaccounts', foreign_keys=[negative_credit_subaccount_id])
 
+    def __repr__(self):
+        return '{0} - {1}'.format(self.source, self.keyword)
+
 
 class TrialBalances(db.Model):
     __table_args__ = (db.UniqueConstraint('subaccount', 'period', 'period_interval',

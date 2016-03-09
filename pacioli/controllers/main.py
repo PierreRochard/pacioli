@@ -4,7 +4,7 @@ from dateutil.tz import tzlocal
 from flask import url_for, redirect
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
-from pacioli.controllers.utilities import date_formatter
+from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter
 from wtforms import StringField
 
 from pacioli.controllers import PacioliModelView
@@ -72,8 +72,8 @@ class TaxonomyModelView(PacioliModelView):
 
 
 class JournalEntriesView(PacioliModelView):
-    column_list = ('transaction_id', 'transaction_source', 'timestamp', 'functional_amount')
-    column_formatters = dict(timestamp=date_formatter)
+    column_list = ('transaction_id', 'transaction_source', 'timestamp', 'debit_subaccount', 'credit_subaccount', 'functional_amount')
+    column_formatters = dict(transaction_id=id_formatter, timestamp=date_formatter, functional_amount=currency_formatter)
 
 
 admin.add_view(JournalEntriesView(JournalEntries, db.session, category='Bookkeeping'))
@@ -82,4 +82,13 @@ admin.add_view(TaxonomyModelView(Accounts, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Classifications, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
 
-admin.add_view(PacioliModelView(TrialBalances, db.session, category='Accounting'))
+
+class TrialBalancesView(PacioliModelView):
+    column_formatters = dict(debit_balance=currency_formatter, credit_balance=currency_formatter,
+                             debit_changes=currency_formatter, credit_changes=currency_formatter)
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_export = True
+
+admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
