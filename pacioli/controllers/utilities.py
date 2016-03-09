@@ -17,7 +17,10 @@ def account_formatter(view, context, model, name):
 
 
 def currency_formatter(view, context, model, name):
-    return "{0:,.2f}".format(getattr(model, name))
+    if getattr(model, name):
+        return "{0:,.2f}".format(getattr(model, name))
+    else:
+        return '-'
 
 
 def date_formatter(view, context, model, name):
