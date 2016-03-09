@@ -78,6 +78,22 @@ class Mappings(db.Model):
     negative_credit_subaccount = db.relationship('Subaccounts', foreign_keys=[negative_credit_subaccount_id])
 
 
+class TrialBalances(db.Model):
+    __table_args__ = (db.UniqueConstraint('subaccount', 'period', 'period_interval',
+                                          name='trial_balances_unique_constraint'),
+                      {'schema': 'pacioli'})
+    __tablename__ = 'trial_balances'
+
+    id = db.Column(db.Integer, primary_key=True)
+    subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    period = db.Column(db.String)
+    period_interval = db.Column(db.String)
+    debit_balance = db.Column(db.Numeric, nullable=False, default=0)
+    credit_balance = db.Column(db.Numeric, nullable=False, default=0)
+    debit_changes = db.Column(db.Numeric, nullable=False, default=0)
+    credit_changes = db.Column(db.Numeric, nullable=False, default=0)
+
+
 class JournalEntries(db.Model):
     __table_args__ = (db.UniqueConstraint('transaction_id', 'transaction_source',
                                           name='journal_entries_unique_constraint'),

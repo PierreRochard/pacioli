@@ -11,7 +11,7 @@ from pacioli.controllers import PacioliModelView
 from pacioli.controllers.ofx_views import sync_ofx
 from pacioli.extensions import admin
 from pacioli.models import (db, User, Role, JournalEntries, Subaccounts,
-                            Accounts, Classifications, Elements, Connections, Mappings)
+                            Accounts, Classifications, Elements, Connections, Mappings, TrialBalances)
 
 
 class UserModelView(PacioliModelView):
@@ -81,3 +81,5 @@ admin.add_view(TaxonomyModelView(Subaccounts, db.session, category='Bookkeeping'
 admin.add_view(TaxonomyModelView(Accounts, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Classifications, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
+
+admin.add_view(PacioliModelView(TrialBalances, db.session, category='Accounting'))

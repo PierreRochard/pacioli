@@ -13,6 +13,7 @@ from flask_mail import Message
 from ofxtools.ofxalchemy import Base as OFX_Base
 from ofxtools.ofxalchemy import OFXParser
 from pacioli.amazon import fetch_amazon_email_download, request_amazon_report
+from pacioli.trial_balances import create_trigger_function
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
@@ -93,6 +94,11 @@ def createdb():
         JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
         ORDER BY ofx.stmttrn.dtposted DESC;
     """)
+
+
+@manager.command
+def update_trial_balances():
+    create_trigger_function()
 
 
 @manager.command
