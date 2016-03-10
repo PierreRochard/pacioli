@@ -73,6 +73,10 @@ class TaxonomyModelView(PacioliModelView):
 
 class JournalEntriesView(PacioliModelView):
     column_list = ('transaction_id', 'transaction_source', 'timestamp', 'debit_subaccount', 'credit_subaccount', 'functional_amount')
+    column_searchable_list = column_list
+    column_default_sort = ('timestamp', True)
+    column_filters = column_list
+    column_sortable_list = column_list
     column_formatters = dict(transaction_id=id_formatter, timestamp=date_formatter, functional_amount=currency_formatter)
 
 
@@ -99,6 +103,7 @@ class TrialBalancesView(PacioliModelView):
 
     @expose('/refresh_subaccounts/')
     def refresh_all_subaccounts(self):
+        db.engine.execute('TRUNCATE pacioli.trial_balances;')
         db.engine.execute('SELECT pacioli.trigger_all_subaccounts();')
         return redirect(url_for('trialbalances.index_view'))
 
