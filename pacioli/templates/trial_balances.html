@@ -1,0 +1,14 @@
+{% extends 'admin/model/list.html' %}
+
+{% block model_menu_bar_before_filters %}
+    <li>
+        <a href="{{ url_for('trialbalances.refresh_all_subaccounts') }}">
+        Refresh
+        </a>
+    </li>
+{% endblock %}
+
+{% block body %}
+    <h2>Trial Balances</h2>
+    {{ super() }}
+{% endblock %}
