@@ -84,6 +84,11 @@ admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
 
 
 class TrialBalancesView(PacioliModelView):
+    column_list = ('id', 'period', 'period_interval', 'subaccount', 'debit_balance', 'credit_balance', 'debit_changes', 'credit_changes')
+    column_default_sort = ('period', True)
+    column_searchable_list = ['subaccount']
+    column_filters = column_list
+    column_sortable_list = column_list
     column_formatters = dict(debit_balance=currency_formatter, credit_balance=currency_formatter,
                              debit_changes=currency_formatter, credit_changes=currency_formatter)
     can_edit = False
