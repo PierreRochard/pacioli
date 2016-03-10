@@ -84,6 +84,7 @@ admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
 
 
 class TrialBalancesView(PacioliModelView):
+    list_template = 'trial_balances.html'
     column_list = ('id', 'period', 'period_interval', 'subaccount', 'debit_balance', 'credit_balance', 'debit_changes', 'credit_changes')
     column_default_sort = ('period', True)
     column_searchable_list = ['subaccount']
@@ -95,5 +96,11 @@ class TrialBalancesView(PacioliModelView):
     can_create = False
     can_delete = False
     can_export = True
+
+    @expose('/refresh_subaccounts/')
+    def refresh_all_subaccounts(self):
+        db.engine.execute('SELECT pacioli.trigger_all_subaccounts();')
+        return redirect(url_for('trialbalances.index_view'))
+
 
 admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
