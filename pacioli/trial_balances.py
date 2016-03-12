@@ -6,7 +6,7 @@ def create_trigger_function():
     try:
         db.engine.execute('DROP FUNCTION pacioli.subaccount_insert(pacioli.journal_entries) CASCADE;')
     except ProgrammingError:
-        raise
+        pass
 
     try:
         db.engine.execute("""
@@ -26,23 +26,19 @@ def create_trigger_function():
               FOREACH period_interval_name IN ARRAY period_intervals
               LOOP
                 <<periods_loop>>
-                FOR period_name in SELECT to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) AS p from pacioli.journal_entries
-                GROUP BY to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) ORDER BY to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) DESC LOOP
+                FOR period_name in SELECT to_char(timestamp, period_interval_name) AS p from pacioli.journal_entries GROUP BY to_char(timestamp, period_interval_name) LOOP
 
-                  SELECT sum(functional_amount) INTO debit_debit_balance FROM pacioli.journal_entries WHERE debit_subaccount = new.debit_subaccount
-                    AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) <= period_name.p;
+                  SELECT sum(functional_amount) INTO debit_debit_balance FROM pacioli.journal_entries WHERE debit_subaccount = new.debit_subaccount AND to_char(timestamp, period_interval_name) <= period_name.p;
                   IF debit_debit_balance IS NULL THEN
                     debit_debit_balance := 0;
                   END IF;
 
-                  SELECT sum(functional_amount) INTO debit_changes_amount FROM pacioli.journal_entries WHERE debit_subaccount = new.debit_subaccount
-                    AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) = period_name.p;
+                  SELECT sum(functional_amount) INTO debit_changes_amount FROM pacioli.journal_entries WHERE debit_subaccount = new.debit_subaccount AND to_char(timestamp, period_interval_name) = period_name.p;
                   IF debit_changes_amount IS NULL THEN
                     debit_changes_amount := 0;
                   END IF;
 
-                  SELECT * INTO existing_debit_record FROM pacioli.trial_balances WHERE pacioli.trial_balances.subaccount = new.debit_subaccount
-                    AND pacioli.trial_balances.period = period_name.p;
+                  SELECT * INTO existing_debit_record FROM pacioli.trial_balances WHERE pacioli.trial_balances.subaccount = new.debit_subaccount AND pacioli.trial_balances.period = period_name.p;
                   IF existing_debit_record IS NULL THEN
                     INSERT INTO pacioli.trial_balances (subaccount, debit_balance, credit_balance, debit_changes, credit_changes, period, period_interval)
                       VALUES (new.debit_subaccount, debit_debit_balance, 0, debit_changes_amount, 0, period_name.p, period_interval_name);
@@ -51,20 +47,17 @@ def create_trigger_function():
                     UPDATE pacioli.trial_balances SET debit_balance = debit_debit_balance, debit_changes = debit_changes_amount WHERE id = existing_debit_record.id;
                   END IF;
 
-                  SELECT sum(functional_amount) INTO credit_credit_balance FROM pacioli.journal_entries WHERE credit_subaccount = new.credit_subaccount
-                    AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) <= period_name.p;
+                  SELECT sum(functional_amount) INTO credit_credit_balance FROM pacioli.journal_entries WHERE credit_subaccount = new.credit_subaccount AND to_char(timestamp, period_interval_name) <= period_name.p;
                   IF credit_credit_balance IS NULL THEN
                     credit_credit_balance := 0;
                   END IF;
 
-                  SELECT sum(functional_amount) INTO credit_changes_amount FROM pacioli.journal_entries WHERE credit_subaccount = new.credit_subaccount
-                    AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) = period_name.p;
+                  SELECT sum(functional_amount) INTO credit_changes_amount FROM pacioli.journal_entries WHERE credit_subaccount = new.credit_subaccount AND to_char(timestamp, period_interval_name) = period_name.p;
                   IF credit_changes_amount IS NULL THEN
                     credit_changes_amount := 0;
                   END IF;
 
-                  SELECT * INTO existing_credit_record FROM pacioli.trial_balances WHERE pacioli.trial_balances.subaccount = new.credit_subaccount
-                    AND pacioli.trial_balances.period = period_name.p;
+                  SELECT * INTO existing_credit_record FROM pacioli.trial_balances WHERE pacioli.trial_balances.subaccount = new.credit_subaccount AND pacioli.trial_balances.period = period_name.p;
                   IF existing_credit_record IS NULL THEN
                     INSERT INTO pacioli.trial_balances (subaccount, debit_balance, credit_balance, debit_changes, credit_changes, period, period_interval)
                       VALUES (new.credit_subaccount, 0, credit_credit_balance, 0, credit_changes_amount, period_name.p, period_interval_name);
@@ -123,7 +116,7 @@ def create_trigger_function():
           stack TEXT;
           BEGIN
             <<periods_loop>>
-                FOR journal_entry in SELECT * from pacioli.journal_entries ORDER BY pacioli.journal_entries.timestamp LOOP
+                FOR journal_entry in SELECT * from pacioli.journal_entries LOOP
                   PERFORM pacioli.subaccount_insert(journal_entry);
                 END LOOP periods_loop;
             RETURN;
@@ -135,9 +128,26 @@ def create_trigger_function():
     except:
         raise
 
-
-def trigger_all_subaccounts():
     try:
-        db.engine.execute('SELECT pacioli.trigger_all_subaccounts();')
+        db.engine.execute('DROP FUNCTION pacioli.trigger_single_journal_entry(INT) CASCADE;')
     except ProgrammingError:
+        pass
+
+    try:
+        db.engine.execute("""
+        CREATE FUNCTION pacioli.trigger_single_journal_entry(journal_entry_id INT) RETURNS VOID AS $$
+          DECLARE
+          journal_entry pacioli.journal_entries;
+          BEGIN
+            SELECT * INTO journal_entry from pacioli.journal_entries WHERE pacioli.journal_entries.id = journal_entry_id;
+            PERFORM pacioli.subaccount_insert(journal_entry);
+            RETURN;
+          END;
+        $$
+        SECURITY DEFINER
+        LANGUAGE  plpgsql;
+        """)
+    except:
         raise
+
+
