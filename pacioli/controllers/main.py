@@ -103,8 +103,16 @@ class TrialBalancesView(PacioliModelView):
 
     @expose('/refresh_subaccounts/')
     def refresh_all_subaccounts(self):
-        db.engine.execute('TRUNCATE pacioli.trial_balances;')
-        db.engine.execute('SELECT pacioli.trigger_all_subaccounts();')
+        connection = db.engine.connect()
+        transaction = connection.begin()
+        connection.execute('TRUNCATE pacioli.trial_balances RESTART IDENTITY CASCADE;')
+        transaction.commit()
+        transaction.close()
+        transaction = connection.begin()
+        connection.execute('SELECT pacioli.trigger_all_subaccounts();')
+        transaction.commit()
+        transaction.close()
+        connection.close()
         return redirect(url_for('trialbalances.index_view'))
 
 
