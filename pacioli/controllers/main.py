@@ -1,11 +1,11 @@
 from datetime import datetime
 
 from dateutil.tz import tzlocal
-from flask import url_for, redirect
+from flask import url_for, redirect, request
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
 from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter
-from sqlalchemy import text
+from sqlalchemy import text, func
 from wtforms import StringField
 
 from pacioli.controllers import PacioliModelView
@@ -19,6 +19,7 @@ class UserModelView(PacioliModelView):
     column_list = ('id', 'email', 'active', 'confirmed_at', 'current_login_at',
                    'last_login_ip', 'current_login_ip', 'login_count')
     column_formatters = dict(confirmed_at=date_formatter, current_login_at=date_formatter)
+
 
 admin.add_view(UserModelView(User, db.session, category='Admin'))
 admin.add_view(PacioliModelView(Role, db.session, category='Admin'))
@@ -62,6 +63,7 @@ class MappingsModelView(PacioliModelView):
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
 
     column_editable_list = ('keyword',)
+
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
@@ -114,11 +116,30 @@ class TrialBalancesView(PacioliModelView):
             for period_interval_name in ['YYYY', 'YYYY-Q', 'YYYY-MM', 'YYYY-WW', 'YYYY-MM-DD']:
                 for period_name in db.session.query(db.func.to_char(JournalEntries.timestamp, period_interval_name)).distinct():
                     transaction = connection.begin()
-                    connection.execute(query_text, debit_subaccount=debit_subaccount, credit_subaccount=credit_subaccount, period_interval_name=period_interval_name, period_name=period_name)
+                    connection.execute(query_text, debit_subaccount=debit_subaccount, credit_subaccount=credit_subaccount,
+                                       period_interval_name=period_interval_name, period_name=period_name)
                     transaction.commit()
                     transaction.close()
         connection.close()
         return redirect(url_for('trialbalances.index_view'))
 
 
+class IncomeStatementsView(PacioliModelView):
+    def get_query(self):
+        print(request.view_args)
+        return (self.session.query(self.model)
+                .filter(self.model.period_interval == request.view_args.get('period_interval', 'YYYY'))
+                .filter(self.model.period == request.view_args.get('period', '2016')))
+
+    def get_count_query(self):
+        return (self.session.query(func.count('*'))
+                .filter(self.model.period_interval == request.view_args.get('period_interval', 'YYYY'))
+                .filter(self.model.period == request.view_args.get('period', '2016')))
+
+    @expose('/', methods=('GET', ))
+    @expose('<period_interval>/<period>/', methods=('GET', ))
+    def index_view(self, period_interval='YYYY', period=2016):
+        return super(IncomeStatementsView, self).index_view()
+
 admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
+admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting', name='Income Statements', endpoint='income-statements/'))
