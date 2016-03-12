@@ -110,12 +110,12 @@ class JournalEntries(db.Model):
     mapping = db.relationship('Mappings', backref='journal_entries',)
 
     timestamp = db.Column(db.DateTime(timezone=True))
-    debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
-    functional_amount = db.Column(db.Numeric)
-    functional_currency = db.Column(db.String)
-    source_amount = db.Column(db.Numeric)
-    source_currency = db.Column(db.String)
+    debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'), nullable=False)
+    credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'), nullable=False)
+    functional_amount = db.Column(db.Numeric, nullable=False)
+    functional_currency = db.Column(db.String, nullable=False)
+    source_amount = db.Column(db.Numeric, nullable=False)
+    source_currency = db.Column(db.String, nullable=False)
 
 
 class Subaccounts(db.Model):
