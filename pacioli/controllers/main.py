@@ -5,6 +5,7 @@ from flask import url_for, redirect
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
 from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter
+from sqlalchemy import text
 from wtforms import StringField
 
 from pacioli.controllers import PacioliModelView
@@ -108,10 +109,14 @@ class TrialBalancesView(PacioliModelView):
         connection.execute('TRUNCATE pacioli.trial_balances RESTART IDENTITY CASCADE;')
         transaction.commit()
         transaction.close()
-        transaction = connection.begin()
-        connection.execute('SELECT pacioli.trigger_all_subaccounts();')
-        transaction.commit()
-        transaction.close()
+        query_text = text('SELECT pacioli.update_trial_balance(:debit_subaccount, :credit_subaccount, :period_interval_name, :period_name);')
+        for debit_subaccount, credit_subaccount in db.session.query(JournalEntries.debit_subaccount, JournalEntries.credit_subaccount).distinct():
+            for period_interval_name in ['YYYY', 'YYYY-Q', 'YYYY-MM', 'YYYY-WW', 'YYYY-MM-DD']:
+                for period_name in db.session.query(db.func.to_char(JournalEntries.timestamp, period_interval_name)).distinct():
+                    transaction = connection.begin()
+                    connection.execute(query_text, debit_subaccount=debit_subaccount, credit_subaccount=credit_subaccount, period_interval_name=period_interval_name, period_name=period_name)
+                    transaction.commit()
+                    transaction.close()
         connection.close()
         return redirect(url_for('trialbalances.index_view'))
 
