@@ -11,6 +11,7 @@ from ofxtools.Client import CcAcct, BankAcct
 from sqlalchemy import PrimaryKeyConstraint, func, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm.exc import NoResultFound
 from wtforms import Form, HiddenField
 
 from pacioli.controllers import PacioliModelView
@@ -88,10 +89,27 @@ def apply_all_mappings():
             new_journal_entry.timestamp = transaction.date
             if transaction.amount > 0:
                 new_journal_entry.debit_subaccount = transaction.account
+                try:
+                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_credit_subaccount_id).one()
+                except NoResultFound:
+                    new_subaccount = Subaccounts()
+                    new_subaccount.name = mapping.positive_credit_subaccount_id
+                    new_subaccount.parent = 'Discretionary Costs'
+                    db.session.add(new_subaccount)
+                    db.session.commit()
                 new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
             elif transaction.amount < 0:
-                new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
                 new_journal_entry.credit_subaccount = transaction.account
+                try:
+                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.negative_debit_subaccount_id).one()
+                except NoResultFound:
+                    new_subaccount = Subaccounts()
+                    new_subaccount.name = mapping.negative_debit_subaccount_id
+                    new_subaccount.parent = 'Discretionary Costs'
+                    db.session.add(new_subaccount)
+                    db.session.commit()
+                new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
+
             else:
                 raise Exception()
             new_journal_entry.functional_amount = abs(transaction.amount)
