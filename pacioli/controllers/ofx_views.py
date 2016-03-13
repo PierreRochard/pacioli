@@ -1,4 +1,8 @@
+from __future__ import print_function
+
+import traceback
 from datetime import datetime, date
+from urllib2 import HTTPError
 
 from dateutil.tz import tzlocal
 from flask import redirect, request, url_for, current_app
@@ -18,14 +22,10 @@ from pacioli.controllers import PacioliModelView
 from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
                                            id_formatter, type_formatter)
 from pacioli.extensions import admin
-from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connections
+from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connections, ConnectionResponses
 
 
 def sync_ofx():
-    for account in db.session.query(AccountsFrom).filter(AccountsFrom.name.is_(None)).all():
-        account.name = ''
-        db.session.commit()
-
     for connection in db.session.query(Connections).filter(Connections.source == 'ofx').all():
         if connection.type in ['Checking', 'Savings']:
             try:
@@ -54,16 +54,23 @@ def sync_ofx():
             account = CcAcct(connection.account_number)
         else:
             return
-
         ofx_client = OFXClient(connection.url, connection.org, connection.fid)
         if start and end:
-            request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
-                                                   [account], dtstart=start, dtend=end)
+            statement_request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
+                                                             [account], dtstart=start, dtend=end)
         else:
-            request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
-                                                   [account])
+            statement_request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
+                                                             [account])
+        response = ofx_client.download(statement_request)
 
-        response = ofx_client.download(request)
+        new_response = ConnectionResponses()
+        new_response.connection_id = connection.id
+        new_response.connected_at = datetime.now(tzlocal())
+        new_response.response = response.read()
+        db.session.add(new_response)
+        db.session.commit()
+        response.seek(0)
+
         parser = OFXParser()
         engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
         DBSession.configure(bind=engine)
@@ -73,10 +80,14 @@ def sync_ofx():
         connection.synced_at = datetime.now(tzlocal())
         db.session.commit()
 
+    for account in db.session.query(AccountsFrom).filter(AccountsFrom.name.is_(None)).all():
+        account.name = ''
+        db.session.commit()
+
 
 def apply_all_mappings():
     for mapping in db.session.query(Mappings).all():
-        matched_transactions = (db.session.query(Transactions.id,  Transactions.date, Transactions.amount,
+        matched_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
                                                  Transactions.description, Transactions.account)
                                 .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
                                 .filter(JournalEntries.transaction_id.is_(None))
@@ -122,7 +133,7 @@ def apply_all_mappings():
 
 def apply_single_mapping(mapping_id):
     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-    matched_transactions = (db.session.query(Transactions.id,  Transactions.date, Transactions.amount,
+    matched_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
                                              Transactions.description, Transactions.account)
                             .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
                             .filter(JournalEntries.transaction_id.is_(None))

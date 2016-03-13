@@ -56,6 +56,18 @@ class Connections(db.Model):
     synced_at = db.Column(db.DateTime(timezone=True))
 
 
+class ConnectionResponses(db.Model):
+    __table_args__ = {'schema': 'admin'}
+    __tablename__ = 'connection_responses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    connection_id = db.Column(db.Integer, db.ForeignKey('admin.connections.id'))
+    connection = db.relationship('Connections')
+
+    connected_at = db.Column(db.DateTime(timezone=True))
+    response = db.Column(db.String)
+
+
 class Mappings(db.Model):
     __table_args__ = (db.UniqueConstraint('source', 'keyword', name='mappings_unique_constraint'),
                       {'schema': 'admin'})

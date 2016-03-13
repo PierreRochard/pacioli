@@ -12,7 +12,7 @@ from pacioli.controllers import PacioliModelView
 from pacioli.controllers.ofx_views import sync_ofx
 from pacioli.extensions import admin
 from pacioli.models import (db, User, Role, JournalEntries, Subaccounts,
-                            Accounts, Classifications, Elements, Connections, Mappings, TrialBalances)
+                            Accounts, Classifications, Elements, Connections, Mappings, TrialBalances, ConnectionResponses)
 
 
 class UserModelView(PacioliModelView):
@@ -66,6 +66,7 @@ class MappingsModelView(PacioliModelView):
 
 
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
+admin.add_view(PacioliModelView(ConnectionResponses, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
 
 
@@ -138,9 +139,9 @@ class IncomeStatementsView(PacioliModelView):
     can_delete = False
     can_view_details = False
     can_export = True
+    page_size = 100
 
     def get_query(self):
-        print(request.view_args)
         return (self.session.query(self.model)
                 .join(Subaccounts)
                 .join(Accounts)
