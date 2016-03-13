@@ -169,7 +169,7 @@ def register_ofx(app):
         can_export = True
 
     class AccountsFromModelView(OFXModelView):
-        column_default_sort = ('id', False)
+        column_default_sort = {'field': 'id', 'sort_desc': False, 'absolute_value': False}
         column_list = ['id', 'name', 'subclass']
         column_searchable_list = ['name']
         column_filters = column_list
@@ -180,7 +180,7 @@ def register_ofx(app):
         form_columns = ['name']
 
     class TransactionsModelView(OFXModelView):
-        column_default_sort = ('date', True)
+        column_default_sort = {'field': 'date', 'sort_desc': True, 'absolute_value': False}
         column_list = ['id', 'date', 'account', 'amount', 'description', 'type']
         column_searchable_list = ['description']
         column_filters = column_list
@@ -191,7 +191,7 @@ def register_ofx(app):
         list_template = 'transactions.html'
 
     class NewTransactionsView(OFXModelView):
-        column_default_sort = ('date', True)
+        column_default_sort = {'field': 'date', 'sort_desc': True, 'absolute_value': False}
         column_list = ['id', 'date', 'account', 'amount', 'description', 'type']
         column_searchable_list = ['description']
         column_filters = column_list

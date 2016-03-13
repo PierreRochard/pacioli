@@ -4,7 +4,7 @@ from dateutil.tz import tzlocal
 from flask import url_for, redirect, request
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
-from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter
+from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter, income_statement_currency_formatter
 from sqlalchemy import text, func
 from wtforms import StringField
 
@@ -77,7 +77,7 @@ class TaxonomyModelView(PacioliModelView):
 class JournalEntriesView(PacioliModelView):
     column_list = ('transaction_id', 'transaction_source', 'timestamp', 'debit_subaccount', 'credit_subaccount', 'functional_amount')
     column_searchable_list = column_list
-    column_default_sort = ('timestamp', True)
+    column_default_sort = {'field': 'timestamp', 'sort_desc': True, 'absolute_value': False}
     column_filters = column_list
     column_sortable_list = column_list
     column_formatters = dict(transaction_id=id_formatter, timestamp=date_formatter, functional_amount=currency_formatter)
@@ -93,7 +93,7 @@ admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
 class TrialBalancesView(PacioliModelView):
     list_template = 'trial_balances.html'
     column_list = ('id', 'period', 'period_interval', 'subaccount', 'debit_balance', 'credit_balance', 'net_balance', 'debit_changes', 'credit_changes', 'net_changes')
-    column_default_sort = ('period', True)
+    column_default_sort = {'field': 'period', 'sort_desc': True, 'absolute_value': False}
     column_searchable_list = ['subaccount']
     column_filters = column_list
     column_sortable_list = column_list
@@ -126,13 +126,12 @@ class TrialBalancesView(PacioliModelView):
 
 class IncomeStatementsView(PacioliModelView):
     list_template = 'income_statements.html'
-    column_list = ('subaccount', 'debit_changes', 'credit_changes')
-    column_default_sort = ('debit_changes', True)
+    column_list = ('subaccount', 'net_changes')
+    column_default_sort = {'field': 'net_changes', 'sort_desc': True, 'absolute_value': True}
     column_searchable_list = ['subaccount']
     column_filters = column_list
     column_sortable_list = column_list
-    column_formatters = dict(debit_balance=currency_formatter, credit_balance=currency_formatter,
-                             debit_changes=currency_formatter, credit_changes=currency_formatter)
+    column_formatters = dict(net_changes=income_statement_currency_formatter)
 
     can_edit = False
     can_create = False
@@ -147,6 +146,7 @@ class IncomeStatementsView(PacioliModelView):
                 .join(Accounts)
                 .join(Classifications)
                 .join(Elements)
+                .filter(self.model.net_changes != 0)
                 .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
                                Elements.name == 'Gains', Elements.name == 'Losses'))
                 .filter(self.model.period_interval == request.view_args['period_interval'])
@@ -158,6 +158,7 @@ class IncomeStatementsView(PacioliModelView):
                 .join(Accounts)
                 .join(Classifications)
                 .join(Elements)
+                .filter(self.model.net_changes != 0)
                 .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
                                Elements.name == 'Gains', Elements.name == 'Losses'))
                 .filter(self.model.period_interval == request.view_args['period_interval'])

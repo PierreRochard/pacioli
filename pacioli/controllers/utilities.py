@@ -27,6 +27,18 @@ def currency_formatter(view, context, model, name):
         return '-'
 
 
+def income_statement_currency_formatter(view, context, model, name):
+    if getattr(model, name):
+        amount = -getattr(model, name)
+        currency_string = "{0:,.2f}".format(amount)
+        if currency_string.startswith('-'):
+            currency_string = currency_string.replace('-', '(')
+            currency_string += ')'
+        return currency_string
+    else:
+        return '-'
+
+
 def date_formatter(view, context, model, name):
     date_object = getattr(model, name)
     if isinstance(date_object, datetime) or isinstance(date_object, date):
