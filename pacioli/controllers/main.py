@@ -4,7 +4,7 @@ from dateutil.tz import tzlocal
 from flask import url_for, redirect, request
 from flask.ext.admin import expose
 from flask.ext.security.utils import encrypt_password
-from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter, income_statement_currency_formatter
+from pacioli.controllers.utilities import date_formatter, id_formatter, currency_formatter, income_statement_currency_formatter, income_statement_currency_format
 from sqlalchemy import text, func
 from wtforms import StringField
 
@@ -139,6 +139,7 @@ class IncomeStatementsView(PacioliModelView):
     can_delete = False
     can_view_details = False
     can_export = True
+    column_display_actions = False
     page_size = 100
 
     def get_query(self):
@@ -186,6 +187,18 @@ class IncomeStatementsView(PacioliModelView):
         self._template_args['periods'] = (self.session.query(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']))
                                           .order_by(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']).desc()).distinct().limit(30))
         self._template_args['periods'] = [period[0] for period in self._template_args['periods']]
+        net_income, = (self.session.query(func.sum(self.model.net_changes))
+                       .join(Subaccounts)
+                       .join(Accounts)
+                       .join(Classifications)
+                       .join(Elements)
+                       .filter(self.model.net_changes != 0)
+                       .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
+                                      Elements.name == 'Gains', Elements.name == 'Losses'))
+                       .filter(self.model.period_interval == request.view_args['period_interval'])
+                       .filter(self.model.period == request.view_args['period']).one())
+        net_income = income_statement_currency_format(-net_income)
+        self._template_args['footer_row'] = {'subaccount': 'Net Income', 'net_changes': net_income}
         return super(IncomeStatementsView, self).index_view()
 
 

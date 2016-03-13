@@ -27,14 +27,18 @@ def currency_formatter(view, context, model, name):
         return '-'
 
 
+def income_statement_currency_format(amount):
+    currency_string = "{0:,.2f}".format(amount)
+    if currency_string.startswith('-'):
+        currency_string = currency_string.replace('-', '(')
+        currency_string += ')'
+    return currency_string
+
+
 def income_statement_currency_formatter(view, context, model, name):
     if getattr(model, name):
         amount = -getattr(model, name)
-        currency_string = "{0:,.2f}".format(amount)
-        if currency_string.startswith('-'):
-            currency_string = currency_string.replace('-', '(')
-            currency_string += ')'
-        return currency_string
+        return income_statement_currency_format(amount)
     else:
         return '-'
 
