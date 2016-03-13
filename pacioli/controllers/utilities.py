@@ -18,7 +18,11 @@ def account_formatter(view, context, model, name):
 
 def currency_formatter(view, context, model, name):
     if getattr(model, name):
-        return "{0:,.2f}".format(getattr(model, name))
+        currency_string = "{0:,.2f}".format(getattr(model, name))
+        if currency_string.startswith('-'):
+            currency_string = currency_string.replace('-', '(')
+            currency_string += ')'
+        return currency_string
     else:
         return '-'
 

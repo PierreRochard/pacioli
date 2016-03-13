@@ -14,15 +14,15 @@ def create_trigger_function():
           DECLARE
           existing_debit_record RECORD;
           existing_credit_record RECORD;
-          debit_debit_balance NUMERIC;
+          debit_balance_amount NUMERIC;
           debit_changes_amount NUMERIC;
-          credit_credit_balance NUMERIC;
+          credit_balance_amount NUMERIC;
           credit_changes_amount NUMERIC;
           BEGIN
-              SELECT sum(functional_amount) INTO debit_debit_balance FROM pacioli.journal_entries WHERE pacioli.journal_entries.debit_subaccount = _debit_subaccount
+              SELECT sum(functional_amount) INTO debit_balance_amount FROM pacioli.journal_entries WHERE pacioli.journal_entries.debit_subaccount = _debit_subaccount
                                                                                                     AND to_char(timestamp, period_interval_name) <= period_name;
-              IF debit_debit_balance IS NULL THEN
-                debit_debit_balance := 0;
+              IF debit_balance_amount IS NULL THEN
+                debit_balance_amount := 0;
               END IF;
 
               SELECT sum(functional_amount) INTO debit_changes_amount FROM pacioli.journal_entries WHERE pacioli.journal_entries.debit_subaccount = _debit_subaccount
@@ -35,16 +35,17 @@ def create_trigger_function():
                                                                                 AND pacioli.trial_balances.period = period_name
                                                                                 AND pacioli.trial_balances.period_interval = period_interval_name;
               IF existing_debit_record IS NULL THEN
-                INSERT INTO pacioli.trial_balances (subaccount, debit_balance, credit_balance, debit_changes, credit_changes, period, period_interval)
-                                            VALUES (_debit_subaccount, debit_debit_balance, 0, debit_changes_amount, 0, period_name, period_interval_name);
+                INSERT INTO pacioli.trial_balances (subaccount, debit_balance, credit_balance, net_balance, debit_changes, credit_changes, net_changes, period, period_interval)
+                                            VALUES (_debit_subaccount, debit_balance_amount, 0, debit_balance_amount, debit_changes_amount, 0, debit_changes_amount, period_name, period_interval_name);
               ELSE
-                UPDATE pacioli.trial_balances SET debit_balance = debit_debit_balance, debit_changes = debit_changes_amount WHERE id = existing_debit_record.id;
+                UPDATE pacioli.trial_balances SET debit_balance = debit_balance_amount, net_balance = debit_balance_amount - existing_debit_record.credit_balance,
+                                                  debit_changes = debit_changes_amount, net_changes = debit_changes_amount - existing_debit_record.credit_changes WHERE id = existing_debit_record.id;
               END IF;
 
-              SELECT sum(functional_amount) INTO credit_credit_balance FROM pacioli.journal_entries WHERE pacioli.journal_entries.credit_subaccount = _credit_subaccount
+              SELECT sum(functional_amount) INTO credit_balance_amount FROM pacioli.journal_entries WHERE pacioli.journal_entries.credit_subaccount = _credit_subaccount
                                                                                                       AND to_char(timestamp, period_interval_name) <= period_name;
-              IF credit_credit_balance IS NULL THEN
-                credit_credit_balance := 0;
+              IF credit_balance_amount IS NULL THEN
+                credit_balance_amount := 0;
               END IF;
 
               SELECT sum(functional_amount) INTO credit_changes_amount FROM pacioli.journal_entries WHERE pacioli.journal_entries.credit_subaccount = _credit_subaccount
@@ -57,10 +58,11 @@ def create_trigger_function():
                                                                                  AND pacioli.trial_balances.period = period_name
                                                                                  AND pacioli.trial_balances.period_interval = period_interval_name;
               IF existing_credit_record IS NULL THEN
-                INSERT INTO pacioli.trial_balances (subaccount, debit_balance, credit_balance, debit_changes, credit_changes, period, period_interval)
-                                            VALUES (_credit_subaccount, 0, credit_credit_balance, 0, credit_changes_amount, period_name, period_interval_name);
+                INSERT INTO pacioli.trial_balances (subaccount, debit_balance, credit_balance, net_balance, debit_changes, credit_changes, net_changes, period, period_interval)
+                                            VALUES (_credit_subaccount, 0, credit_balance_amount, -credit_balance_amount, 0, credit_changes_amount, -credit_changes_amount, period_name, period_interval_name);
               ELSE
-                UPDATE pacioli.trial_balances SET credit_balance = credit_credit_balance, credit_changes = credit_changes_amount WHERE id = existing_credit_record.id;
+                UPDATE pacioli.trial_balances SET credit_balance = credit_balance_amount, net_balance = existing_credit_record.debit_balance - credit_balance_amount,
+                                                  credit_changes = credit_changes_amount, net_changes = existing_credit_record.debit_changes - credit_changes_amount WHERE id = existing_credit_record.id;
               END IF;
             RETURN;
           END;

@@ -93,8 +93,10 @@ class TrialBalances(db.Model):
     period_interval = db.Column(db.String)
     debit_balance = db.Column(db.Numeric, nullable=False, default=0)
     credit_balance = db.Column(db.Numeric, nullable=False, default=0)
+    net_balance = db.Column(db.Numeric, nullable=False, default=0)
     debit_changes = db.Column(db.Numeric, nullable=False, default=0)
     credit_changes = db.Column(db.Numeric, nullable=False, default=0)
+    net_changes = db.Column(db.Numeric, nullable=False, default=0)
 
 
 class JournalEntries(db.Model):
