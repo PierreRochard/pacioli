@@ -1,0 +1,33 @@
+{% extends 'admin/model/list.html' %}
+
+{% block model_menu_bar_after_filters %}
+    <li class="dropdown">
+    <a class="{{ btn_class }}" data-toggle="dropdown">
+        {{ _gettext('Intervals') }}<b class="caret"></b>
+    </a>
+    <ul class="dropdown-menu">
+        {% for period_interval, interval_name in period_intervals %}
+        <li>
+            <a href="{{ url_for('income-statements.index_view', period_interval=period_interval )}}">{{ interval_name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    </li>
+    <li class="dropdown">
+    <a class="{{ btn_class }}" data-toggle="dropdown">
+        {{ _gettext('Periods') }}<b class="caret"></b>
+    </a>
+    <ul class="dropdown-menu">
+        {% for period in periods %}
+        <li>
+            <a href="{{ url_for('income-statements.index_view', period_interval=period_interval, period=period )}}">{{ period }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+    </li>
+{% endblock %}
+
+{% block body %}
+    <h2>{{ period }} {{ dict(period_intervals)[period_interval] }} Income Statement</h2>
+    {{ super() }}
+{% endblock %}

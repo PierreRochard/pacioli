@@ -125,21 +125,67 @@ class TrialBalancesView(PacioliModelView):
 
 
 class IncomeStatementsView(PacioliModelView):
+    list_template = 'income_statements.html'
+    column_list = ('subaccount', 'debit_changes', 'credit_changes')
+    column_default_sort = ('debit_changes', True)
+    column_searchable_list = ['subaccount']
+    column_filters = column_list
+    column_sortable_list = column_list
+    column_formatters = dict(debit_balance=currency_formatter, credit_balance=currency_formatter,
+                             debit_changes=currency_formatter, credit_changes=currency_formatter)
+
+    can_edit = False
+    can_create = False
+    can_delete = False
+    can_view_details = False
+    can_export = True
+
     def get_query(self):
         print(request.view_args)
         return (self.session.query(self.model)
-                .filter(self.model.period_interval == request.view_args.get('period_interval', 'YYYY'))
-                .filter(self.model.period == request.view_args.get('period', '2016')))
+                .join(Subaccounts)
+                .join(Accounts)
+                .join(Classifications)
+                .join(Elements)
+                .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
+                               Elements.name == 'Gains', Elements.name == 'Losses'))
+                .filter(self.model.period_interval == request.view_args['period_interval'])
+                .filter(self.model.period == request.view_args['period']))
 
     def get_count_query(self):
-        return (self.session.query(func.count('*'))
-                .filter(self.model.period_interval == request.view_args.get('period_interval', 'YYYY'))
-                .filter(self.model.period == request.view_args.get('period', '2016')))
+        return (self.session.query(func.count('*')).select_from(self.model)
+                .join(Subaccounts)
+                .join(Accounts)
+                .join(Classifications)
+                .join(Elements)
+                .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
+                               Elements.name == 'Gains', Elements.name == 'Losses'))
+                .filter(self.model.period_interval == request.view_args['period_interval'])
+                .filter(self.model.period == request.view_args['period']))
 
-    @expose('/', methods=('GET', ))
-    @expose('<period_interval>/<period>/', methods=('GET', ))
-    def index_view(self, period_interval='YYYY', period=2016):
+    @expose('/', methods=('GET',))
+    @expose('/<period_interval>/', methods=('GET',))
+    @expose('/<period_interval>/<period>/', methods=('GET',))
+    def index_view(self, period_interval=None, period=None):
+        period_interval = request.view_args.get('period_interval', None)
+        if not period_interval:
+            period_interval = 'YYYY-MM'
+        self._template_args['period_interval'] = period_interval
+        request.view_args['period_interval'] = period_interval
+        self._template_args['period_interval'] = period_interval
+        period = request.view_args.get('period', None)
+        if not period:
+            period, = (self.session.query(db.func.to_char(JournalEntries.timestamp, period_interval))
+                       .order_by(db.func.to_char(JournalEntries.timestamp, period_interval).desc()).first())
+        self._template_args['period'] = period
+        request.view_args['period'] = period
+        self._template_args['period_intervals'] = [('YYYY', 'Annual'), ('YYYY-Q', 'Quarterly'), ('YYYY-MM', 'Monthly'), ('YYYY-MM-DD', 'Daily')]
+
+        self._template_args['periods'] = (self.session.query(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']))
+                                          .order_by(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']).desc()).distinct().limit(30))
+        self._template_args['periods'] = [period[0] for period in self._template_args['periods']]
         return super(IncomeStatementsView, self).index_view()
 
+
 admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
-admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting', name='Income Statements', endpoint='income-statements/'))
+admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting', name='Income Statements', endpoint='income-statements'))
