@@ -1,8 +1,10 @@
 from datetime import datetime, date
 from decimal import Decimal
 import os
+from flask import url_for
 
 from jinja2 import Template
+from markupsafe import Markup
 from premailer import transform
 
 
@@ -38,7 +40,11 @@ def income_statement_currency_format(amount):
 def income_statement_currency_formatter(view, context, model, name):
     if getattr(model, name):
         amount = -getattr(model, name)
-        return income_statement_currency_format(amount)
+        # return
+        return Markup('<a href={0}>{1}</a>'.format(url_for('journalentries.index_view', subaccount=model.subaccount,
+                                                           period_interval=view._template_args['period_interval'],
+                                                           period=view._template_args['period']),
+                                                   income_statement_currency_format(amount)))
     else:
         return '-'
 
