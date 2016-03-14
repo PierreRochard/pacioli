@@ -9,7 +9,7 @@ class AmazonItemView(PacioliModelView):
                    'payment_instrument_type', 'category_id', 'shipment_date')
     column_filters = column_list
     column_searchable_list = ('title', )
-    column_default_sort = ('id', True)
+    column_default_sort = {'field': 'id', 'sort_desc': True, 'absolute_value': False}
     column_labels = dict(order_status='Status', quantity='#', purchase_price_per_unit='Price', item_subtotal='Subtotal',
                          item_subtotal_tax='Tax', item_total='Total', payment_instrument_type='Payment',
                          category_id='Category', shipment_date='Shipped')
