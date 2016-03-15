@@ -95,6 +95,27 @@ def createdb():
         ORDER BY ofx.stmttrn.dtposted DESC;
     """)
 
+    try:
+        db.engine.execute('DROP VIEW pacioli.detailed_journal_entries;')
+    except ProgrammingError:
+        pass
+    db.engine.execute("""
+    CREATE VIEW pacioli.detailed_journal_entries AS SELECT
+            pacioli.journal_entries.id AS id,
+            pacioli.journal_entries.transaction_source AS transaction_source,
+            pacioli.journal_entries.transaction_id AS transaction_id,
+            pacioli.journal_entries."timestamp" AS "timestamp",
+            pacioli.journal_entries.debit_subaccount as debit_subaccount,
+            pacioli.journal_entries.credit_subaccount as credit_subaccount,
+            pacioli.journal_entries.functional_amount as functional_amount,
+            ofx.stmttrn.trntype AS type,
+            ofx.acctfrom.name AS account,
+            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description
+        FROM pacioli.journal_entries
+        LEFT OUTER JOIN ofx.stmttrn ON concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) = pacioli.journal_entries.transaction_id AND pacioli.journal_entries.transaction_source = 'ofx'
+        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+        ORDER BY pacioli.journal_entries."timestamp" DESC;
+    """)
 
 @manager.command
 def update_trial_balances():

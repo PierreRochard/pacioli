@@ -161,16 +161,16 @@ def apply_single_mapping(mapping_id):
         db.session.commit()
 
 
-def register_ofx(app):
-    db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=app.config['MAIN_DATABASE_MODEL_MAP'].keys())
+def register_ofx():
+    db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=current_app.config['OFX_MODEL_MAP'].keys())
     db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
     db.metadata.tables['ofx.new_transactions'].append_constraint(PrimaryKeyConstraint('id', name='new_transactions_pk'))
 
     Base = automap_base(metadata=db.metadata)
     Base.prepare()
     for cls in Base.classes:
-        if cls.__table__.name in app.config['MAIN_DATABASE_MODEL_MAP']:
-            globals()[app.config['MAIN_DATABASE_MODEL_MAP'][cls.__table__.name]] = cls
+        if cls.__table__.name in current_app.config['OFX_MODEL_MAP']:
+            globals()[current_app.config['OFX_MODEL_MAP'][cls.__table__.name]] = cls
 
     setattr(AccountsFrom, '__repr__', lambda self: self.name)
 

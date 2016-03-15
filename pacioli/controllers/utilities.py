@@ -18,6 +18,13 @@ def account_formatter(view, context, model, name):
     return acct_to_account[getattr(model, name)]
 
 
+def string_formatter(view, context, model, name):
+    string = getattr(model, name)
+    string = string.lower()
+    string = string.title()
+    return string
+
+
 def currency_formatter(view, context, model, name):
     if getattr(model, name):
         currency_string = "{0:,.2f}".format(getattr(model, name))

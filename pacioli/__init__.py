@@ -6,7 +6,7 @@ from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
 
 from pacioli import assets
-import pacioli.controllers.main
+from pacioli.controllers.main import register_bookkeeping, register_accounting
 from pacioli.controllers.ofx_views import register_ofx
 from pacioli.models import db, User, Role, user_datastore
 
@@ -37,7 +37,9 @@ def create_app(object_name, env="prod"):
 
     with app.app_context():
         try:
-            register_ofx(app)
+            register_bookkeeping()
+            register_accounting()
+            register_ofx()
         except InvalidRequestError:
             pass
 
