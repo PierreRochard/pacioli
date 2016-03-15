@@ -187,7 +187,7 @@ def install_cbtools():
 def update_cron():
     with open('local_cron', 'w') as cron_file:
         cron_file.write('pacioli_ENV=prod\n')
-        cron_file.write('0 * * * * cd /home/ec2-user/pacioli/ && python manage.py update_ofx\n')
+        cron_file.write('0 11,23 * * * cd /home/ec2-user/pacioli/ && python manage.py update_ofx\n')
     put('local_cron', 'remote_cron', use_sudo=True)
     run('sudo crontab remote_cron')
     run('sudo rm -f remote_cron')

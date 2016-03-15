@@ -69,8 +69,8 @@ def sync_ofx():
         new_response.response = response.read()
         db.session.add(new_response)
         db.session.commit()
-        response.seek(0)
 
+        response.seek(0)
         parser = OFXParser()
         engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
         DBSession.configure(bind=engine)
