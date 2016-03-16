@@ -1,7 +1,6 @@
 from flask.ext.security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
 from pacioli.extensions import db
 
-
 roles_users = db.Table('roles_users',
                        db.Column('user_id', db.Integer(), db.ForeignKey('admin.user.id')),
                        db.Column('role_id', db.Integer(), db.ForeignKey('admin.role.id')))
@@ -112,24 +111,27 @@ class TrialBalances(db.Model):
 
 
 class JournalEntries(db.Model):
-    __table_args__ = (db.UniqueConstraint('transaction_id', 'transaction_source',
-                                          name='journal_entries_unique_constraint'),
-                      {'schema': 'pacioli'})
     __tablename__ = 'journal_entries'
 
     id = db.Column(db.Integer, primary_key=True)
     transaction_id = db.Column(db.String)
     transaction_source = db.Column(db.String)
     mapping_id = db.Column(db.Integer, db.ForeignKey('admin.mappings.id'))
-    mapping = db.relationship('Mappings', backref='journal_entries',)
+    mapping = db.relationship('Mappings', backref='journal_entries')
 
-    timestamp = db.Column(db.DateTime(timezone=True))
+    timestamp = db.Column(db.DateTime(timezone=True), nullable=False)
     debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'), nullable=False)
     credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'), nullable=False)
     functional_amount = db.Column(db.Numeric, nullable=False)
     functional_currency = db.Column(db.String, nullable=False)
     source_amount = db.Column(db.Numeric, nullable=False)
     source_currency = db.Column(db.String, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('transaction_id', 'transaction_source',
+                                          name='journal_entries_unique_constraint'),
+                      db.CheckConstraint(functional_amount >= 0, name='check_functional_amount_positive'),
+                      db.CheckConstraint(source_amount >= 0, name='check_source_amount_positive'),
+                      {'schema': 'pacioli'})
 
 
 class Subaccounts(db.Model):
