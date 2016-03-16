@@ -192,25 +192,14 @@ def register_ofx():
 
     class TransactionsModelView(OFXModelView):
         column_default_sort = {'field': 'date', 'sort_desc': True, 'absolute_value': False}
-        column_list = ['id', 'date', 'account', 'amount', 'description', 'type']
+        column_list = ['journal_entry_id', 'id', 'date', 'account', 'amount', 'description', 'type']
         column_searchable_list = ['description']
         column_filters = column_list
-        column_labels = dict(id='ID', account='From Account', date='Date Posted')
+        column_labels = dict(id='ID', account='From Account', date='Date Posted', journal_entry_id='JE')
         column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
                                  type=type_formatter)
         can_edit = False
         list_template = 'transactions.html'
-
-    class NewTransactionsView(OFXModelView):
-        column_default_sort = {'field': 'date', 'sort_desc': True, 'absolute_value': False}
-        column_list = ['id', 'date', 'account', 'amount', 'description', 'type']
-        column_searchable_list = ['description']
-        column_filters = column_list
-        column_labels = dict(id='ID')
-        column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
-                                 type=type_formatter)
-        can_edit = False
-        list_template = 'new_transactions.html'
 
         ajax_subaccount_loader = QueryAjaxModelLoader('subaccounts', db.session, Subaccounts, fields=['name'],
                                                       page_size=10, placeholder='Expense Subaccount')
@@ -235,7 +224,7 @@ def register_ofx():
                 mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                                .filter(Mappings.keyword == form['keyword']).one())
                 apply_single_mapping(mapping_id)
-                return redirect(url_for('ofx/new-transactions.index_view'))
+                return redirect(url_for('ofx/transactions.index_view'))
 
             class NewOFXTransactionMapping(Form):
                 keyword = HiddenField()
@@ -244,7 +233,7 @@ def register_ofx():
             new_mapping_form = NewOFXTransactionMapping()
 
             self._template_args['new_mapping_form'] = new_mapping_form
-            return super(NewTransactionsView, self).index_view()
+            return super(TransactionsModelView, self).index_view()
 
         @expose('/<expense_account>/<keyword>')
         def favorite(self, expense_account, keyword):
@@ -261,37 +250,13 @@ def register_ofx():
             mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                            .filter(Mappings.keyword == keyword).one())
             apply_single_mapping(mapping_id)
-            return redirect(url_for('ofx/new-transactions.index_view'))
+            return redirect(url_for('ofx/transactions.index_view'))
 
         @expose('/apply-all-mappings/')
         def apply_all_mappings_view(self):
             apply_all_mappings()
-            return redirect(url_for('ofx/new-transactions.index_view'))
+            return redirect(url_for('ofx/transactions.index_view'))
 
-            # @expose('/post/<transaction_id>/')
-            # def post(self, transaction_id):
-            #     new_journal_entry = JournalEntries()
-            #     transaction = (db.session.query(Transactions)
-            #                    .filter(db.func.concat(Transactions.fitid,
-            #                                           Transactions.acctfrom_id).label('id') == transaction_id).one())
-            #     new_journal_entry.transaction_id = transaction_id
-            #     new_journal_entry.transaction_source = 'ofx'
-            #     account = (db.session.query(AccountsFrom).filter(AccountsFrom.id == transaction.acctfrom_id).one())
-            #     if transaction.trnamt > 0:
-            #         new_journal_entry.debit_subaccount = account.name
-            #         new_journal_entry.credit_subaccount = 'Discretionary Costs'
-            #     elif transaction.trnamt <= 0:
-            #         new_journal_entry.debit_subaccount = 'Revenues'
-            #         new_journal_entry.credit_subaccount = account.name
-            #     new_journal_entry.functional_amount = transaction.trnamt
-            #     new_journal_entry.functional_currency = 'USD'
-            #     new_journal_entry.timestamp = transaction.dtposted
-            #     db.session.add(new_journal_entry)
-            #     db.session.commit()
-            #     return redirect(url_for('ofx/new_transactions.index'))
-
-    admin.add_view(NewTransactionsView(NewTransactions, db.session,
-                                       name='New Transactions', category='OFX', endpoint='ofx/new-transactions'))
     admin.add_view(TransactionsModelView(Transactions, db.session,
                                          name='Transactions', category='OFX', endpoint='ofx/transactions'))
     admin.add_view(AccountsFromModelView(AccountsFrom, db.session,

@@ -60,37 +60,21 @@ def createdb():
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
     try:
-        db.engine.execute('DROP VIEW ofx.new_transactions;')
+        db.engine.execute('DROP VIEW ofx.transactions;')
     except ProgrammingError:
         pass
     db.engine.execute("""
-    CREATE VIEW ofx.new_transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+    CREATE VIEW ofx.transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
             ofx.stmttrn.dtposted AS date,
             ofx.stmttrn.trnamt AS amount,
             concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
                ofx.stmttrn.trntype as type,
             ofx.acctfrom.name AS account,
-            ofx.stmttrn.acctfrom_id as account_id
+            ofx.stmttrn.acctfrom_id as account_id,
+            pacioli.journal_entries.id AS journal_entry_id
         FROM ofx.stmttrn
         LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
-                ofx.stmttrn.acctfrom_id)
-        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
-        WHERE pacioli.journal_entries.transaction_id IS NULL ORDER BY ofx.stmttrn.dtposted DESC;
-    """)
-    try:
-        db.engine.execute('DROP VIEW ofx.transactions;')
-    except ProgrammingError:
-        pass
-    db.engine.execute("""
-    CREATE VIEW ofx.transactions AS
-        SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
-               ofx.stmttrn.dtposted AS date,
-               ofx.stmttrn.trnamt AS amount,
-               concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-               ofx.stmttrn.trntype as type,
-               ofx.acctfrom.name AS account,
-               ofx.stmttrn.acctfrom_id as account_id
-        FROM ofx.stmttrn
+                ofx.stmttrn.acctfrom_id) and pacioli.journal_entries.transaction_source = 'ofx'
         JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
         ORDER BY ofx.stmttrn.dtposted DESC;
     """)
