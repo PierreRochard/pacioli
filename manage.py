@@ -5,15 +5,17 @@ from datetime import datetime, timedelta
 import os
 
 from dateutil.tz import tzlocal
+from flask import current_app
 from flask.ext.migrate import MigrateCommand, Migrate
 from flask.ext.script import Manager, Server
 from flask.ext.script.commands import ShowUrls, Clean
 from flask.ext.security.utils import encrypt_password
 from flask_mail import Message
+from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.ofxalchemy import Base as OFX_Base
-from ofxtools.ofxalchemy import OFXParser
 from pacioli.amazon import fetch_amazon_email_download, request_amazon_report
 from pacioli.trial_balances import create_trigger_function
+from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
@@ -143,8 +145,11 @@ def import_ofx():
     for ofx_file_name in files:
         ofx_file_path = os.path.join(directory, ofx_file_name)
         parser = OFXParser()
+        engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
+        DBSession.configure(bind=engine)
         parser.parse(ofx_file_path)
         parser.instantiate()
+        DBSession.commit()
 
 
 @manager.command

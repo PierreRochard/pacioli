@@ -14,7 +14,8 @@ def account_formatter(view, context, model, name):
     # `model` is model instance
     # `name` is property name
     acct_to_account = dict(bankacctfrom='Bank Account',
-                           ccacctfrom='Credit Card')
+                           ccacctfrom='Credit Card',
+                           invacctfrom='Investments')
     return acct_to_account[getattr(model, name)]
 
 

@@ -259,9 +259,14 @@ def register_ofx():
 
     admin.add_view(TransactionsModelView(Transactions, db.session,
                                          name='Transactions', category='OFX', endpoint='ofx/transactions'))
+    admin.add_view(OFXModelView(InvestmentTransactions, db.session,
+                                name='Investment Transactions', category='OFX', endpoint='ofx/investment-transactions'))
     admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
                                          name='Accounts', category='OFX', endpoint='ofx/accounts'))
     admin.add_view(OFXModelView(BankAccounts, db.session,
                                 name='Bank Accounts', category='OFX', endpoint='ofx/bank-accounts'))
     admin.add_view(OFXModelView(CreditCardAccounts, db.session,
                                 name='Credit Card Accounts', category='OFX', endpoint='ofx/credit-card-accounts'))
+    admin.add_view(OFXModelView(InvestmentAccounts, db.session,
+                                name='Investment Accounts', category='OFX', endpoint='ofx/investment-accounts'))
+
