@@ -294,3 +294,15 @@ def update_ofx():
     with cd('/home/ec2-user/pacioli/'):
         with shell_env(pacioli_ENV='prod'):
             run('python manage.py update_ofx')
+
+
+def submit_amazon_report_request():
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python manage.py submit_amazon_report_request')
+
+
+def import_amazon_report():
+    with cd('/home/ec2-user/pacioli/'):
+        with shell_env(pacioli_ENV='prod'):
+            run('python manage.py import_amazon_report')

@@ -2,8 +2,6 @@ import csv
 import email
 import imaplib
 from datetime import datetime, timedelta
-import sys
-from pprint import pformat
 
 import mechanize
 
@@ -27,13 +25,15 @@ def request_amazon_report():
     error_str = 'The e-mail address and password you entered do not match any accounts on record.'
     if error_str in logged_in.read():
         print error_str
-        sys.exit(1)
 
     url = 'https://www.amazon.com/gp/b2b/reports'
-    br.open(url)
+    page = br.open(url)
+    # print page.read()
     br.select_form(nr=2)
+    # print(br.form)
     br.form['type'] = ('ITEMS',)
-    start_date = (datetime.today() - timedelta(days=5)).date()
+    # start_date = (datetime.today() - timedelta(days=5)).date()
+    start_date = datetime(2007, 1, 1)
     end_date = datetime.today().date()
     br.form['monthstart'] = (str(start_date.month),)
     br.form['daystart'] = (str(start_date.day),)
