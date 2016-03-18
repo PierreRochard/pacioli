@@ -16,7 +16,7 @@ def request_amazon_report():
     br.addheaders = [('User-agent',
                       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) '
                       'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.109 Safari/537.36')]
-    br.open('http://www.amazon.com/gp/flex/sign-out.html')
+    br.open('https://www.amazon.com/gp/b2b/reports')
     br.select_form(name='signIn')
     br['email'], br['password'] = (db.session.query(Connections.user, Connections.password)
                                    .filter(Connections.source == 'amazon').first())
@@ -24,11 +24,10 @@ def request_amazon_report():
 
     error_str = 'The e-mail address and password you entered do not match any accounts on record.'
     if error_str in logged_in.read():
-        print error_str
+        print(error_str)
 
     url = 'https://www.amazon.com/gp/b2b/reports'
     page = br.open(url)
-    # print page.read()
     br.select_form(nr=2)
     # print(br.form)
     br.form['type'] = ('ITEMS',)
