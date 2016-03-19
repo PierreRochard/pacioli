@@ -86,6 +86,8 @@ def fetch_amazon_email_download():
         new_amazon_item = AmazonItems()
         for key in row:
             row[key.lower().replace('/', '_').replace(' ', '_').replace('&', 'and')] = row.pop(key)
+        if not row['category']:
+            row['category'] = 'Other'
         for column in inspect(AmazonItems).attrs:
             if column.key == 'category_id':
                 new_amazon_category = AmazonCategories()
