@@ -45,4 +45,5 @@ class AmazonCategoriesView(PacioliModelView):
     can_delete = False
     can_export = True
     column_display_actions = False
+    column_default_sort = {'field': 'name', 'sort_desc': False, 'absolute_value': False}
 admin.add_view(AmazonCategoriesView(AmazonCategories, db.session, category='Amazon'))
