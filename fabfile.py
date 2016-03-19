@@ -12,7 +12,6 @@ from aws_config import mx1, mx5, mx5b, mx10, mx10b, cname_name, cname_value, txt
 from aws_config import admin_email, admin_password
 
 from pacioli.settings import PROD_PG_USERNAME, PROD_PG_PASSWORD
-print(os.path.dirname(os.path.realpath(__file__)))
 
 purpose = 'pacioli-deployment'
 
