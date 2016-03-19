@@ -1,8 +1,6 @@
 from __future__ import print_function
 
-import traceback
 from datetime import datetime, date
-from urllib2 import HTTPError
 
 from dateutil.tz import tzlocal
 from flask import redirect, request, url_for, current_app
@@ -20,7 +18,7 @@ from wtforms import Form, HiddenField
 
 from pacioli.controllers import PacioliModelView
 from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
-                                           id_formatter, type_formatter)
+                                           id_formatter, type_formatter, string_formatter)
 from pacioli.extensions import admin
 from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connections, ConnectionResponses
 
@@ -172,6 +170,11 @@ def register_ofx():
             globals()[current_app.config['OFX_MODEL_MAP'][cls.__table__.name]] = cls
 
     setattr(AccountsFrom, '__repr__', lambda self: self.name)
+    setattr(InvestmentAccounts, '__repr__', lambda self: self.acctfrom.name)
+    setattr(Securities, '__repr__', lambda self: '{0} ({1})'.format(self.secname, self.ticker))
+    setattr(InvestmentTransactions, '__repr__', lambda self: self.subclass)
+    setattr(InvestmentPositions, '__repr__', lambda self: str(self.id))
+
 
     class OFXModelView(PacioliModelView):
         can_create = False
@@ -265,21 +268,59 @@ def register_ofx():
     admin.add_view(OFXModelView(CreditCardAccounts, db.session,
                                 name='Credit Card Accounts', category='Banking', endpoint='banking/credit-card-accounts'))
 
-    admin.add_view(OFXModelView(InvestmentAccounts, db.session,
-                                name='Accounts', category='Investments', endpoint='investments/accounts'))
-    admin.add_view(OFXModelView(InvestmentBalances, db.session,
-                                name='Balances', category='Investments', endpoint='investments/balances'))
-    admin.add_view(OFXModelView(InvestmentPositions, db.session,
-                                name='Positions', category='Investments', endpoint='investments/positions'))
-    admin.add_view(OFXModelView(InvestmentTransactions, db.session,
-                                name='Transactions', category='Investments', endpoint='investments/transactions'))
-    admin.add_view(OFXModelView(Reinvestments, db.session,
-                                name='Reinvestments', category='Investments', endpoint='investments/reinvestments'))
-    admin.add_view(OFXModelView(Securities, db.session,
-                                name='Securities', category='Investments', endpoint='investments/securities'))
+    class InvestmentAccountsModelView(OFXModelView):
+        column_default_sort = {'field': 'acctid', 'sort_desc': True, 'absolute_value': False}
+        column_labels = dict(acctfrom='Account', brokerid='Broker ID', acctid='Account ID')
+    admin.add_view(InvestmentAccountsModelView(InvestmentAccounts, db.session, name='Accounts',
+                                               category='Investments', endpoint='investments/accounts'))
+
+    class InvestmentBalancesView(OFXModelView):
+        column_default_sort = {'field': 'availcash', 'sort_desc': True, 'absolute_value': False}
+        column_labels = dict(invacctfrom='Account', dtasof='Date', availcash='Cash', marginbalance='Margin', shortbalance='Short', buypower='Buying Power')
+        column_formatters = dict(dtasof=date_formatter, availcash=currency_formatter, marginbalance=currency_formatter,
+                                 shortbalance=currency_formatter, buypower=currency_formatter)
+    admin.add_view(InvestmentBalancesView(InvestmentBalances, db.session, name='Balances',
+                                          category='Investments', endpoint='investments/balances'))
+
+    class InvestmentPositionsModelView(OFXModelView):
+        column_default_sort = {'field': 'mktval', 'sort_desc': True, 'absolute_value': True}
+        column_list = ['dtasof', 'invacctfrom', 'id', 'secinfo', 'postype', 'units', 'unitprice', 'mktval', 'dtpriceasof']
+        column_filters = column_list
+        column_labels = dict(id='ID', secinfo='Security Name', invacctfrom='Account', dtasof='Date',
+                             postype='Type', unitprice='Price', mktval='Value', dtpriceasof='Price Date')
+        column_formatters = dict(dtasof=date_formatter, dtpriceasof=date_formatter,
+                                 unitprice=currency_formatter, mktval=currency_formatter, postype=string_formatter)
+    admin.add_view(InvestmentPositionsModelView(InvestmentPositions, db.session, name='Positions',
+                                                category='Investments', endpoint='investments/positions'))
+
+    class InvestmentTransactionsView(OFXModelView):
+        column_default_sort = {'field': 'dttrade', 'sort_desc': True, 'absolute_value': False}
+        column_list = ['invacctfrom', 'fitid', 'subclass', 'memo', 'dttrade', 'dtsettle', 'reversalfitid']
+        column_filters = column_list
+        column_labels = dict(invacctfrom='Account', fitid='ID', dttrade='Trade', dtsettle='Settlement',
+                             refersalfitid='Reversal ID')
+        column_formatters = dict(fitid=id_formatter, dttrade=date_formatter, dtsettle=date_formatter)
+    admin.add_view(InvestmentTransactionsView(InvestmentTransactions, db.session, name='Transactions',
+                                              category='Investments', endpoint='investments/transactions'))
+
+    class ReinvestmentsView(OFXModelView):
+        column_list = ('invtran', 'secinfo', 'incometype', 'total', 'subacctsec', 'units', 'unitprice')
+    admin.add_view(ReinvestmentsView(Reinvestments, db.session, name='Reinvestments', category='Investments',
+                                     endpoint='investments/reinvestments'))
+
+    class SecuritiesView(OFXModelView):
+        column_list = ('id', 'subclass', 'uniqueidtype', 'uniqueid', 'secname', 'ticker')
+    admin.add_view(SecuritiesView(Securities, db.session, name='Securities', category='Investments',
+                                  endpoint='investments/securities'))
+
+    class MutualFundsView(OFXModelView):
+        pass
     admin.add_view(OFXModelView(MutualFunds, db.session,
                                 name='Mutual Funds', category='Investments', endpoint='investments/mutual-funds'))
-    admin.add_view(OFXModelView(MutualFundBuys, db.session,
+
+    class MutualFundBuysView(OFXModelView):
+        column_list = ('invtran', 'secinfo', 'units', 'unitprice', 'total', 'subacctsec', 'subacctfund', 'buytype')
+    admin.add_view(MutualFundBuysView(MutualFundBuys, db.session,
                                 name='Mutual Fund Buys', category='Investments', endpoint='investments/mutual-fund-buys'))
     admin.add_view(OFXModelView(MutualFundPositions, db.session,
                                 name='Mutual Fund Positions', category='Investments', endpoint='investments/mutual-fund-positions'))
