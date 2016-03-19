@@ -164,7 +164,6 @@ def apply_single_mapping(mapping_id):
 def register_ofx():
     db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=current_app.config['OFX_MODEL_MAP'].keys())
     db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
-    db.metadata.tables['ofx.new_transactions'].append_constraint(PrimaryKeyConstraint('id', name='new_transactions_pk'))
 
     Base = automap_base(metadata=db.metadata)
     Base.prepare()
@@ -224,7 +223,7 @@ def register_ofx():
                 mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                                .filter(Mappings.keyword == form['keyword']).one())
                 apply_single_mapping(mapping_id)
-                return redirect(url_for('ofx/transactions.index_view'))
+                return redirect(url_for('banking/transactions.index_view'))
 
             class NewOFXTransactionMapping(Form):
                 keyword = HiddenField()
@@ -250,23 +249,41 @@ def register_ofx():
             mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                            .filter(Mappings.keyword == keyword).one())
             apply_single_mapping(mapping_id)
-            return redirect(url_for('ofx/transactions.index_view'))
+            return redirect(url_for('banking/transactions.index_view'))
 
         @expose('/apply-all-mappings/')
         def apply_all_mappings_view(self):
             apply_all_mappings()
-            return redirect(url_for('ofx/transactions.index_view'))
+            return redirect(url_for('banking/transactions.index_view'))
 
     admin.add_view(TransactionsModelView(Transactions, db.session,
-                                         name='Transactions', category='OFX', endpoint='ofx/transactions'))
-    admin.add_view(OFXModelView(InvestmentTransactions, db.session,
-                                name='Investment Transactions', category='OFX', endpoint='ofx/investment-transactions'))
+                                         name='Transactions', category='Banking', endpoint='banking/transactions'))
     admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
-                                         name='Accounts', category='OFX', endpoint='ofx/accounts'))
+                                         name='Accounts', category='Banking', endpoint='banking/accounts'))
     admin.add_view(OFXModelView(BankAccounts, db.session,
-                                name='Bank Accounts', category='OFX', endpoint='ofx/bank-accounts'))
+                                name='Bank Accounts', category='Banking', endpoint='banking/bank-accounts'))
     admin.add_view(OFXModelView(CreditCardAccounts, db.session,
-                                name='Credit Card Accounts', category='OFX', endpoint='ofx/credit-card-accounts'))
+                                name='Credit Card Accounts', category='Banking', endpoint='banking/credit-card-accounts'))
+
     admin.add_view(OFXModelView(InvestmentAccounts, db.session,
-                                name='Investment Accounts', category='OFX', endpoint='ofx/investment-accounts'))
+                                name='Accounts', category='Investments', endpoint='investments/accounts'))
+    admin.add_view(OFXModelView(InvestmentBalances, db.session,
+                                name='Balances', category='Investments', endpoint='investments/balances'))
+    admin.add_view(OFXModelView(InvestmentPositions, db.session,
+                                name='Positions', category='Investments', endpoint='investments/positions'))
+    admin.add_view(OFXModelView(InvestmentTransactions, db.session,
+                                name='Transactions', category='Investments', endpoint='investments/transactions'))
+    admin.add_view(OFXModelView(Reinvestments, db.session,
+                                name='Reinvestments', category='Investments', endpoint='investments/reinvestments'))
+    admin.add_view(OFXModelView(Securities, db.session,
+                                name='Securities', category='Investments', endpoint='investments/securities'))
+    admin.add_view(OFXModelView(MutualFunds, db.session,
+                                name='Mutual Funds', category='Investments', endpoint='investments/mutual-funds'))
+    admin.add_view(OFXModelView(MutualFundBuys, db.session,
+                                name='Mutual Fund Buys', category='Investments', endpoint='investments/mutual-fund-buys'))
+    admin.add_view(OFXModelView(MutualFundPositions, db.session,
+                                name='Mutual Fund Positions', category='Investments', endpoint='investments/mutual-fund-positions'))
+
+
+
 

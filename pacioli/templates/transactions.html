@@ -1,7 +1,7 @@
 {% extends 'admin/model/list.html' %}
 {% block model_menu_bar_before_filters %}
     <li>
-    <a href="{{ get_url('ofx/transactions.apply_all_mappings_view') }}" title="Apply All Mappings">Apply All Mappings</a>
+    <a href="{{ get_url('banking/transactions.apply_all_mappings_view') }}" title="Apply All Mappings">Apply All Mappings</a>
     </li>
 {% endblock %}
 
@@ -9,7 +9,7 @@
 
     {% if search %}
         <li>
-        <form  action="{{ url_for('ofx/transactions.index_view')}}" method="POST"  class="form-inline">
+        <form  action="{{ url_for('banking/transactions.index_view')}}" method="POST"  class="form-inline">
         <div class="form-group">
             {{ new_mapping_form.subaccount() }}
         </div>
@@ -23,12 +23,12 @@
             </a>
             <ul class="dropdown-menu">
                 <li>
-                    <a href="{{ url_for('ofx/transactions.favorite', expense_account='Restaurants', keyword=search) }}">
+                    <a href="{{ url_for('banking/transactions.favorite', expense_account='Restaurants', keyword=search) }}">
                         Restaurant
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('ofx/transactions.favorite', expense_account='Groceries', keyword=search) }}">
+                    <a href="{{ url_for('banking/transactions.favorite', expense_account='Groceries', keyword=search) }}">
                         Groceries
                     </a>
                 </li>
