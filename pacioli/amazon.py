@@ -79,7 +79,6 @@ def fetch_amazon_email_download():
     reader = csv.DictReader(csv_file)
     for row in reader:
         new_amazon_item = AmazonItems()
-        print(row)
         for key in row:
             row[key.lower().replace('/', '_').replace(' ', '_').replace('&', 'and')] = row.pop(key)
         for column in inspect(AmazonItems).attrs:
