@@ -19,7 +19,7 @@ def request_amazon_report():
     br.open('https://www.amazon.com/gp/b2b/reports')
     br.select_form(name='signIn')
     br['email'], br['password'] = (db.session.query(Connections.user, Connections.password)
-                                   .filter(Connections.source == 'amazon').first())
+                                   .filter(Connections.source == 'amazon').one())
     logged_in = br.submit()
 
     error_str = 'The e-mail address and password you entered do not match any accounts on record.'
@@ -31,8 +31,13 @@ def request_amazon_report():
     br.select_form(nr=2)
     # print(br.form)
     br.form['type'] = ('ITEMS',)
-    # start_date = (datetime.today() - timedelta(days=5)).date()
-    start_date = datetime(2007, 1, 1)
+    latest_order_date, = (db.session.query(AmazonOrders.order_date)
+                          .order_by(AmazonOrders.order_date.desc()).first())
+    if not latest_order_date:
+        start_date = datetime(2007, 1, 1)
+    else:
+        start_date = (latest_order_date - timedelta(days=5)).date()
+
     end_date = datetime.today().date()
     br.form['monthstart'] = (str(start_date.month),)
     br.form['daystart'] = (str(start_date.day),)
