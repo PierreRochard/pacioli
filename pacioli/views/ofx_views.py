@@ -57,8 +57,8 @@ def sync_ofx():
             statement_request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
                                                              [account], dtstart=start, dtend=end)
         else:
-            statement_request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
-                                                             [account])
+            statement_request = ofx_client.statement_request(connection.user, connection.password,
+                                                             connection.clientuid, [account])
         response = ofx_client.download(statement_request)
 
         new_response = ConnectionResponses()

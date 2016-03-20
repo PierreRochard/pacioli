@@ -1,19 +1,13 @@
-from datetime import datetime
-
-from dateutil.tz import tzlocal
-from flask import url_for, redirect, request, current_app
+from flask import request, current_app
 from flask.ext.admin import expose
-from flask.ext.security.utils import encrypt_password
-from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, income_statement_currency_formatter, income_statement_currency_format, string_formatter
-from sqlalchemy import text, func, PrimaryKeyConstraint
+from pacioli.extensions import admin
+from pacioli.models import (db, JournalEntries, Subaccounts,
+                            Accounts, Classifications, Elements)
+from pacioli.views import PacioliModelView
+from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter
+from sqlalchemy import func, PrimaryKeyConstraint
 from sqlalchemy.ext.automap import automap_base
 from wtforms import StringField
-
-from pacioli.views import PacioliModelView
-from pacioli.views.ofx_views import sync_ofx
-from pacioli.extensions import admin
-from pacioli.models import (db, User, Role, JournalEntries, Subaccounts,
-                            Accounts, Classifications, Elements, Connections, Mappings, TrialBalances, ConnectionResponses)
 
 
 def register_bookkeeping():
@@ -26,13 +20,15 @@ def register_bookkeeping():
             globals()[current_app.config['PACIOLI_MODEL_MAP'][cls.__table__.name]] = cls
 
     class JournalEntriesView(PacioliModelView):
-        column_list = ('transaction_id', 'transaction_source', 'timestamp', 'debit_subaccount', 'credit_subaccount', 'functional_amount', 'description')
+        column_list = ('transaction_id', 'transaction_source', 'timestamp', 'debit_subaccount',
+                       'credit_subaccount', 'functional_amount', 'description')
         # column_editable_list = ['debit_subaccount', 'credit_subaccount']
         column_searchable_list = column_list
         column_default_sort = {'field': 'timestamp', 'sort_desc': True, 'absolute_value': False}
         column_filters = column_list
         column_sortable_list = column_list
-        column_formatters = dict(transaction_id=id_formatter, timestamp=date_formatter, functional_amount=currency_formatter, description=string_formatter)
+        column_formatters = dict(transaction_id=id_formatter, timestamp=date_formatter,
+                                 functional_amount=currency_formatter, description=string_formatter)
 
         def get_query(self):
             if 'subaccount' not in request.view_args:
