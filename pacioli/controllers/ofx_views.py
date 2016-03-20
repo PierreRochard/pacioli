@@ -129,7 +129,7 @@ def apply_all_mappings():
             db.session.commit()
 
 
-def apply_single_mapping(mapping_id):
+def apply_single_ofx_mapping(mapping_id):
     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
     matched_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
                                              Transactions.description, Transactions.account)
@@ -174,7 +174,6 @@ def register_ofx():
     setattr(Securities, '__repr__', lambda self: '{0} ({1})'.format(self.secname, self.ticker))
     setattr(InvestmentTransactions, '__repr__', lambda self: self.subclass)
     setattr(InvestmentPositions, '__repr__', lambda self: str(self.id))
-
 
     class OFXModelView(PacioliModelView):
         can_create = False
@@ -225,7 +224,7 @@ def register_ofx():
                     db.session.rollback()
                 mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                                .filter(Mappings.keyword == form['keyword']).one())
-                apply_single_mapping(mapping_id)
+                apply_single_ofx_mapping(mapping_id)
                 return redirect(url_for('banking/transactions.index_view'))
 
             class NewOFXTransactionMapping(Form):
@@ -251,7 +250,7 @@ def register_ofx():
                 db.session.rollback()
             mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                            .filter(Mappings.keyword == keyword).one())
-            apply_single_mapping(mapping_id)
+            apply_single_ofx_mapping(mapping_id)
             return redirect(url_for('banking/transactions.index_view'))
 
         @expose('/apply-all-mappings/')
