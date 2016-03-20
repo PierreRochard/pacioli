@@ -27,15 +27,15 @@ def apply_all_mappings():
             new_journal_entry.transaction_source = 'amazon'
             new_journal_entry.timestamp = match.shipment_date
             if match.amount > 0:
-                new_journal_entry.debit_subaccount = 'Amazon Suspense Account'
                 try:
-                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_credit_subaccount_id).one()
+                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_debit_subaccount_id).one()
                 except NoResultFound:
                     new_subaccount = Subaccounts()
-                    new_subaccount.name = mapping.positive_credit_subaccount_id
+                    new_subaccount.name = mapping.positive_debit_subaccount_id
                     new_subaccount.parent = 'Discretionary Costs'
                     db.session.add(new_subaccount)
                     db.session.commit()
+                new_journal_entry.debit_subaccount = mapping.positive_debit_subaccount_id
                 new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
             else:
                 raise Exception()
@@ -62,7 +62,7 @@ def apply_single_amazon_mapping(mapping_id):
         new_journal_entry.transaction_source = 'amazon'
         new_journal_entry.timestamp = match.shipment_date
         if match.item_total > 0:
-            new_journal_entry.debit_subaccount = 'Amazon Suspense Account'
+            new_journal_entry.debit_subaccount = mapping.positive_debit_subaccount_id
             new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
         else:
             raise Exception()
@@ -114,8 +114,11 @@ def register_amazon():
                 new_mapping = Mappings()
                 new_mapping.source = 'amazon'
                 new_mapping.keyword = form['keyword']
-                new_mapping.positive_credit_subaccount_id = form['subaccount']
-                new_mapping.negative_debit_subaccount_id = form['subaccount']
+                new_mapping.positive_debit_subaccount_id = form['subaccount']
+                new_mapping.positive_credit_subaccount_id = 'Amazon Suspense Account'
+                new_mapping.negative_debit_subaccount_id = 'Amazon Suspense Account'
+                new_mapping.negative_credit_subaccount_id = form['subaccount']
+
                 try:
                     db.session.add(new_mapping)
                     db.session.commit()
