@@ -16,9 +16,9 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm.exc import NoResultFound
 from wtforms import Form, HiddenField
 
-from pacioli.controllers import PacioliModelView
-from pacioli.controllers.utilities import (account_formatter, date_formatter, currency_formatter,
-                                           id_formatter, type_formatter, string_formatter)
+from pacioli.views import PacioliModelView
+from pacioli.views.utilities import (account_formatter, date_formatter, currency_formatter,
+                                     id_formatter, type_formatter, string_formatter)
 from pacioli.extensions import admin
 from pacioli.models import db, Subaccounts, Mappings, JournalEntries, Connections, ConnectionResponses
 

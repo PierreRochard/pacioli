@@ -6,8 +6,9 @@ from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
 
 from pacioli import assets
-from pacioli.controllers.main import register_bookkeeping, register_accounting
-from pacioli.controllers.ofx_views import register_ofx
+from pacioli.views.accounting_views import register_accounting
+from pacioli.views.bookkeeping_views import register_bookkeeping
+from pacioli.views.ofx_views import register_ofx
 from pacioli.models import db, User, Role, user_datastore
 
 from pacioli.extensions import cache, assets_env, debug_toolbar, admin, mail
@@ -43,5 +44,5 @@ def create_app(object_name, env="prod"):
         except InvalidRequestError:
             pass
 
-    import pacioli.controllers.amazon_views
+    import pacioli.views.amazon_views
     return app

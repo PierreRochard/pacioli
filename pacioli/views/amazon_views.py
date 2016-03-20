@@ -2,7 +2,7 @@ from flask import request, redirect, url_for
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField
-from pacioli.controllers import PacioliModelView
+from pacioli.views import PacioliModelView
 from pacioli.extensions import admin
 from pacioli.models import (db, AmazonCategories, AmazonItems, AmazonOrders, Subaccounts, Mappings, JournalEntries)
 from sqlalchemy import func

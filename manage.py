@@ -19,9 +19,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
-from pacioli.controllers.utilities import results_to_email_template
+from pacioli.views.utilities import results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
-from pacioli.controllers.ofx_views import sync_ofx, apply_all_mappings
+from pacioli.views.ofx_views import sync_ofx, apply_all_mappings
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -79,6 +79,19 @@ def createdb():
                 ofx.stmttrn.acctfrom_id) and pacioli.journal_entries.transaction_source = 'ofx'
         JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
         ORDER BY ofx.stmttrn.dtposted DESC;
+    """)
+
+    try:
+        db.engine.execute('DROP VIEW amazon.transactions;')
+    except ProgrammingError:
+        pass
+    db.engine.execute("""
+    CREATE VIEW amazon.transactions AS SELECT amazon.items.*,
+            pacioli.journal_entries.id AS journal_entry_id
+        FROM amazon.items
+        LEFT OUTER JOIN pacioli.journal_entries ON cast(amazon.items.id AS CHARACTER VARYING) = pacioli.journal_entries.transaction_id
+          AND pacioli.journal_entries.transaction_source = 'amazon'
+        ORDER BY amazon.items.shipment_date DESC;
     """)
 
     try:
@@ -157,7 +170,7 @@ def import_ofx():
 @manager.command
 def update_ofx():
     sync_ofx()
-    from pacioli.controllers.ofx_views import Transactions, AccountsFrom
+    from pacioli.views.ofx_views import Transactions, AccountsFrom
     start = datetime.now().date() - timedelta(days=1)
     new_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
                                          Transactions.description, Transactions.account)
