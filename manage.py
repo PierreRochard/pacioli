@@ -82,11 +82,11 @@ def createdb():
     """)
 
     try:
-        db.engine.execute('DROP VIEW amazon.transactions;')
+        db.engine.execute('DROP VIEW amazon.amazon_transactions;')
     except ProgrammingError:
         pass
     db.engine.execute("""
-    CREATE VIEW amazon.transactions AS SELECT amazon.items.*,
+    CREATE VIEW amazon.amazon_transactions AS SELECT amazon.items.*,
             pacioli.journal_entries.id AS journal_entry_id
         FROM amazon.items
         LEFT OUTER JOIN pacioli.journal_entries ON cast(amazon.items.id AS CHARACTER VARYING) = pacioli.journal_entries.transaction_id

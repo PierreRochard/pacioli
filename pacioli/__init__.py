@@ -7,6 +7,7 @@ from flask_admin import helpers as admin_helpers
 
 from pacioli import assets
 from pacioli.views.accounting_views import register_accounting
+from pacioli.views.amazon_views import register_amazon
 from pacioli.views.bookkeeping_views import register_bookkeeping
 from pacioli.views.ofx_views import register_ofx
 from pacioli.models import db, User, Role, user_datastore
@@ -41,6 +42,7 @@ def create_app(object_name, env="prod"):
             register_bookkeeping()
             register_accounting()
             register_ofx()
+            register_amazon()
         except InvalidRequestError:
             pass
 
