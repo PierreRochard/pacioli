@@ -1,8 +1,8 @@
 from datetime import datetime, date
-from decimal import Decimal
 import os
-from flask import url_for
+import string
 
+from flask import url_for
 from jinja2 import Template
 from markupsafe import Markup
 from premailer import transform
@@ -20,10 +20,10 @@ def account_formatter(view, context, model, name):
 
 
 def string_formatter(view, context, model, name):
-    string = getattr(model, name)
-    string = string.lower()
-    string = string.title()
-    return string
+    column_string = getattr(model, name)
+    column_string = column_string.lower()
+    column_string = string.capwords(column_string, ' ')
+    return column_string
 
 
 def currency_formatter(view, context, model, name):
