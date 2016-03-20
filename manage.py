@@ -13,15 +13,17 @@ from flask.ext.security.utils import encrypt_password
 from flask_mail import Message
 from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.ofxalchemy import Base as OFX_Base
-from pacioli.amazon import fetch_amazon_email_download, request_amazon_report
-from pacioli.trial_balances import create_trigger_function
+from pacioli.functions.accounting_functions import create_trial_balances_trigger_function
+from pacioli.functions.amazon_functions import fetch_amazon_email_download, request_amazon_report
+from pacioli.functions.amazon_functions import create_amazon_views
+from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
 from pacioli.views.utilities import results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
-from pacioli.views.ofx_views import sync_ofx, apply_all_mappings
+from pacioli.functions.ofx_functions import sync_ofx, apply_all_mappings, create_ofx_views
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -61,71 +63,19 @@ def createdb():
 
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
-    try:
-        db.engine.execute('DROP VIEW ofx.transactions;')
-    except ProgrammingError:
-        pass
-    db.engine.execute("""
-    CREATE VIEW ofx.transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
-            ofx.stmttrn.dtposted AS date,
-            ofx.stmttrn.trnamt AS amount,
-            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-               ofx.stmttrn.trntype as type,
-            ofx.acctfrom.name AS account,
-            ofx.stmttrn.acctfrom_id as account_id,
-            pacioli.journal_entries.id AS journal_entry_id
-        FROM ofx.stmttrn
-        LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
-                ofx.stmttrn.acctfrom_id) and pacioli.journal_entries.transaction_source = 'ofx'
-        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
-        ORDER BY ofx.stmttrn.dtposted DESC;
-    """)
+    create_ofx_views()
+    create_bookkeeping_views()
+    create_amazon_views()
 
-    try:
-        db.engine.execute('DROP VIEW amazon.amazon_transactions;')
-    except ProgrammingError:
-        pass
-    db.engine.execute("""
-    CREATE VIEW amazon.amazon_transactions AS SELECT amazon.items.*,
-            pacioli.journal_entries.id AS journal_entry_id
-        FROM amazon.items
-        LEFT OUTER JOIN pacioli.journal_entries ON cast(amazon.items.id AS CHARACTER VARYING) = pacioli.journal_entries.transaction_id
-          AND pacioli.journal_entries.transaction_source = 'amazon'
-        ORDER BY amazon.items.shipment_date DESC;
-    """)
-
-    try:
-        db.engine.execute('DROP VIEW pacioli.detailed_journal_entries;')
-    except ProgrammingError:
-        pass
-    db.engine.execute("""
-    CREATE VIEW pacioli.detailed_journal_entries AS SELECT
-            pacioli.journal_entries.id AS id,
-            pacioli.journal_entries.transaction_source AS transaction_source,
-            pacioli.journal_entries.transaction_id AS transaction_id,
-            pacioli.journal_entries."timestamp" AS "timestamp",
-            pacioli.journal_entries.debit_subaccount as debit_subaccount,
-            pacioli.journal_entries.credit_subaccount as credit_subaccount,
-            pacioli.journal_entries.functional_amount as functional_amount,
-            CASE pacioli.journal_entries.transaction_source
-              WHEN 'ofx' THEN concat(ofx.stmttrn.name, ofx.stmttrn.memo)
-              WHEN 'amazon' THEN amazon.items.title
-            END AS description
-        FROM pacioli.journal_entries
-        LEFT OUTER JOIN ofx.stmttrn ON concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) = pacioli.journal_entries.transaction_id AND pacioli.journal_entries.transaction_source = 'ofx'
-        LEFT OUTER JOIN amazon.items ON cast(amazon.items.id AS CHARACTER VARYING) = pacioli.journal_entries.transaction_id AND pacioli.journal_entries.transaction_source = 'amazon'
-        LEFT OUTER JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
-        ORDER BY pacioli.journal_entries."timestamp" DESC;
-    """)
 
 @manager.command
 def update_trial_balances():
-    create_trigger_function()
+    create_trial_balances_trigger_function()
 
 
 @manager.command
 def dropdb():
-    # db.drop_all()
+    db.drop_all()
     OFX_Base.metadata.drop_all(db.engine)
 
 

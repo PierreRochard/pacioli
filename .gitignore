@@ -61,3 +61,5 @@ libraries/
 Chart of Accounts.csv
 
 migrations/versions
+
+adhoc.py

@@ -3,11 +3,91 @@ import email
 import imaplib
 from datetime import datetime, timedelta
 
-import mechanize
-
-from pacioli.models import db, Connections, AmazonItems, AmazonCategories, AmazonOrders
+from sqlalchemy import func
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.elements import or_
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+import mechanize
+
+from pacioli.models import (db, AmazonItems, Subaccounts, Mappings, JournalEntries, Connections, AmazonCategories, AmazonOrders)
+
+
+def create_amazon_views():
+    try:
+        db.engine.execute('DROP VIEW amazon.amazon_transactions;')
+    except ProgrammingError:
+        pass
+    db.engine.execute("""
+    CREATE VIEW amazon.amazon_transactions AS SELECT amazon.items.*,
+            pacioli.journal_entries.id AS journal_entry_id
+        FROM amazon.items
+        LEFT OUTER JOIN pacioli.journal_entries ON cast(amazon.items.id AS CHARACTER VARYING) = pacioli.journal_entries.transaction_id
+          AND pacioli.journal_entries.transaction_source = 'amazon'
+        ORDER BY amazon.items.shipment_date DESC;
+    """)
+
+
+def apply_all_mappings():
+    for mapping in db.session.query(Mappings).all():
+        matches = (db.session.query(AmazonItems)
+                   .outerjoin(JournalEntries, JournalEntries.transaction_id == str(AmazonItems.id))
+                   .filter(JournalEntries.transaction_id.is_(None))
+                   .filter(or_(func.lower(AmazonItems.title).like('%' + mapping.keyword.lower() + '%'),
+                               func.lower(AmazonItems.category_id).like('%' + mapping.keyword.lower() + '%')))
+                   .order_by(AmazonItems.shipment_date.desc()).all())
+        for match in matches:
+            new_journal_entry = JournalEntries()
+            new_journal_entry.transaction_id = match.id
+            new_journal_entry.transaction_source = 'amazon'
+            new_journal_entry.timestamp = match.shipment_date
+            if match.amount > 0:
+                try:
+                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_debit_subaccount_id).one()
+                except NoResultFound:
+                    new_subaccount = Subaccounts()
+                    new_subaccount.name = mapping.positive_debit_subaccount_id
+                    new_subaccount.parent = 'Discretionary Costs'
+                    db.session.add(new_subaccount)
+                    db.session.commit()
+                new_journal_entry.debit_subaccount = mapping.positive_debit_subaccount_id
+                new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
+            else:
+                raise Exception()
+            new_journal_entry.functional_amount = match.item_total
+            new_journal_entry.functional_currency = 'USD'
+            new_journal_entry.source_amount = match.item_total
+            new_journal_entry.source_currency = 'USD'
+            db.session.add(new_journal_entry)
+            db.session.commit()
+
+
+def apply_single_amazon_mapping(mapping_id):
+    mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
+    matches = (db.session.query(AmazonItems)
+               .outerjoin(JournalEntries, JournalEntries.transaction_id == str(AmazonItems.id))
+               .filter(JournalEntries.transaction_id.is_(None))
+               .filter(or_(func.lower(AmazonItems.title).like('%' + mapping.keyword.lower() + '%'),
+                           func.lower(AmazonItems.category_id).like('%' + mapping.keyword.lower() + '%')))
+               .order_by(AmazonItems.shipment_date.desc()).all())
+    for match in matches:
+        new_journal_entry = JournalEntries()
+        new_journal_entry.transaction_id = match.id
+        new_journal_entry.mapping_id = mapping_id
+        new_journal_entry.transaction_source = 'amazon'
+        new_journal_entry.timestamp = match.shipment_date
+        if match.item_total > 0:
+            new_journal_entry.debit_subaccount = mapping.positive_debit_subaccount_id
+            new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
+        else:
+            raise Exception()
+        new_journal_entry.functional_amount = match.item_total
+        new_journal_entry.functional_currency = 'USD'
+        new_journal_entry.source_amount = match.item_total
+        new_journal_entry.source_currency = 'USD'
+        db.session.add(new_journal_entry)
+        db.session.commit()
 
 
 def request_amazon_report():

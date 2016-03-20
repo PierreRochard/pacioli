@@ -2,76 +2,14 @@ from flask import request, redirect, url_for, current_app
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField
-from pacioli.views import PacioliModelView
-from pacioli.extensions import admin
-from pacioli.models import (db, AmazonCategories, AmazonItems, AmazonOrders, Subaccounts, Mappings, JournalEntries)
-from sqlalchemy import func, PrimaryKeyConstraint
+from sqlalchemy import PrimaryKeyConstraint
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql.elements import or_
 from wtforms import Form, HiddenField
 
-
-def apply_all_mappings():
-    for mapping in db.session.query(Mappings).all():
-        matches = (db.session.query(AmazonItems)
-                   .outerjoin(JournalEntries, JournalEntries.transaction_id == str(AmazonItems.id))
-                   .filter(JournalEntries.transaction_id.is_(None))
-                   .filter(or_(func.lower(AmazonItems.title).like('%' + mapping.keyword.lower() + '%'),
-                               func.lower(AmazonItems.category_id).like('%' + mapping.keyword.lower() + '%')))
-                   .order_by(AmazonItems.shipment_date.desc()).all())
-        for match in matches:
-            new_journal_entry = JournalEntries()
-            new_journal_entry.transaction_id = match.id
-            new_journal_entry.transaction_source = 'amazon'
-            new_journal_entry.timestamp = match.shipment_date
-            if match.amount > 0:
-                try:
-                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_debit_subaccount_id).one()
-                except NoResultFound:
-                    new_subaccount = Subaccounts()
-                    new_subaccount.name = mapping.positive_debit_subaccount_id
-                    new_subaccount.parent = 'Discretionary Costs'
-                    db.session.add(new_subaccount)
-                    db.session.commit()
-                new_journal_entry.debit_subaccount = mapping.positive_debit_subaccount_id
-                new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
-            else:
-                raise Exception()
-            new_journal_entry.functional_amount = match.item_total
-            new_journal_entry.functional_currency = 'USD'
-            new_journal_entry.source_amount = match.item_total
-            new_journal_entry.source_currency = 'USD'
-            db.session.add(new_journal_entry)
-            db.session.commit()
-
-
-def apply_single_amazon_mapping(mapping_id):
-    mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-    matches = (db.session.query(AmazonItems)
-               .outerjoin(JournalEntries, JournalEntries.transaction_id == str(AmazonItems.id))
-               .filter(JournalEntries.transaction_id.is_(None))
-               .filter(or_(func.lower(AmazonItems.title).like('%' + mapping.keyword.lower() + '%'),
-                           func.lower(AmazonItems.category_id).like('%' + mapping.keyword.lower() + '%')))
-               .order_by(AmazonItems.shipment_date.desc()).all())
-    for match in matches:
-        new_journal_entry = JournalEntries()
-        new_journal_entry.transaction_id = match.id
-        new_journal_entry.mapping_id = mapping_id
-        new_journal_entry.transaction_source = 'amazon'
-        new_journal_entry.timestamp = match.shipment_date
-        if match.item_total > 0:
-            new_journal_entry.debit_subaccount = mapping.positive_debit_subaccount_id
-            new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
-        else:
-            raise Exception()
-        new_journal_entry.functional_amount = match.item_total
-        new_journal_entry.functional_currency = 'USD'
-        new_journal_entry.source_amount = match.item_total
-        new_journal_entry.source_currency = 'USD'
-        db.session.add(new_journal_entry)
-        db.session.commit()
+from pacioli.extensions import admin
+from pacioli.models import (db, AmazonCategories, AmazonOrders, Subaccounts, Mappings)
+from pacioli.views import PacioliModelView
 
 
 def register_amazon():

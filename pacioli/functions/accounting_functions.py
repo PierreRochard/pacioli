@@ -2,7 +2,7 @@ from pacioli.models import db
 from sqlalchemy.exc import ProgrammingError
 
 
-def create_trigger_function():
+def create_trial_balances_trigger_function():
     try:
         db.engine.execute('DROP FUNCTION pacioli.update_trial_balance(character varying, character varying, character varying, character varying);')
     except ProgrammingError:
