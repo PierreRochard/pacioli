@@ -18,6 +18,8 @@ from wtforms import Form, HiddenField
 def register_ofx():
     db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=current_app.config['OFX_MODEL_MAP'].keys())
     db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
+    db.metadata.tables['ofx.investment_transactions'].append_constraint(
+        PrimaryKeyConstraint('id', name='investment_transactions_pk'))
 
     Base = automap_base(metadata=db.metadata)
     Base.prepare()
@@ -123,6 +125,18 @@ def register_ofx():
     admin.add_view(OFXModelView(CreditCardAccounts, db.session,
                                 name='Credit Card Accounts', category='Banking', endpoint='banking/credit-card-accounts'))
 
+    class InvestmentTransactionsView(OFXModelView):
+        column_default_sort = {'field': 'dttrade', 'sort_desc': True, 'absolute_value': False}
+        column_list = ('account_name', 'fitid', 'subclass', 'memo', 'dttrade', 'ticker', 'secname', 'units', 'unitprice', 'total')
+        column_filters = column_list
+        column_labels = dict(account_name='Account', fitid='ID', dttrade='Trade', secname='Security Name',
+                             unitprice='Price')
+        column_formatters = dict(fitid=id_formatter, dttrade=date_formatter, units=currency_formatter,
+                                 unitprice=currency_formatter, total=currency_formatter)
+
+    admin.add_view(InvestmentTransactionsView(InvestmentTransactions, db.session, name='Transactions',
+                                              category='Investments', endpoint='investments/transactions'))
+
     class InvestmentAccountsModelView(OFXModelView):
         column_default_sort = {'field': 'acctid', 'sort_desc': True, 'absolute_value': False}
         column_labels = dict(acctfrom='Account', brokerid='Broker ID', acctid='Account ID')
@@ -148,39 +162,12 @@ def register_ofx():
     admin.add_view(InvestmentPositionsModelView(InvestmentPositions, db.session, name='Positions',
                                                 category='Investments', endpoint='investments/positions'))
 
-    class InvestmentTransactionsView(OFXModelView):
-        inline_models = (Reinvestments, MutualFundBuys)
-        column_default_sort = {'field': 'dttrade', 'sort_desc': True, 'absolute_value': False}
-        column_list = ['invacctfrom', 'fitid', 'subclass', 'memo', 'dttrade', 'dtsettle', 'reversalfitid']
-        column_filters = column_list
-        column_labels = dict(invacctfrom='Account', fitid='ID', dttrade='Trade', dtsettle='Settlement',
-                             refersalfitid='Reversal ID')
-        column_formatters = dict(fitid=id_formatter, dttrade=date_formatter, dtsettle=date_formatter)
-    admin.add_view(InvestmentTransactionsView(InvestmentTransactions, db.session, name='Transactions',
-                                              category='Investments', endpoint='investments/transactions'))
 
-    class ReinvestmentsView(OFXModelView):
-        column_list = ('invtran', 'secinfo', 'incometype', 'total', 'subacctsec', 'units', 'unitprice')
-    admin.add_view(ReinvestmentsView(Reinvestments, db.session, name='Reinvestments', category='Investments',
-                                     endpoint='investments/reinvestments'))
 
     class SecuritiesView(OFXModelView):
         column_list = ('id', 'subclass', 'uniqueidtype', 'uniqueid', 'secname', 'ticker')
     admin.add_view(SecuritiesView(Securities, db.session, name='Securities', category='Investments',
                                   endpoint='investments/securities'))
-
-    class MutualFundsView(OFXModelView):
-        pass
-    admin.add_view(OFXModelView(MutualFunds, db.session,
-                                name='Mutual Funds', category='Investments', endpoint='investments/mutual-funds'))
-
-    class MutualFundBuysView(OFXModelView):
-        column_list = ('invtran', 'secinfo', 'units', 'unitprice', 'total', 'subacctsec', 'subacctfund', 'buytype')
-    admin.add_view(MutualFundBuysView(MutualFundBuys, db.session,
-                                name='Mutual Fund Buys', category='Investments', endpoint='investments/mutual-fund-buys'))
-    admin.add_view(OFXModelView(MutualFundPositions, db.session,
-                                name='Mutual Fund Positions', category='Investments', endpoint='investments/mutual-fund-positions'))
-
 
 
 
