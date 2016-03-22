@@ -81,11 +81,21 @@ def create_ofx_views():
     db.engine.execute("""
         CREATE VIEW ofx.cost_bases AS SELECT
                 investment_transactions.secname,
-                investment_transactions.ticker,
                 sum(investment_transactions.units) as total_units,
-                sum(investment_transactions.total) as cost_basis
+                sum(investment_transactions.total) as cost_basis,
+                q1.ticker,
+                q1.adjusted_close as "close",
+                q1.adjusted_close * sum(investment_transactions.units) as market_value,
+                (q1.adjusted_close * sum(investment_transactions.units) - sum(investment_transactions.total)) as pnl,
+                (q1.adjusted_close * sum(investment_transactions.units) - sum(investment_transactions.total))/sum(investment_transactions.total) as pnl_percent,
+                q2.date as price_date
+
         FROM ofx.investment_transactions
-        GROUP BY investment_transactions.secname, investment_transactions.ticker
+        JOIN (SELECT ticker, max(date) AS date FROM investments.security_prices GROUP BY ticker) AS q2
+            ON q2.ticker = investment_transactions.ticker
+        JOIN investments.security_prices q1 ON q1.ticker = ofx.investment_transactions.ticker
+                                           AND q2.date = q1.date
+        GROUP BY investment_transactions.secname, q1.ticker, q2.date, q1.adjusted_close
         ORDER BY sum(investment_transactions.total);
     """)
 

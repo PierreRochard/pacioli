@@ -258,3 +258,19 @@ class AmazonItems(db.Model):
 
     def __repr__(self):
         return self.title
+
+
+class SecurityPrices(db.Model):
+    __table_args__ = (db.UniqueConstraint('ticker', 'date', name='security_prices_unique_constraint'),
+                      {'schema': 'investments'})
+    __tablename__ = 'security_prices'
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticker = db.Column(db.String)
+    date = db.Column(db.Date)
+    adjusted_close = db.Column(db.Numeric)
+    close = db.Column(db.Numeric)
+    high = db.Column(db.Numeric)
+    low = db.Column(db.Numeric)
+    open = db.Column(db.Numeric)
+    volume = db.Column(db.Numeric)

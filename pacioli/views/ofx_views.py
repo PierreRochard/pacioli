@@ -8,7 +8,7 @@ from pacioli.extensions import admin
 from pacioli.models import db, Subaccounts, Mappings
 from pacioli.views import PacioliModelView
 from pacioli.views.utilities import (account_formatter, date_formatter, currency_formatter,
-                                     id_formatter, type_formatter, string_formatter)
+                                     id_formatter, type_formatter, string_formatter, percent_formatter)
 from sqlalchemy import PrimaryKeyConstraint
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.automap import automap_base
@@ -20,6 +20,8 @@ def register_ofx():
     db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
     db.metadata.tables['ofx.investment_transactions'].append_constraint(
         PrimaryKeyConstraint('id', name='investment_transactions_pk'))
+    db.metadata.tables['ofx.cost_bases'].append_constraint(
+        PrimaryKeyConstraint('ticker', name='cost_bases_pk'))
 
     Base = automap_base(metadata=db.metadata)
     Base.prepare()
@@ -136,6 +138,13 @@ def register_ofx():
 
     admin.add_view(InvestmentTransactionsView(InvestmentTransactions, db.session, name='Transactions',
                                               category='Investments', endpoint='investments/transactions'))
+
+    class CostBasesView(OFXModelView):
+        column_labels = dict(secname='Security Name')
+        column_formatters = dict(close=currency_formatter, market_value=currency_formatter, pnl=currency_formatter, pnl_percent=percent_formatter)
+
+    admin.add_view(CostBasesView(CostBases, db.session, name='Cost Bases',
+                                              category='Investments', endpoint='investments/cost-bases'))
 
     class InvestmentAccountsModelView(OFXModelView):
         column_default_sort = {'field': 'acctid', 'sort_desc': True, 'absolute_value': False}

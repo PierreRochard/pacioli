@@ -37,6 +37,17 @@ def currency_formatter(view, context, model, name):
         return '-'
 
 
+def percent_formatter(view, context, model, name):
+    if getattr(model, name):
+        currency_string = "{0:,.2f}%".format(getattr(model, name)*100)
+        if currency_string.startswith('-'):
+            currency_string = currency_string.replace('-', '(')
+            currency_string += ')'
+        return currency_string
+    else:
+        return '-'
+
+
 def income_statement_currency_format(amount):
     currency_string = "{0:,.2f}".format(amount)
     if currency_string.startswith('-'):
