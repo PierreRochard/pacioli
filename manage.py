@@ -17,6 +17,7 @@ from pacioli.functions.accounting_functions import create_trial_balances_trigger
 from pacioli.functions.amazon_functions import fetch_amazon_email_download, request_amazon_report
 from pacioli.functions.amazon_functions import create_amazon_views
 from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
+from pacioli.functions.investment_functions import update_ticker_prices
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
@@ -151,6 +152,11 @@ def submit_amazon_report_request():
 @manager.command
 def import_amazon_report():
     fetch_amazon_email_download()
+
+
+@manager.command
+def update_tickers():
+    update_ticker_prices()
 
 
 @manager.command

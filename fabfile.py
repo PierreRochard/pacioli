@@ -1,4 +1,5 @@
-from fabric.context_managers import shell_env
+import keyring
+from fabric.context_managers import shell_env, prefix
 import os
 import sys
 
@@ -10,8 +11,6 @@ from aws_config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS
 from aws_config import AWS_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, DOMAIN_NAME
 from aws_config import mx1, mx5, mx5b, mx10, mx10b, cname_name, cname_value, txt
 from aws_config import admin_email, admin_password
-
-from pacioli.settings import PROD_PG_USERNAME, PROD_PG_PASSWORD
 
 purpose = 'pacioli-deployment'
 
@@ -78,8 +77,10 @@ def start_rds():
                                              AllocatedStorage=6,
                                              DBInstanceClass='db.t2.micro',
                                              Engine='postgres',
-                                             MasterUsername=PROD_PG_USERNAME,
-                                             MasterUserPassword=PROD_PG_PASSWORD,
+                                             MasterUsername=keyring.get_password('postgres_username',
+                                                                                 'postgres_username'),
+                                             MasterUserPassword=keyring.get_password('postgres_password',
+                                                                                     'postgres_password'),
                                              AvailabilityZone=instance_availability_zones[env.host_string],
                                              Port=58217,
                                              MultiAZ=False,
@@ -189,6 +190,7 @@ def update_cron():
         cron_file.write('0 11,23 * * * cd /home/ec2-user/pacioli/ && python manage.py update_ofx\n')
         cron_file.write('0 11 * * * cd /home/ec2-user/pacioli/ && python manage.py submit_amazon_report_request\n')
         cron_file.write('0 11 30 * * cd /home/ec2-user/pacioli/ && python manage.py import_amazon_report\n')
+        cron_file.write('0 11,23 * * * cd /home/ec2-user/pacioli/ && python manage.py update_tickers\n')
     put('local_cron', 'remote_cron', use_sudo=True)
     run('sudo crontab remote_cron')
     run('sudo rm -f remote_cron')
@@ -235,7 +237,7 @@ def update():
         run('sudo python setup.py install')
 
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py createdb')
             run('python manage.py update_trial_balances')
 
@@ -257,24 +259,25 @@ def update():
     put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)
     put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
     put('configuration_files/rochard-nginx', '/etc/nginx/sites-available/rochard', use_sudo=True)
+    run('sudo chown nginx:nginx -R /var/www/')
     run('sudo /etc/init.d/nginx restart')
 
 
 def create_db():
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py createdb')
 
 
 def populate_chart_of_accounts():
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py populate_chart_of_accounts')
 
 
 def create_admin():
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py create_admin -e {0} -p {1}'.format(admin_email, admin_password))
             run('python manage.py create_superuser')
 
@@ -293,17 +296,17 @@ def nginx_error():
 
 def update_ofx():
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py update_ofx')
 
 
 def submit_amazon_report_request():
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py submit_amazon_report_request')
 
 
 def import_amazon_report():
     with cd('/home/ec2-user/pacioli/'):
-        with shell_env(pacioli_ENV='prod'):
+        with prefix('source ~/.bash_profile'):
             run('python manage.py import_amazon_report')

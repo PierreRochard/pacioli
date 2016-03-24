@@ -15,6 +15,7 @@ alembic
 itsdangerous
 cssmin
 jsmin
+keyring
 mechanize
 premailer
 python-dateutil
