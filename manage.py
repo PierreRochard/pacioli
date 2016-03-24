@@ -23,7 +23,6 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 from pacioli import create_app, mail
 from pacioli.views.utilities import results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
-from pacioli.functions.ofx_functions import sync_ofx, apply_all_mappings, create_ofx_views
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -67,6 +66,7 @@ def createdb():
 
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
+    from pacioli.functions.ofx_functions import create_ofx_views
     create_ofx_views()
     create_bookkeeping_views()
     create_amazon_views()
@@ -123,6 +123,7 @@ def import_ofx():
 
 @manager.command
 def update_ofx():
+    from pacioli.functions.ofx_functions import sync_ofx
     sync_ofx()
     from pacioli.views.ofx_views import Transactions, AccountsFrom
     start = datetime.now().date() - timedelta(days=1)
@@ -140,6 +141,7 @@ def update_ofx():
         html_body = results_to_email_template('New Transactions', '', header, transactions)
         msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
+    from pacioli.functions.ofx_functions import apply_all_mappings
     apply_all_mappings()
 
 

@@ -4,9 +4,9 @@ from dateutil.tz import tzlocal
 from flask import url_for, redirect
 from flask.ext.admin import expose
 from pacioli.extensions import admin
+from pacioli.functions.ofx_functions import sync_ofx
 from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses)
 from pacioli.views import PacioliModelView
-from pacioli.views.ofx_views import sync_ofx
 from pacioli.views.utilities import date_formatter
 
 

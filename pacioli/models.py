@@ -1,4 +1,8 @@
+from flask import current_app
 from flask.ext.security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
+from sqlalchemy import PrimaryKeyConstraint
+from sqlalchemy.ext.automap import automap_base
+
 from pacioli.extensions import db
 
 roles_users = db.Table('roles_users',
@@ -274,3 +278,44 @@ class SecurityPrices(db.Model):
     low = db.Column(db.Numeric)
     open = db.Column(db.Numeric)
     volume = db.Column(db.Numeric)
+
+
+def register_ofx_models():
+    db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=current_app.config['OFX_MODEL_MAP'].keys())
+    db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
+    db.metadata.tables['ofx.investment_transactions'].append_constraint(
+        PrimaryKeyConstraint('id', name='investment_transactions_pk'))
+    db.metadata.tables['ofx.cost_bases'].append_constraint(
+        PrimaryKeyConstraint('ticker', name='cost_bases_pk'))
+
+    Base = automap_base(metadata=db.metadata)
+    Base.prepare()
+    for cls in Base.classes:
+        if cls.__table__.name in current_app.config['OFX_MODEL_MAP']:
+            globals()[current_app.config['OFX_MODEL_MAP'][cls.__table__.name]] = cls
+
+    setattr(AccountsFrom, '__repr__', lambda self: self.name)
+    setattr(InvestmentAccounts, '__repr__', lambda self: self.acctfrom.name)
+    setattr(Securities, '__repr__', lambda self: '{0} ({1})'.format(self.secname, self.ticker))
+    setattr(InvestmentTransactions, '__repr__', lambda self: self.subclass)
+    setattr(InvestmentPositions, '__repr__', lambda self: str(self.id))
+
+
+def register_amazon_models():
+    db.metadata.reflect(bind=db.engine, schema='amazon', views=True, only=current_app.config['AMAZON_MODEL_MAP'].keys())
+    db.metadata.tables['amazon.amazon_transactions'].append_constraint(PrimaryKeyConstraint('id', name='amazon_transactions_pk'))
+    Base = automap_base(metadata=db.metadata)
+    Base.prepare()
+    for cls in Base.classes:
+        if cls.__table__.name in current_app.config['AMAZON_MODEL_MAP']:
+            globals()[current_app.config['AMAZON_MODEL_MAP'][cls.__table__.name]] = cls
+
+
+def register_bookkeeping_models():
+    db.metadata.reflect(bind=db.engine, schema='pacioli', views=True, only=current_app.config['PACIOLI_MODEL_MAP'].keys())
+    db.metadata.tables['pacioli.detailed_journal_entries'].append_constraint(PrimaryKeyConstraint('id', name='detailed_journal_entries_pk'))
+    Base = automap_base(metadata=db.metadata)
+    Base.prepare()
+    for cls in Base.classes:
+        if cls.__table__.name in current_app.config['PACIOLI_MODEL_MAP']:
+            globals()[current_app.config['PACIOLI_MODEL_MAP'][cls.__table__.name]] = cls

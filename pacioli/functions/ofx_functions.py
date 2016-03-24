@@ -7,11 +7,13 @@ from flask import current_app
 from ofxtools import OFXClient
 from ofxtools.Client import CcAcct, BankAcct
 from ofxtools.ofxalchemy import OFXParser, DBSession
-from pacioli import db
-from pacioli.models import Subaccounts, Mappings, JournalEntries, Connections, ConnectionResponses
 from sqlalchemy import func, create_engine
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm.exc import NoResultFound
+
+from pacioli import db
+from pacioli.models import (Subaccounts, Mappings, JournalEntries, Connections,
+                            ConnectionResponses, Transactions, AccountsFrom, CreditCardAccounts, BankAccounts)
 
 
 def create_ofx_views():

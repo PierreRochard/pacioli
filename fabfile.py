@@ -132,8 +132,9 @@ def create_dns_records():
 
 def install():
     # APP
-    packages = 'gcc git python python-pip python-setuptools python-devel postgresql94-devel libxslt-devel libxml-devel'
-    run('sudo yum -y install ' + packages)
+    packages = ['gcc', 'gcc-c++', 'git', 'python', 'python-pip', 'python-setuptools', 'python-devel', 'postgresql94-devel',
+                'libxslt-devel', 'libxml-devel', 'freetype-devel', 'libpng-devel']
+    run('sudo yum -y install ' + ' '.join(packages))
     put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, use_sudo=True)
     run('sudo chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
@@ -298,6 +299,12 @@ def update_ofx():
     with cd('/home/ec2-user/pacioli/'):
         with prefix('source ~/.bash_profile'):
             run('python manage.py update_ofx')
+
+
+def update_tickers():
+    with cd('/home/ec2-user/pacioli/'):
+        with prefix('source ~/.bash_profile'):
+            run('python manage.py update_tickers')
 
 
 def submit_amazon_report_request():
