@@ -16,6 +16,7 @@ itsdangerous
 cssmin
 jsmin
 keyring
+matplotlib
 mechanize
 premailer
 python-dateutil
