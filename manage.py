@@ -109,13 +109,16 @@ def create_admin(email, password):
 
 @manager.command
 def import_ofx():
-    directory = 'configuration_files/data/'
+    from pacioli.functions.ofx_functions import fix_ofx_file
+    directory = os.path.abspath(os.path.join('configuration_files', 'data'))
     files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith(('.ofx', '.OFX', '.qfx', '.QFX'))]
     for ofx_file_name in files:
         ofx_file_path = os.path.join(directory, ofx_file_name)
         parser = OFXParser()
         engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
         DBSession.configure(bind=engine)
+        if 'fixed' not in ofx_file_path:
+            ofx_file_path = fix_ofx_file(ofx_file_path)
         parser.parse(ofx_file_path)
         parser.instantiate()
         DBSession.commit()

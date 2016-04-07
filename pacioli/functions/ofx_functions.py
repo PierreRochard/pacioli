@@ -16,6 +16,28 @@ from pacioli.models import (Subaccounts, Mappings, JournalEntries, Connections,
                             ConnectionResponses, Transactions, AccountsFrom, CreditCardAccounts, BankAccounts)
 
 
+def fix_ofx_file(ofx_file_path):
+    old_file = open(ofx_file_path, 'r')
+    if 'verisightprod' not in old_file.read():
+        return ofx_file_path
+    old_file.seek(0)
+    new_file = open(ofx_file_path + ' fixed.ofx', 'w')
+    for line in old_file.readlines():
+        if line.startswith('</SECID>'):
+            continue
+        elif line.startswith('<TICKER>'):
+            new_file.write(line)
+            new_file.write('</SECID>\n')
+        elif line.startswith('<HELDINACCT>'):
+            new_file.write('</SECID>\n')
+            new_file.write(line)
+        else:
+            new_file.write(line)
+    old_file.close()
+    new_file.close()
+    return ofx_file_path + ' fixed.ofx'
+
+
 def create_ofx_views():
     try:
         db.engine.execute('DROP VIEW ofx.transactions;')
