@@ -6,12 +6,12 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 from pacioli import db
-from pacioli.views.ofx_views import CostBases
+from pacioli.views.ofx_views import Securities
 from pacioli.models import SecurityPrices
 
 
 def update_ticker_prices():
-    for ticker, in db.session.query(CostBases.ticker).all():
+    for ticker, in db.session.query(Securities.ticker).all():
         data = fetch_historical_yahoo(ticker, datetime.now() - timedelta(days=7), datetime.now())
         reader = csv.DictReader(data)
         for row in reader:
