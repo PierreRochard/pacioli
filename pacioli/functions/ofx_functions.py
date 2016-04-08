@@ -69,30 +69,38 @@ def create_ofx_views():
             ofx.acctfrom.name AS account_name,
             CASE ofx.invtran.subclass
                 WHEN 'buymf' THEN buymf_secinfo.secname
+                WHEN 'sellmf' THEN sellmf_secinfo.secname
                 WHEN 'reinvest' THEN reinvest_secinfo.secname
             END AS secname,
             CASE ofx.invtran.subclass
                 WHEN 'buymf' THEN buymf_secinfo.ticker
+                WHEN 'sellmf' THEN sellmf_secinfo.ticker
                 WHEN 'reinvest' THEN reinvest_secinfo.ticker
             END AS ticker,
             CASE ofx.invtran.subclass
                 WHEN 'buymf' THEN buymf.units
+                WHEN 'sellmf' THEN sellmf.units
                 WHEN 'reinvest' THEN reinvest.units
             END AS units,
             CASE ofx.invtran.subclass
                 WHEN 'buymf' THEN buymf.unitprice
+                WHEN 'sellmf' THEN sellmf.unitprice
                 WHEN 'reinvest' THEN reinvest.unitprice
             END AS unitprice,
             CASE ofx.invtran.subclass
                 WHEN 'buymf' THEN buymf.total*-1
+                WHEN 'sellmf' THEN sellmf.total*-1
                 WHEN 'reinvest' THEN reinvest.total*-1
             END AS total
         FROM ofx.invtran
         LEFT OUTER JOIN ofx.buymf ON ofx.buymf.id = ofx.invtran.id
                     and ofx.invtran.subclass = 'buymf'
+        LEFT OUTER JOIN ofx.sellmf ON ofx.sellmf.id = ofx.invtran.id
+                    and ofx.invtran.subclass = 'sellmf'
         LEFT OUTER JOIN ofx.reinvest ON ofx.reinvest.id = ofx.invtran.id
                     and ofx.invtran.subclass = 'reinvest'
         LEFT OUTER JOIN ofx.secinfo buymf_secinfo ON buymf_secinfo.id = ofx.buymf.secinfo_id
+        LEFT OUTER JOIN ofx.secinfo sellmf_secinfo ON sellmf_secinfo.id = ofx.sellmf.secinfo_id
         LEFT OUTER JOIN ofx.secinfo reinvest_secinfo ON reinvest_secinfo.id = ofx.reinvest.secinfo_id
         JOIN ofx.acctfrom ON acctfrom.id = ofx.invtran.acctfrom_id
         ORDER BY ofx.invtran.dttrade DESC;
