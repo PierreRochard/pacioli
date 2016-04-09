@@ -280,6 +280,40 @@ class SecurityPrices(db.Model):
     volume = db.Column(db.Numeric)
 
 
+class Paystubs(db.Model):
+    __table_args__ = (db.UniqueConstraint('employer_name', 'period_beginning', 'period_ending',
+                                          name='paystubs_unique_constraint'),
+                      {'schema': 'payroll'})
+    __tablename__ = 'paystubs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    employer_name = db.Column(db.String)
+    period_beginning = db.Column(db.Date)
+    period_ending = db.Column(db.Date)
+    pay_date = db.Column(db.Date)
+
+    items = db.relationship('PaystubItems',
+                            backref='category',
+                            lazy="select",
+                            cascade="save-update, merge, delete")
+
+
+class PaystubItems(db.Model):
+    __table_args__ = (db.UniqueConstraint('paystub_id', 'description',
+                                          name='earnings_unique_constraint'),
+                      {'schema': 'payroll'},)
+    __tablename__ = 'paystub_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.String)
+    rate = db.Column(db.Numeric)
+    hours = db.Column(db.Numeric)
+    this_period = db.Column(db.Numeric)
+    year_to_date = db.Column(db.Numeric)
+    statutory = db.Column(db.Boolean)
+    paystub_id = db.Column(db.Integer, db.ForeignKey('payroll.paystubs.id'))
+
+
 def register_ofx_models():
     db.metadata.reflect(bind=db.engine, schema='ofx', views=True, only=current_app.config['OFX_MODEL_MAP'].keys())
     db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
