@@ -293,9 +293,12 @@ class Paystubs(db.Model):
     pay_date = db.Column(db.Date)
 
     items = db.relationship('PaystubItems',
-                            backref='category',
+                            backref='paystub',
                             lazy="select",
                             cascade="save-update, merge, delete")
+
+    def __repr__(self):
+        return '{0}: {1} to {2}'.format(self.employer_name, self.period_beginning, self.period_ending)
 
 
 class PaystubItems(db.Model):
@@ -312,6 +315,9 @@ class PaystubItems(db.Model):
     year_to_date = db.Column(db.Numeric)
     statutory = db.Column(db.Boolean)
     paystub_id = db.Column(db.Integer, db.ForeignKey('payroll.paystubs.id'))
+
+    def __repr__(self):
+        return self.description
 
 
 def register_ofx_models():

@@ -45,5 +45,6 @@ def create_app(object_name, env="prod"):
     import pacioli.views.accounting_views
     import pacioli.views.ofx_views
     import pacioli.views.amazon_views
+    import pacioli.views.payroll_views
 
     return app

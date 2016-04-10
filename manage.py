@@ -2,6 +2,9 @@
 
 import csv
 from datetime import datetime, timedelta
+
+import subprocess
+
 import os
 
 from dateutil.tz import tzlocal
@@ -151,6 +154,18 @@ def update_ofx():
     from pacioli.functions.ofx_functions import apply_all_mappings
     apply_all_mappings()
 
+@manager.command
+def backup_db():
+    command = ['pg_dump',
+               'host=' + app.config['POSTGRES_HOST'],
+               'port=' + app.config['POSTGRES_PORT'],
+               'user=' + app.config['POSTGRES_USERNAME'],
+               'password=' + app.config['POSTGRES_PASSWORD'],
+               'dbname=pacioli',
+               '-f', datetime.now().strftime('%Y%m%d%H%M%S%f') + '.sql']
+    command = [c.encode('utf-8') for c in command]
+    print command
+    print subprocess.Popen(command, stdout=subprocess.PIPE).stdout.read()
 
 @manager.command
 def submit_amazon_report_request():
