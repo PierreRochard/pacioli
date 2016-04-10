@@ -19,6 +19,6 @@ class PaystubItemsModelView(PacioliModelView):
                                      ('Regular Earnings', 'Regular Earnings'),
                                      ('Roth 401k Contribution', 'Roth 401k Contribution'),
                                      ('Social Security Tax', 'Social Security Tax')])
-
+    form_columns = ('description', 'this_period', 'year_to_date', 'statutory', 'paystub', 'rate', 'hours')
 
 admin.add_view(PaystubItemsModelView(PaystubItems, db.session, category='Payroll'))
