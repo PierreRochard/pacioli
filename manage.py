@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import csv
+import platform
 from datetime import datetime, timedelta
-
 import subprocess
-
 import os
 
 from dateutil.tz import tzlocal
@@ -154,18 +153,29 @@ def update_ofx():
     from pacioli.functions.ofx_functions import apply_all_mappings
     apply_all_mappings()
 
+
 @manager.command
 def backup_db():
-    command = ['pg_dump',
-               'host=' + app.config['POSTGRES_HOST'],
-               'port=' + app.config['POSTGRES_PORT'],
-               'user=' + app.config['POSTGRES_USERNAME'],
-               'password=' + app.config['POSTGRES_PASSWORD'],
-               'dbname=pacioli',
-               '-f', datetime.now().strftime('%Y%m%d%H%M%S%f') + '.sql']
+    if platform.system() == 'Linux':
+        bash_path = '/bin/bash'
+        pg_dump_path = '/usr/bin/pg_dump'
+    elif platform.system() == 'Darwin':
+        bash_path = '/usr/local/bin/bash'
+        pg_dump_path = '/usr/local/bin/pg_dump'
+    backup_file_name = datetime.now().strftime('%Y%m%d%H%M%S%f') + '.dump'
+    backup_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), backup_file_name)
+    command = [pg_dump_path,
+               '-Fc',
+               'pacioli',
+               '>', backup_file_path]
     command = [c.encode('utf-8') for c in command]
-    print command
-    print subprocess.Popen(command, stdout=subprocess.PIPE).stdout.read()
+    command = ' '.join(command)
+    subprocess.call(command, shell=True, executable=bash_path)
+    msg = Message('Database Backup', recipients=[app.config['MAIL_USERNAME']])
+    with app.open_resource(backup_file_path) as fp:
+        msg.attach(backup_file_name, 'application/octet-stream', fp.read())
+    mail.send(msg)
+    os.remove(backup_file_path)
 
 @manager.command
 def submit_amazon_report_request():
