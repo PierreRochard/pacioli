@@ -48,7 +48,7 @@ def percent_formatter(view, context, model, name):
         return '-'
 
 
-def income_statement_currency_format(amount):
+def fs_currency_format(amount):
     currency_string = "{0:,.2f}".format(amount)
     if currency_string.startswith('-'):
         currency_string = currency_string.replace('-', '(')
@@ -56,14 +56,14 @@ def income_statement_currency_format(amount):
     return currency_string
 
 
-def income_statement_currency_formatter(view, context, model, name):
+def fs_linked_currency_formatter(view, context, model, name):
     if getattr(model, name):
         amount = -getattr(model, name)
         # return
         return Markup('<a href={0}>{1}</a>'.format(url_for('journalentries.index_view', subaccount=model.subaccount,
                                                            period_interval=view._template_args['period_interval'],
                                                            period=view._template_args['period']),
-                                                   income_statement_currency_format(amount)))
+                                                   fs_currency_format(amount)))
     else:
         return '-'
 

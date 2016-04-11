@@ -162,6 +162,8 @@ def backup_db():
     elif platform.system() == 'Darwin':
         bash_path = '/usr/local/bin/bash'
         pg_dump_path = '/usr/local/bin/pg_dump'
+    else:
+        return False
     backup_file_name = datetime.now().strftime('%Y%m%d%H%M%S%f') + '.dump'
     backup_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), backup_file_name)
     command = [pg_dump_path,
@@ -176,6 +178,7 @@ def backup_db():
         msg.attach(backup_file_name, 'application/octet-stream', fp.read())
     mail.send(msg)
     os.remove(backup_file_path)
+
 
 @manager.command
 def submit_amazon_report_request():

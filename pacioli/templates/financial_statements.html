@@ -8,7 +8,7 @@
     <ul class="dropdown-menu">
         {% for period_interval, interval_name in period_intervals %}
         <li>
-            <a href="{{ url_for('income-statements.index_view', period_interval=period_interval )}}">{{ interval_name }}</a>
+            <a href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval )}}">{{ interval_name }}</a>
         </li>
         {% endfor %}
     </ul>
@@ -20,7 +20,7 @@
     <ul class="dropdown-menu">
         {% for period in periods %}
         <li>
-            <a href="{{ url_for('income-statements.index_view', period_interval=period_interval, period=period )}}">{{ period }}</a>
+            <a href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval, period=period )}}">{{ period }}</a>
         </li>
         {% endfor %}
     </ul>
@@ -28,6 +28,6 @@
 {% endblock %}
 
 {% block body %}
-    <h2>{{ period }} {{ dict(period_intervals)[period_interval] }} Income Statement</h2>
+    <h2>{{ period }} {{ dict(period_intervals)[period_interval] }} {{ admin_view.name }}</h2>
     {{ super() }}
 {% endblock %}

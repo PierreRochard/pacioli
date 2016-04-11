@@ -240,12 +240,13 @@ def apply_all_mappings():
 
 def apply_single_ofx_mapping(mapping_id):
     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-    matched_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
-                                             Transactions.description, Transactions.account)
+    matched_transactions = (db.session.query(Transactions)
                             .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
                             .filter(JournalEntries.transaction_id.is_(None))
-                            .filter(func.lower(Transactions.description).like('%' + mapping.keyword.lower() + '%'))
+                            .filter(func.lower(func.regexp_replace(Transactions.description, '\\s*', '', 'g'))
+                                    .like('%' + ''.join(mapping.keyword.split()).lower() + '%'))
                             .order_by(Transactions.date.desc()).all())
+    print(len(matched_transactions))
     for transaction in matched_transactions:
         new_journal_entry = JournalEntries()
         new_journal_entry.transaction_id = transaction.id

@@ -45,7 +45,7 @@ class TransactionsModelView(OFXModelView):
     list_template = 'transactions.html'
 
     ajax_subaccount_loader = QueryAjaxModelLoader('subaccounts', db.session, Subaccounts, fields=['name'],
-                                                  page_size=10, placeholder='Expense Subaccount')
+                                                  page_size=10, placeholder='Subaccount')
 
     form_ajax_refs = {'subaccounts': ajax_subaccount_loader}
 
