@@ -146,7 +146,7 @@ def sync_ofx():
                 start = None
                 end = None
             account = BankAcct(connection.routing_number, connection.account_number, connection.type)
-        elif connection.type in ['Credit Card']:
+        elif connection.type == 'Credit Card':
             try:
                 start, = (db.session.query(Transactions.date)
                           .join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
@@ -160,7 +160,7 @@ def sync_ofx():
                 end = None
             account = CcAcct(connection.account_number)
         else:
-            return
+            raise Exception('Unrecognized account/connection type: {0}'.format(connection.type))
         ofx_client = OFXClient(connection.url, connection.org, connection.fid)
         if start and end:
             statement_request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
@@ -193,72 +193,46 @@ def sync_ofx():
 
 
 def apply_all_mappings():
-    for mapping in db.session.query(Mappings).all():
-        matched_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
-                                                 Transactions.description, Transactions.account)
-                                .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
-                                .filter(JournalEntries.transaction_id.is_(None))
-                                .filter(func.lower(Transactions.description).like('%' + mapping.keyword.lower() + '%'))
-                                .order_by(Transactions.date.desc()).all())
-        for transaction in matched_transactions:
-            new_journal_entry = JournalEntries()
-            new_journal_entry.transaction_id = transaction.id
-            new_journal_entry.transaction_source = 'ofx'
-            new_journal_entry.timestamp = transaction.date
-            if transaction.amount > 0:
-                new_journal_entry.debit_subaccount = transaction.account
-                try:
-                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_credit_subaccount_id).one()
-                except NoResultFound:
-                    new_subaccount = Subaccounts()
-                    new_subaccount.name = mapping.positive_credit_subaccount_id
-                    new_subaccount.parent = 'Discretionary Costs'
-                    db.session.add(new_subaccount)
-                    db.session.commit()
-                new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
-            elif transaction.amount < 0:
-                new_journal_entry.credit_subaccount = transaction.account
-                try:
-                    db.session.query(Subaccounts).filter(Subaccounts.name == mapping.negative_debit_subaccount_id).one()
-                except NoResultFound:
-                    new_subaccount = Subaccounts()
-                    new_subaccount.name = mapping.negative_debit_subaccount_id
-                    new_subaccount.parent = 'Discretionary Costs'
-                    db.session.add(new_subaccount)
-                    db.session.commit()
-                new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
-
-            else:
-                raise Exception()
-            new_journal_entry.functional_amount = abs(transaction.amount)
-            new_journal_entry.functional_currency = 'USD'
-            new_journal_entry.source_amount = abs(transaction.amount)
-            new_journal_entry.source_currency = 'USD'
-            db.session.add(new_journal_entry)
-            db.session.commit()
+    for mapping_id, in db.session.query(Mappings.id).all():
+        apply_single_ofx_mapping(mapping_id)
 
 
 def apply_single_ofx_mapping(mapping_id):
     mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-    matched_transactions = (db.session.query(Transactions)
+    matched_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
+                                             Transactions.description, Transactions.account)
                             .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
                             .filter(JournalEntries.transaction_id.is_(None))
-                            .filter(func.lower(func.regexp_replace(Transactions.description, '\\s*', '', 'g'))
-                                    .like('%' + ''.join(mapping.keyword.split()).lower() + '%'))
+                            .filter(func.lower(Transactions.description).like('%' + mapping.keyword.lower() + '%'))
                             .order_by(Transactions.date.desc()).all())
-    print(len(matched_transactions))
     for transaction in matched_transactions:
         new_journal_entry = JournalEntries()
         new_journal_entry.transaction_id = transaction.id
-        new_journal_entry.mapping_id = mapping_id
         new_journal_entry.transaction_source = 'ofx'
         new_journal_entry.timestamp = transaction.date
         if transaction.amount > 0:
             new_journal_entry.debit_subaccount = transaction.account
+            try:
+                db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_credit_subaccount_id).one()
+            except NoResultFound:
+                new_subaccount = Subaccounts()
+                new_subaccount.name = mapping.positive_credit_subaccount_id
+                new_subaccount.parent = 'Discretionary Costs'
+                db.session.add(new_subaccount)
+                db.session.commit()
             new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
         elif transaction.amount < 0:
-            new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
             new_journal_entry.credit_subaccount = transaction.account
+            try:
+                db.session.query(Subaccounts).filter(Subaccounts.name == mapping.negative_debit_subaccount_id).one()
+            except NoResultFound:
+                new_subaccount = Subaccounts()
+                new_subaccount.name = mapping.negative_debit_subaccount_id
+                new_subaccount.parent = 'Discretionary Costs'
+                db.session.add(new_subaccount)
+                db.session.commit()
+            new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
+
         else:
             raise Exception()
         new_journal_entry.functional_amount = abs(transaction.amount)
