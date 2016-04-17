@@ -64,21 +64,25 @@ class Config(object):
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    AMAZON_MODEL_MAP = {'amazon_transactions': 'AmazonTransactions'}
-
-    PACIOLI_MODEL_MAP = {'detailed_journal_entries': 'DetailedJournalEntries'}
-
-    OFX_MODEL_MAP = {'acctfrom': 'AccountsFrom',
-                     'availbal': 'AvailableBalances',
-                     'bankacctfrom': 'BankAccounts',
-                     'ccacctfrom': 'CreditCardAccounts',
-                     'invacctfrom': 'InvestmentAccounts',
-                     'invbal': 'InvestmentBalances',
-                     'invpos': 'InvestmentPositions',
-                     'investment_transactions': 'InvestmentTransactions',
-                     'cost_bases': 'CostBases',
-                     'secinfo': 'Securities',
-                     'transactions': 'Transactions'}
+    MODEL_MAP = {'admin': {'mapping_overlaps': 'MappingOverlaps',
+                           },
+                 'amazon': {'amazon_transactions': 'AmazonTransactions',
+                            },
+                 'ofx': {'acctfrom': 'AccountsFrom',
+                         'availbal': 'AvailableBalances',
+                         'bankacctfrom': 'BankAccounts',
+                         'ccacctfrom': 'CreditCardAccounts',
+                         'invacctfrom': 'InvestmentAccounts',
+                         'invbal': 'InvestmentBalances',
+                         'invpos': 'InvestmentPositions',
+                         'investment_transactions': 'InvestmentTransactions',
+                         'cost_bases': 'CostBases',
+                         'secinfo': 'Securities',
+                         'transactions': 'Transactions',
+                         },
+                 'pacioli': {'detailed_journal_entries': 'DetailedJournalEntries',
+                             },
+                 }
 
 
 class ProdConfig(Config):
