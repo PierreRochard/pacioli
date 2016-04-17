@@ -27,11 +27,16 @@ class JournalEntriesView(PacioliModelView):
             return (self.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount'])))
-        else:
+        elif not request.view_args['cumulative']:
             return (self.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
                     .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
+        else:
+            return (self.session.query(self.model)
+                    .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
+                                   self.model.credit_subaccount == request.view_args['subaccount']))
+                    .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
 
     def get_count_query(self):
         if 'subaccount' not in request.view_args:
@@ -40,39 +45,43 @@ class JournalEntriesView(PacioliModelView):
             return (self.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount'])))
-        else:
+        elif not request.view_args['cumulative']:
             return (self.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
                     .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
+        else:
+            return (self.session.query(func.count('*')).select_from(self.model)
+                    .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
+                                   self.model.credit_subaccount == request.view_args['subaccount']))
+                    .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
 
     @expose('/')
     @expose('/<subaccount>/')
     @expose('/<subaccount>/<period_interval>/')
     @expose('/<subaccount>/<period_interval>/<period>/')
-    def index_view(self, subaccount=None, period_interval=None, period=None):
-        period_interval = request.view_args.get('period_interval', None)
-        request.view_args['period_interval'] = period_interval
-        self._template_args['period_interval'] = period_interval
-        period = request.view_args.get('period', None)
-        if not period:
-            period, = (self.session.query(db.func.to_char(JournalEntries.timestamp, period_interval))
+    @expose('/<subaccount>/<period_interval>/<period>/<cumulative>/')
+    def index_view(self, subaccount=None, period_interval=None, period=None, cumulative=None):
+        period_interval = request.view_args.get('period_interval', 'YYYY-MM')
+        if not request.view_args.get('period', None):
+            most_recent_period, = (self.session.query(db.func.to_char(JournalEntries.timestamp, period_interval))
                        .order_by(db.func.to_char(JournalEntries.timestamp, period_interval).desc()).first())
-        self._template_args['period'] = period
-        request.view_args['period'] = period
+            request.view_args['period'] = most_recent_period
+
+        self._template_args['period_interval'] = period_interval
+        self._template_args['period'] = request.view_args['period']
         self._template_args['period_intervals'] = [('YYYY', 'Annual'), ('YYYY-Q', 'Quarterly'), ('YYYY-MM', 'Monthly'), ('YYYY-MM-DD', 'Daily')]
-
         self._template_args['periods'] = (self.session.query(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']))
-                                          .order_by(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']).desc()).distinct().limit(30))
-        self._template_args['periods'] = [period[0] for period in self._template_args['periods']]
+                                          .order_by(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval'])
+                                                    .desc()).distinct().limit(30))
+        self._template_args['periods'] = [p[0] for p in self._template_args['periods']]
         return super(JournalEntriesView, self).index_view()
-
 admin.add_view(JournalEntriesView(DetailedJournalEntries, db.session, category='Bookkeeping', endpoint='journalentries', name='Journal Entries'))
+
 
 class TaxonomyModelView(PacioliModelView):
     form_extra_fields = dict(name=StringField('Name'))
     column_searchable_list = ['name']
-
 admin.add_view(TaxonomyModelView(Subaccounts, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Accounts, db.session, category='Bookkeeping'))
 admin.add_view(TaxonomyModelView(Classifications, db.session, category='Bookkeeping'))
