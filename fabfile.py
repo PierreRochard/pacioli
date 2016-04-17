@@ -188,10 +188,9 @@ def install_cbtools():
 def update_cron():
     with open('local_cron', 'w') as cron_file:
         cron_file.write('pacioli_ENV=prod\n')
-        cron_file.write('0 11,23 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py update_ofx\n')
+        cron_file.write('0 11,23 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py runs_at_7am_and_7pm\n')
         cron_file.write('0 11 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py submit_amazon_report_request\n')
         cron_file.write('0 11 30 * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py import_amazon_report\n')
-        cron_file.write('0 11,23 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py update_tickers\n')
         cron_file.write('0 10 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py backup_db\n')
     put('local_cron', 'remote_cron')
     run('crontab remote_cron')

@@ -2,7 +2,7 @@
 
 import csv
 import platform
-from datetime import datetime, timedelta
+from datetime import datetime
 import subprocess
 import os
 
@@ -15,16 +15,15 @@ from flask.ext.security.utils import encrypt_password
 from flask_mail import Message
 from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.ofxalchemy import Base as OFX_Base
-from pacioli.functions.accounting_functions import create_trial_balances_trigger_function
-from pacioli.functions.amazon_functions import fetch_amazon_email_download, request_amazon_report
-from pacioli.functions.amazon_functions import create_amazon_views
-from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
-from pacioli.views.utilities import results_to_email_template
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
+from pacioli.functions.accounting_functions import create_trial_balances_trigger_function
+from pacioli.functions.amazon_functions import fetch_amazon_email_download, request_amazon_report
+from pacioli.functions.amazon_functions import create_amazon_views
+from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -131,27 +130,18 @@ def import_ofx():
 
 
 @manager.command
-def update_ofx():
+def runs_at_7am_and_7pm():
     from pacioli.functions.ofx_functions import sync_ofx
     sync_ofx()
-    from pacioli.views.ofx_views import Transactions, AccountsFrom
-    start = datetime.now().date() - timedelta(days=1)
-    new_transactions = (db.session.query(Transactions.id, Transactions.date, Transactions.amount,
-                                         Transactions.description, Transactions.account)
-                        .filter(Transactions.date > start)
-                        .order_by(Transactions.date.desc()).all())
-    if new_transactions:
-        header = ['ID', 'Date', 'Amount', 'Description', 'Account']
-        transactions = [[cell for cell in row] for row in new_transactions]
-        for row in transactions:
-            row[0] = '...' + str(row[0])[-4:-1]
-            row[1] = row[1].date()
-            row[2] = '{0:,.2f}'.format(row[2])
-        html_body = results_to_email_template('New Transactions', '', header, transactions)
-        msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
-        mail.send(msg)
+
     from pacioli.functions.ofx_functions import apply_all_mappings
     apply_all_mappings()
+
+    from pacioli.functions.email_reports import send_ofx_bank_transactions_report
+    send_ofx_bank_transactions_report()
+
+    from pacioli.functions.investment_functions import update_ticker_prices
+    update_ticker_prices()
 
 
 @manager.command
@@ -188,12 +178,6 @@ def submit_amazon_report_request():
 @manager.command
 def import_amazon_report():
     fetch_amazon_email_download()
-
-
-@manager.command
-def update_tickers():
-    from pacioli.functions.investment_functions import update_ticker_prices
-    update_ticker_prices()
 
 
 @manager.command
