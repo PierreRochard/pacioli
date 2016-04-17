@@ -9,7 +9,7 @@ from sqlalchemy import text, func
 
 
 class TrialBalancesView(PacioliModelView):
-    list_template = 'financial_statements.html'
+    list_template = 'trial_balances.html'
     column_list = ('id', 'period', 'period_interval', 'subaccount', 'debit_balance',
                    'credit_balance', 'net_balance', 'debit_changes', 'credit_changes', 'net_changes')
     column_default_sort = {'field': 'period', 'sort_desc': True, 'absolute_value': False}
@@ -42,8 +42,6 @@ class TrialBalancesView(PacioliModelView):
                     transaction.close()
         connection.close()
         return redirect(url_for('trialbalances.index_view'))
-
-
 admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
 
 
@@ -125,8 +123,6 @@ class IncomeStatementsView(PacioliModelView):
         net_income = fs_currency_format(-net_income)
         self._template_args['footer_row'] = {'subaccount': 'Net Income', 'net_changes': net_income}
         return super(IncomeStatementsView, self).index_view()
-
-
 admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting',
                                     name='Income Statements', endpoint='income-statements'))
 
@@ -208,7 +204,5 @@ class BalanceSheetView(PacioliModelView):
         net_equity = fs_currency_format(-net_equity)
         self._template_args['footer_row'] = {'subaccount': 'Net Equity', 'net_balance': net_equity}
         return super(BalanceSheetView, self).index_view()
-
-
 admin.add_view(BalanceSheetView(TrialBalances, db.session, category='Accounting',
                                 name='Balance Sheet', endpoint='balance-sheet'))
