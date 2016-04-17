@@ -5,7 +5,7 @@ from flask import url_for, redirect
 from flask.ext.admin import expose
 from pacioli.extensions import admin
 from pacioli.functions.ofx_functions import sync_ofx
-from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses)
+from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps)
 from pacioli.views import PacioliModelView
 from pacioli.views.utilities import date_formatter
 
@@ -44,6 +44,9 @@ class ConnectionsModelView(PacioliModelView):
     def sync_connections(self):
         sync_ofx()
         return redirect(url_for('connections.index_view'))
+admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
+
+admin.add_view(PacioliModelView(ConnectionResponses, db.session, category='Admin'))
 
 
 class MappingsModelView(PacioliModelView):
@@ -58,9 +61,9 @@ class MappingsModelView(PacioliModelView):
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
 
     column_editable_list = ('keyword',)
-
-
-admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
-admin.add_view(PacioliModelView(ConnectionResponses, db.session, category='Admin'))
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
 
+
+class MappingOverlapsModelView(PacioliModelView):
+    pass
+admin.add_view(MappingOverlapsModelView(MappingOverlaps, db.session, category='Admin'))
