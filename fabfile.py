@@ -227,7 +227,6 @@ def update():
     with cd('/home/ec2-user/pacioli/'):
         with prefix('source ~/.bash_profile'):
             run('python manage.py createdb')
-            run('python manage.py update_trial_balances')
 
     with cd('/home/ec2-user/pacioli/logs/'):
         run('sudo rm -f *.log')
