@@ -16,7 +16,7 @@ def create_mappings_views():
               mappings_table_2.keyword AS mapping_keyword_2,
               mappings_table_1.source AS source
       FROM admin.mappings mappings_table_1
-      JOIN admin.mappings mappings_table_2 on mappings_table_2.keyword  LIKE '%' || mappings_table_1.keyword || '%'
+      JOIN admin.mappings mappings_table_2 on mappings_table_2.keyword  LIKE '%%' || mappings_table_1.keyword || '%%'
                                           AND mappings_table_1.source = mappings_table_2.source
       WHERE mappings_table_1.keyword != mappings_table_2.keyword
       ORDER BY mappings_table_1.keyword;
