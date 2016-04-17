@@ -20,10 +20,6 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from pacioli import create_app, mail
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
-from pacioli.functions.accounting_functions import create_trial_balances_trigger_function
-from pacioli.functions.amazon_functions import fetch_amazon_email_download, request_amazon_report
-from pacioli.functions.amazon_functions import create_amazon_views
-from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -71,15 +67,21 @@ def createdb():
 
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
-    from pacioli.functions.ofx_functions import create_ofx_views
-    create_ofx_views()
-    create_bookkeeping_views()
+
+    from pacioli.functions.accounting_functions import create_trial_balances_trigger_function
+    create_trial_balances_trigger_function()
+
+    from pacioli.functions.amazon_functions import create_amazon_views
     create_amazon_views()
 
+    from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
+    create_bookkeeping_views()
 
-@manager.command
-def update_trial_balances():
-    create_trial_balances_trigger_function()
+    from pacioli.functions.ofx_functions import create_ofx_views
+    create_ofx_views()
+
+    from pacioli.functions.admin_functions import create_mappings_views
+    create_mappings_views()
 
 
 @manager.command
@@ -172,11 +174,13 @@ def backup_db():
 
 @manager.command
 def submit_amazon_report_request():
+    from pacioli.functions.amazon_functions import request_amazon_report
     request_amazon_report()
 
 
 @manager.command
 def import_amazon_report():
+    from pacioli.functions.amazon_functions import fetch_amazon_email_download
     fetch_amazon_email_download()
 
 

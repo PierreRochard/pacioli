@@ -193,7 +193,7 @@ def sync_ofx():
 
 
 def apply_all_mappings():
-    for mapping_id, in db.session.query(Mappings.id).all():
+    for mapping_id, in db.session.query(Mappings.id).filter(Mappings.source == 'ofx').all():
         apply_single_ofx_mapping(mapping_id)
 
 

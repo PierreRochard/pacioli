@@ -185,19 +185,6 @@ def install_cbtools():
     run('chmod +x /home/ec2-user/cbtools/cbtools/main.py')
 
 
-def update_cron():
-    with open('local_cron', 'w') as cron_file:
-        cron_file.write('pacioli_ENV=prod\n')
-        cron_file.write('0 11,23 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py runs_at_7am_and_7pm\n')
-        cron_file.write('0 11 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py submit_amazon_report_request\n')
-        cron_file.write('0 11 30 * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py import_amazon_report\n')
-        cron_file.write('0 10 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py backup_db\n')
-    put('local_cron', 'remote_cron')
-    run('crontab remote_cron')
-    run('rm -f remote_cron')
-    os.remove('local_cron')
-
-
 def mail():
     run('sudo cat /var/spool/mail/root | tail -n 30')
 
@@ -262,6 +249,18 @@ def update():
     put('configuration_files/rochard-nginx', '/etc/nginx/sites-available/rochard', use_sudo=True)
     run('sudo chown nginx:nginx -R /var/www/')
     run('sudo /etc/init.d/nginx restart')
+
+    # Cron
+    with open('local_cron', 'w') as cron_file:
+        cron_file.write('pacioli_ENV=prod\n')
+        cron_file.write('0 11,23 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py runs_at_7am_and_7pm\n')
+        cron_file.write('0 11 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py submit_amazon_report_request\n')
+        cron_file.write('0 11 30 * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py import_amazon_report\n')
+        cron_file.write('0 10 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py backup_db\n')
+    put('local_cron', 'remote_cron')
+    run('crontab remote_cron')
+    run('rm -f remote_cron')
+    os.remove('local_cron')
 
 
 def create_db():
