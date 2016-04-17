@@ -1,4 +1,6 @@
 from datetime import datetime, date
+from pprint import pformat
+
 import os
 import string
 
@@ -58,12 +60,20 @@ def fs_currency_format(amount):
 
 def fs_linked_currency_formatter(view, context, model, name):
     if getattr(model, name):
-        amount = -getattr(model, name)
-        # return
-        return Markup('<a href={0}>{1}</a>'.format(url_for('journalentries.index_view', subaccount=model.subaccount,
-                                                           period_interval=view._template_args['period_interval'],
-                                                           period=view._template_args['period']),
-                                                   fs_currency_format(amount)))
+
+        if view.endpoint == 'balance-sheet':
+            amount = getattr(model, name)
+            return Markup('<a href={0}>{1}</a>'.format(url_for('journalentries.index_view', subaccount=model.subaccount,
+                                                               period_interval=view._template_args['period_interval'],
+                                                               period=view._template_args['period'],
+                                                               cumulative='balance-sheet'),
+                                                       fs_currency_format(amount)))
+        else:
+            amount = -getattr(model, name)
+            return Markup('<a href={0}>{1}</a>'.format(url_for('journalentries.index_view', subaccount=model.subaccount,
+                                                               period_interval=view._template_args['period_interval'],
+                                                               period=view._template_args['period']),
+                                                       fs_currency_format(amount)))
     else:
         return '-'
 
@@ -85,24 +95,3 @@ def id_formatter(view, context, model, name):
 def type_formatter(view, context, model, name):
     return getattr(model, name).lower().title()
 
-
-def results_to_email_template(title, table_caption, table_header, query_results):
-    templates_directory = os.path.abspath(__file__ + "/../../templates")
-
-    email_template = os.path.join(templates_directory, 'email_table_template.html')
-    with open(email_template, 'r') as html_template:
-        html_template_string = html_template.read()
-
-    css_template = os.path.join(templates_directory, 'email_bootstrap.min.css')
-    with open(css_template, 'r') as css:
-        css_string = css.read()
-
-    template = Template(html_template_string)
-
-    html_body = template.render(title=title,
-                                css=css_string,
-                                table_caption=table_caption,
-                                table_header=table_header,
-                                table_rows=query_results).encode('utf-8')
-
-    return transform(html_body).encode('utf-8')
