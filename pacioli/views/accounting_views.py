@@ -42,6 +42,8 @@ class TrialBalancesView(PacioliModelView):
                     transaction.close()
         connection.close()
         return redirect(url_for('trialbalances.index_view'))
+
+
 admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
 
 
@@ -90,41 +92,49 @@ class IncomeStatementsView(PacioliModelView):
     @expose('/<period_interval>/')
     @expose('/<period_interval>/<period>/')
     def index_view(self, period_interval=None, period=None):
-        period_interval = request.view_args.get('period_interval', None)
-        if not period_interval:
-            period_interval = 'YYYY-MM'
+        period_interval = request.view_args.get('period_interval', 'YYYY-MM')
         self._template_args['period_interval'] = period_interval
         request.view_args['period_interval'] = period_interval
-        self._template_args['period_interval'] = period_interval
         period = request.view_args.get('period', None)
         if not period:
-            period, = (self.session.query(db.func.to_char(JournalEntries.timestamp, period_interval))
-                       .order_by(db.func.to_char(JournalEntries.timestamp, period_interval).desc()).first())
+            net_income, period = (self.session.query(func.sum(self.model.net_changes), self.model.period)
+                                  .join(Subaccounts)
+                                  .join(Accounts)
+                                  .join(Classifications)
+                                  .join(Elements)
+                                  .filter(self.model.net_changes != 0)
+                                  .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
+                                                 Elements.name == 'Gains', Elements.name == 'Losses'))
+                                  .filter(self.model.period_interval == request.view_args['period_interval'])
+                                  .group_by(self.model.period)
+                                  .order_by(self.model.period.desc())
+                                  .first())
+            request.view_args['period'] = period
+        else:
+            net_income, = (self.session.query(func.sum(self.model.net_changes))
+                           .join(Subaccounts)
+                           .join(Accounts)
+                           .join(Classifications)
+                           .join(Elements)
+                           .filter(self.model.net_changes != 0)
+                           .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
+                                          Elements.name == 'Gains', Elements.name == 'Losses'))
+                           .filter(self.model.period_interval == request.view_args['period_interval'])
+                           .filter(self.model.period == period)
+                           .first())
         self._template_args['period'] = period
-        request.view_args['period'] = period
-        self._template_args['period_intervals'] = [('YYYY', 'Annual'), ('YYYY-Q', 'Quarterly'),
-                                                   ('YYYY-MM', 'Monthly'), ('YYYY-MM-DD', 'Daily')]
-
-        self._template_args['periods'] = (self.session.query(db.func.to_char(JournalEntries.timestamp,
-                                                                             self._template_args['period_interval']))
-                                          .order_by(db.func.to_char(JournalEntries.timestamp,
-                                                                    self._template_args['period_interval']).desc()).distinct().limit(30))
-        self._template_args['periods'] = [period[0] for period in self._template_args['periods']]
-        net_income, = (self.session.query(func.sum(self.model.net_changes))
-                       .join(Subaccounts)
-                       .join(Accounts)
-                       .join(Classifications)
-                       .join(Elements)
-                       .filter(self.model.net_changes != 0)
-                       .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
-                                      Elements.name == 'Gains', Elements.name == 'Losses'))
-                       .filter(self.model.period_interval == request.view_args['period_interval'])
-                       .filter(self.model.period == request.view_args['period']).one())
+        self._template_args['period_intervals'] = [('YYYY', 'Annual'), ('YYYY-Q', 'Quarterly'), ('YYYY-MM', 'Monthly'), ('YYYY-MM-DD', 'Daily')]
+        self._template_args['periods'] = [period[0] for period in (self.session.query(self.model.period)
+                                                                   .order_by(self.model.period.desc())
+                                                                   .filter(self.model.net_changes != 0)
+                                                                   .filter(db.or_(Elements.name == 'Revenues', Elements.name == 'Expenses',
+                                                                                  Elements.name == 'Gains', Elements.name == 'Losses'))
+                                                                   .filter(self.model.period_interval == request.view_args['period_interval'])
+                                                                   .distinct().limit(10))]
         net_income = fs_currency_format(-net_income)
         self._template_args['footer_row'] = {'subaccount': 'Net Income', 'net_changes': net_income}
         return super(IncomeStatementsView, self).index_view()
-admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting',
-                                    name='Income Statements', endpoint='income-statements'))
+admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting', name='Income Statements', endpoint='income-statements'))
 
 
 class BalanceSheetView(PacioliModelView):
@@ -204,5 +214,7 @@ class BalanceSheetView(PacioliModelView):
         net_equity = fs_currency_format(-net_equity)
         self._template_args['footer_row'] = {'subaccount': 'Net Equity', 'net_balance': net_equity}
         return super(BalanceSheetView, self).index_view()
+
+
 admin.add_view(BalanceSheetView(TrialBalances, db.session, category='Accounting',
                                 name='Balance Sheet', endpoint='balance-sheet'))
