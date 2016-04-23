@@ -46,7 +46,21 @@ class ConnectionsModelView(PacioliModelView):
         return redirect(url_for('connections.index_view'))
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 
-admin.add_view(PacioliModelView(ConnectionResponses, db.session, category='Admin'))
+
+class ConnectionResponsesView(PacioliModelView):
+    can_create = False
+    can_delete = False
+    can_edit = False
+    column_default_sort = {'field': 'connected_at', 'sort_desc': True, 'absolute_value': False}
+    column_list = ('id', 'connection', 'connected_at', 'response')
+    column_sortable_list = column_list
+    column_filters = column_list
+    column_labels = dict(id='ID')
+    column_display_actions = False
+    action_disallowed_list = ('delete', )
+    column_formatters = dict(connected_at=date_formatter)
+
+admin.add_view(ConnectionResponsesView(ConnectionResponses, db.session, category='Admin', endpoint='connection-responses'))
 
 
 class MappingsModelView(PacioliModelView):
@@ -59,11 +73,10 @@ class MappingsModelView(PacioliModelView):
     subaccount_loader = dict(fields=('name',), page_size=10, placeholder='-')
     form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
-
     column_editable_list = ('keyword',)
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
 
 
 class MappingOverlapsModelView(PacioliModelView):
-    pass
-admin.add_view(MappingOverlapsModelView(MappingOverlaps, db.session, category='Admin'))
+    column_labels = dict(mapping_id_1='Mapping ID 1', mapping_id_2='Mapping ID 2')
+admin.add_view(MappingOverlapsModelView(MappingOverlaps, db.session, category='Admin', name='Mapping Overlaps', endpoint='mapping-overlaps'))

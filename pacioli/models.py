@@ -58,6 +58,9 @@ class Connections(db.Model):
     created_at = db.Column(db.DateTime(timezone=True))
     synced_at = db.Column(db.DateTime(timezone=True))
 
+    def __repr__(self):
+        return '{0} - {1}'.format(self.source, self.type)
+
 
 class ConnectionResponses(db.Model):
     __table_args__ = {'schema': 'admin'}
