@@ -12,7 +12,7 @@ class PacioliModelView(sqla.ModelView):
         if not current_user.is_active or not current_user.is_authenticated:
             return False
 
-        if current_user.has_role('superuser'):
+        if current_user.has_role('administrator'):
             return True
 
         return False
