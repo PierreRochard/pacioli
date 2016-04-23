@@ -23,11 +23,7 @@ class JournalEntriesView(PacioliModelView):
     def get_query(self):
         if 'subaccount' not in request.view_args:
             return super(JournalEntriesView, self).get_query()
-        elif not request.view_args['period_interval']:
-            return (self.session.query(self.model)
-                    .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
-                                   self.model.credit_subaccount == request.view_args['subaccount'])))
-        elif not request.view_args['cumulative']:
+        elif not request.view_args.get('cumulative', None):
             return (self.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
@@ -41,11 +37,7 @@ class JournalEntriesView(PacioliModelView):
     def get_count_query(self):
         if 'subaccount' not in request.view_args:
             return super(JournalEntriesView, self).get_count_query()
-        elif not request.view_args['period_interval']:
-            return (self.session.query(func.count('*')).select_from(self.model)
-                    .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
-                                   self.model.credit_subaccount == request.view_args['subaccount'])))
-        elif not request.view_args['cumulative']:
+        elif not request.view_args.get('cumulative', None):
             return (self.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
