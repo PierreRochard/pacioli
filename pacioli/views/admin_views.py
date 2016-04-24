@@ -5,9 +5,9 @@ from flask import url_for, redirect
 from flask.ext.admin import expose
 from pacioli.extensions import admin
 from pacioli.functions.ofx_functions import sync_ofx
-from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps, OFXMappingOverlaps)
+from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps)
 from pacioli.views import PacioliModelView
-from pacioli.views.utilities import date_formatter, link_mapping_formatter
+from pacioli.views.utilities import date_formatter, link_mapping_formatter, link_transaction_search_formatter
 
 
 class UserModelView(PacioliModelView):
@@ -84,14 +84,6 @@ class MappingOverlapsModelView(PacioliModelView):
     can_edit = False
     column_display_actions = False
     column_labels = dict(mapping_id_1='Mapping ID 1', mapping_id_2='Mapping ID 2')
+    column_formatters = dict(mapping_id_1=link_mapping_formatter, mapping_id_2=link_mapping_formatter,
+                             mapping_keyword_1=link_transaction_search_formatter, mapping_keyword_2=link_transaction_search_formatter)
 admin.add_view(MappingOverlapsModelView(MappingOverlaps, db.session, category='Admin', name='Mapping Overlaps', endpoint='mapping-overlaps'))
-
-
-class OFXMappingOverlapsModelView(PacioliModelView):
-    can_create = False
-    can_delete = False
-    can_edit = False
-    column_display_actions = False
-    column_labels = dict(mapping_id_1='Mapping ID 1', mapping_id_2='Mapping ID 2')
-    column_formatters = dict(mapping_id_1=link_mapping_formatter, mapping_id_2=link_mapping_formatter)
-admin.add_view(OFXMappingOverlapsModelView(OFXMappingOverlaps, db.session, category='Admin', name='OFX Mapping Overlaps', endpoint='ofx-mapping-overlaps'))

@@ -23,18 +23,6 @@ class OFXModelView(PacioliModelView):
     can_export = True
 
 
-class AccountsFromModelView(OFXModelView):
-    column_default_sort = {'field': 'id', 'sort_desc': False, 'absolute_value': False}
-    column_list = ['id', 'name', 'subclass']
-    column_searchable_list = ['name']
-    column_filters = column_list
-    column_labels = dict(name='Name', subclass='Account Type', id='ID')
-    column_formatters = dict(subclass=account_formatter)
-
-    can_edit = True
-    form_columns = ['name']
-
-
 class TransactionsModelView(OFXModelView):
     column_default_sort = {'field': 'date', 'sort_desc': True, 'absolute_value': False}
     column_list = ['journal_entry_id', 'id', 'date', 'account', 'amount', 'description', 'type']
@@ -101,14 +89,27 @@ class TransactionsModelView(OFXModelView):
     def apply_all_mappings_view(self):
         apply_all_mappings()
         return redirect(url_for('banking/transactions.index_view'))
-
-
 admin.add_view(TransactionsModelView(Transactions, db.session,
                                      name='Transactions', category='Banking', endpoint='banking/transactions'))
+
+
+class AccountsFromModelView(OFXModelView):
+    column_default_sort = {'field': 'id', 'sort_desc': False, 'absolute_value': False}
+    column_list = ['id', 'name', 'subclass']
+    column_searchable_list = ['name']
+    column_filters = column_list
+    column_labels = dict(name='Name', subclass='Account Type', id='ID')
+    column_formatters = dict(subclass=account_formatter)
+
+    can_edit = True
+    form_columns = ['name']
 admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
                                      name='Accounts', category='Banking', endpoint='banking/accounts'))
+
+
 admin.add_view(OFXModelView(BankAccounts, db.session,
                             name='Bank Accounts', category='Banking', endpoint='banking/bank-accounts'))
+
 admin.add_view(OFXModelView(CreditCardAccounts, db.session,
                             name='Credit Card Accounts', category='Banking', endpoint='banking/credit-card-accounts'))
 

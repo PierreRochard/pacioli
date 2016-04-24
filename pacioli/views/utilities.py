@@ -1,20 +1,11 @@
-from datetime import datetime, date
-from pprint import pformat
-
-import os
 import string
+from datetime import datetime, date
 
 from flask import url_for
-from jinja2 import Template
 from markupsafe import Markup
-from premailer import transform
 
 
 def account_formatter(view, context, model, name):
-    # `view` is current administrative view
-    # `context` is instance of jinja2.runtime.Context
-    # `model` is model instance
-    # `name` is property name
     acct_to_account = dict(bankacctfrom='Bank Account',
                            ccacctfrom='Credit Card',
                            invacctfrom='Investments')
@@ -97,10 +88,27 @@ def type_formatter(view, context, model, name):
 
 
 def link_mapping_formatter(view, context, model, name):
-    button = Markup('''
+    link = Markup('''
     <a target="_blank" href="{1}">
          {0}
     </a>
-    '''.format(getattr(model, name), url_for('mappings.index_view', flt1_0=getattr(model, name))))
-    return button
+    '''.format(getattr(model, name), url_for('mappings.index_view', flt1_0=getattr(model, name)), getattr(model, name)))
+    return link
 
+
+def link_transaction_search_formatter(view, context, model, name):
+    link = Markup('''
+    <form class="icon" method="POST" action="/mappings/delete/">
+      <input id="id" name="id" type="hidden" value="{2}">
+      <input id="url" name="url" type="hidden" value="{3}">
+
+      <button onclick="return confirm('Are you sure you want to delete this record?');" title="Delete record">
+        <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+      </button>
+    </form>
+        <a target="_blank" href="{1}">
+             {0}
+        </a>
+        '''.format(getattr(model, name), url_for('banking/transactions.index_view', search=getattr(model, name)),
+                   getattr(model, 'mapping_id_' + name[-1]), view.url))
+    return link
