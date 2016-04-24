@@ -71,6 +71,7 @@ class MappingsModelView(PacioliModelView):
     form_columns = column_list
     column_sortable_list = column_list
     column_filters = ('id', 'source', 'keyword')
+    column_searchable_list = ('keyword', )
     subaccount_loader = dict(fields=('name',), page_size=10, placeholder='-')
     form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
