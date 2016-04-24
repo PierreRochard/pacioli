@@ -65,6 +65,7 @@ class Config(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     MODEL_MAP = {'admin': {'mapping_overlaps': 'MappingOverlaps',
+                           'ofx_mapping_overlaps': 'OFXMappingOverlaps',
                            },
                  'amazon': {'amazon_transactions': 'AmazonTransactions',
                             },

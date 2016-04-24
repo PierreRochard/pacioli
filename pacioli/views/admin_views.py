@@ -5,9 +5,9 @@ from flask import url_for, redirect
 from flask.ext.admin import expose
 from pacioli.extensions import admin
 from pacioli.functions.ofx_functions import sync_ofx
-from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps)
+from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps, OFXMappingOverlaps)
 from pacioli.views import PacioliModelView
-from pacioli.views.utilities import date_formatter
+from pacioli.views.utilities import date_formatter, link_mapping_formatter
 
 
 class UserModelView(PacioliModelView):
@@ -57,19 +57,20 @@ class ConnectionResponsesView(PacioliModelView):
     column_filters = column_list
     column_labels = dict(id='ID')
     column_display_actions = False
-    action_disallowed_list = ('delete', )
     column_formatters = dict(connected_at=date_formatter)
 
 admin.add_view(ConnectionResponsesView(ConnectionResponses, db.session, category='Admin', endpoint='connection-responses'))
 
 
 class MappingsModelView(PacioliModelView):
+    column_labels = dict(id='ID')
     form_choices = dict(source=[('ofx', 'ofx')])
     column_display_all_relations = True
     column_list = ('id', 'source', 'keyword', 'positive_debit_subaccount',
                    'positive_credit_subaccount', 'negative_debit_subaccount', 'negative_credit_subaccount')
     form_columns = column_list
     column_sortable_list = column_list
+    column_filters = ('id', 'source', 'keyword')
     subaccount_loader = dict(fields=('name',), page_size=10, placeholder='-')
     form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
@@ -78,5 +79,19 @@ admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
 
 
 class MappingOverlapsModelView(PacioliModelView):
+    can_create = False
+    can_delete = False
+    can_edit = False
+    column_display_actions = False
     column_labels = dict(mapping_id_1='Mapping ID 1', mapping_id_2='Mapping ID 2')
 admin.add_view(MappingOverlapsModelView(MappingOverlaps, db.session, category='Admin', name='Mapping Overlaps', endpoint='mapping-overlaps'))
+
+
+class OFXMappingOverlapsModelView(PacioliModelView):
+    can_create = False
+    can_delete = False
+    can_edit = False
+    column_display_actions = False
+    column_labels = dict(mapping_id_1='Mapping ID 1', mapping_id_2='Mapping ID 2')
+    column_formatters = dict(mapping_id_1=link_mapping_formatter, mapping_id_2=link_mapping_formatter)
+admin.add_view(OFXMappingOverlapsModelView(OFXMappingOverlaps, db.session, category='Admin', name='OFX Mapping Overlaps', endpoint='ofx-mapping-overlaps'))

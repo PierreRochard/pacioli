@@ -95,3 +95,12 @@ def id_formatter(view, context, model, name):
 def type_formatter(view, context, model, name):
     return getattr(model, name).lower().title()
 
+
+def link_mapping_formatter(view, context, model, name):
+    button = Markup('''
+    <a target="_blank" href="{1}">
+         {0}
+    </a>
+    '''.format(getattr(model, name), url_for('mappings.index_view', flt1_0=getattr(model, name))))
+    return button
+

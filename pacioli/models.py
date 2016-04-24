@@ -327,6 +327,7 @@ def register_models():
     for schema_name in current_app.config['MODEL_MAP'].keys():
         db.metadata.reflect(bind=db.engine, schema=schema_name, views=True, only=current_app.config['MODEL_MAP'][schema_name].keys())
     db.metadata.tables['admin.mapping_overlaps'].append_constraint(PrimaryKeyConstraint('mapping_id_1', 'mapping_id_2', name='mapping_overlaps_pk'))
+    (db.metadata.tables['admin.ofx_mapping_overlaps'].append_constraint(PrimaryKeyConstraint('description', 'mapping_id_1', 'mapping_id_2', name='ofx_mapping_overlaps_pk')))
     db.metadata.tables['amazon.amazon_transactions'].append_constraint(PrimaryKeyConstraint('id', name='amazon_transactions_pk'))
     db.metadata.tables['ofx.cost_bases'].append_constraint(PrimaryKeyConstraint('ticker', name='cost_bases_pk'))
     db.metadata.tables['ofx.investment_transactions'].append_constraint(PrimaryKeyConstraint('id', name='investment_transactions_pk'))
