@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
-
 import os
+
+from flask import current_app
 from flask.ext.mail import Message
 from jinja2 import Template
+from premailer import transform
 
 from pacioli import db, mail
 from pacioli.models import Transactions, AccountsFrom
-from premailer import transform
 
 
 def results_to_email_template(title, table_caption, table_header, query_results):
@@ -45,5 +46,5 @@ def send_ofx_bank_transactions_report():
             row[1] = row[1].date()
             row[2] = '{0:,.2f}'.format(row[2])
         html_body = results_to_email_template('New Transactions', '', header, transactions)
-        msg = Message('New Transactions', recipients=[app.config['MAIL_USERNAME']], html=html_body)
+        msg = Message('New Transactions', recipients=[current_app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
