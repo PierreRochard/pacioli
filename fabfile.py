@@ -293,10 +293,10 @@ def nginx_error():
     run('cat /home/ec2-user/pacioli/logs/nginx/*.log | tail')
 
 
-def update_ofx():
+def runs_at_7am_and_7pm():
     with cd('/home/ec2-user/pacioli/'):
         with prefix('source ~/.bash_profile'):
-            run('python manage.py update_ofx')
+            run('python manage.py runs_at_7am_and_7pm')
 
 
 def update_tickers():
