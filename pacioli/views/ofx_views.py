@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from flask import redirect, request, url_for
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
@@ -14,47 +12,77 @@ from pacioli.models import (db, Subaccounts, Mappings, Transactions, AccountsFro
                             InvestmentBalances, InvestmentPositions, Securities)
 from pacioli.views import PacioliModelView
 from pacioli.views.utilities import (account_formatter, date_formatter, currency_formatter,
-                                     id_formatter, type_formatter, string_formatter, percent_formatter)
+                                     id_formatter, string_formatter, percent_formatter)
 
 
 class OFXModelView(PacioliModelView):
     can_create = False
     can_delete = False
+    can_edit = False
     can_export = True
 
 
 class TransactionsModelView(OFXModelView):
-    column_default_sort = {'field': 'date', 'sort_desc': True, 'absolute_value': False}
-    column_list = ['journal_entry_id', 'id', 'date', 'account', 'amount', 'description', 'type']
-    column_searchable_list = ['description']
-    column_filters = column_list
-    column_labels = dict(id='ID', account='From Account', date='Date Posted', journal_entry_id='JE')
-    column_formatters = dict(id=id_formatter, date=date_formatter, amount=currency_formatter,
-                             type=type_formatter)
-    can_edit = False
     list_template = 'transactions.html'
 
-    ajax_subaccount_loader = QueryAjaxModelLoader('subaccounts', db.session, Subaccounts, fields=['name'],
-                                                  page_size=10, placeholder='Subaccount')
+    column_default_sort = dict(field='date', sort_desc=True, absolute_value=False)
 
-    form_ajax_refs = {'subaccounts': ajax_subaccount_loader}
+    column_list = ('journal_entry_id',
+                   'id',
+                   'date',
+                   'account',
+                   'amount',
+                   'description',
+                   'type',
+                   )
+
+    column_filters = column_list
+
+    column_searchable_list = ('description',
+                              )
+
+    column_labels = dict(id='ID',
+                         account='From Account',
+                         date='Date Posted',
+                         journal_entry_id='JE',
+                         )
+
+    column_formatters = dict(id=id_formatter,
+                             date=date_formatter,
+                             amount=currency_formatter,
+                             description=string_formatter,
+                             type=string_formatter,
+                             )
+
+    column_display_actions = False
+
+    ajax_subaccount_loader = QueryAjaxModelLoader(name='subaccounts',
+                                                  session=db.session,
+                                                  model=Subaccounts,
+                                                  fields=('name',),
+                                                  page_size=10,
+                                                  placeholder='Subaccount')
+
+    form_ajax_refs = dict(subaccounts=ajax_subaccount_loader,
+                          )
 
     @expose('/', methods=('GET', 'POST'))
     def index_view(self):
 
         if request.method == 'POST':
             form = request.form.copy().to_dict()
-            new_mapping = Mappings()
-            new_mapping.source = 'ofx'
-            new_mapping.keyword = form['keyword']
-            new_mapping.positive_credit_subaccount_id = form['subaccount']
-            new_mapping.negative_debit_subaccount_id = form['subaccount']
+            new_mapping = Mappings(source='ofx',
+                                   keyword=form['keyword'],
+                                   positive_credit_subaccount_id=form['subaccount'],
+                                   negative_debit_subaccount_id=form['subaccount'],
+                                   )
             try:
                 db.session.add(new_mapping)
                 db.session.commit()
             except IntegrityError:
                 db.session.rollback()
-            mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
+            mapping_id, = (db.session.query(Mappings.id)
+                           .filter(Mappings.source == 'ofx')
                            .filter(Mappings.keyword == form['keyword']).one())
             apply_single_ofx_mapping(mapping_id)
             return redirect(url_for('banking/transactions.index_view'))
@@ -89,6 +117,8 @@ class TransactionsModelView(OFXModelView):
     def apply_all_mappings_view(self):
         apply_all_mappings()
         return redirect(url_for('banking/transactions.index_view'))
+
+
 admin.add_view(TransactionsModelView(Transactions, db.session,
                                      name='Transactions', category='Banking', endpoint='banking/transactions'))
 
@@ -103,9 +133,10 @@ class AccountsFromModelView(OFXModelView):
 
     can_edit = True
     form_columns = ['name']
+
+
 admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
                                      name='Accounts', category='Banking', endpoint='banking/accounts'))
-
 
 admin.add_view(OFXModelView(BankAccounts, db.session,
                             name='Bank Accounts', category='Banking', endpoint='banking/bank-accounts'))

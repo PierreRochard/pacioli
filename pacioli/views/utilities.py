@@ -83,10 +83,6 @@ def id_formatter(view, context, model, name):
     return '...' + str(getattr(model, name))[-4:-1]
 
 
-def type_formatter(view, context, model, name):
-    return getattr(model, name).lower().title()
-
-
 def link_mapping_formatter(view, context, model, name):
     link = Markup('''
     <a target="_blank" href="{1}">
