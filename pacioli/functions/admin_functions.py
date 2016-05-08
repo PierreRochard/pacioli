@@ -17,9 +17,11 @@ def create_mappings_views():
               mappings_table_2.keyword AS mapping_keyword_2,
               mappings_table_2.source AS source
       FROM ofx.stmttrn
-      JOIN admin.mappings mappings_table_1 on lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo)) LIKE '%%' || array_to_string(regexp_split_to_array(lower(mappings_table_1.keyword), E'\\s+'), '%%') || '%%'
+      JOIN admin.mappings mappings_table_1 on lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
+                                            LIKE '%%' || array_to_string(regexp_split_to_array(lower(mappings_table_1.keyword), E'\\\s+'), '%%') || '%%'
                                           AND mappings_table_1.source = 'ofx'
-      JOIN admin.mappings mappings_table_2 on lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))  LIKE '%%' || array_to_string(regexp_split_to_array(lower(mappings_table_2.keyword), E'\\s+'), '%%')  || '%%'
+      JOIN admin.mappings mappings_table_2 on lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
+                                            LIKE '%%' || array_to_string(regexp_split_to_array(lower(mappings_table_2.keyword), E'\\\s+'), '%%')  || '%%'
                                           AND mappings_table_1.keyword != mappings_table_2.keyword
                                           AND mappings_table_2.source = 'ofx'
       ORDER BY description;
