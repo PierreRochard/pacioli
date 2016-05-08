@@ -96,6 +96,18 @@ def link_mapping_formatter(view, context, model, name):
     return link
 
 
+def link_journal_entry_formatter(view, context, model, name):
+    if getattr(model, name):
+        link = Markup('''
+        <a target="_blank" href="{1}">
+             {0}
+        </a>
+        '''.format(getattr(model, name), url_for('journalentries.index_view', flt1_0=getattr(model, name)), getattr(model, name)))
+        return link
+    else:
+        return ''
+
+
 def link_transaction_search_formatter(view, context, model, name):
     link = Markup('''
     <form class="icon" method="POST" action="/mappings/delete/">

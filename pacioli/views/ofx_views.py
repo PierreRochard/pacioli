@@ -1,5 +1,4 @@
 from flask import redirect, request, url_for
-from flask_admin.contrib.sqla.filters import FilterEmpty
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField
@@ -13,7 +12,7 @@ from pacioli.models import (db, Subaccounts, Mappings, Transactions, AccountsFro
                             InvestmentBalances, InvestmentPositions, Securities)
 from pacioli.views import PacioliModelView
 from pacioli.views.utilities import (account_formatter, date_formatter, currency_formatter,
-                                     id_formatter, string_formatter, percent_formatter)
+                                     id_formatter, string_formatter, percent_formatter, link_journal_entry_formatter)
 
 
 class OFXModelView(PacioliModelView):
@@ -49,6 +48,7 @@ class TransactionsModelView(OFXModelView):
                          )
 
     column_formatters = dict(id=id_formatter,
+                             journal_entry_id=link_journal_entry_formatter,
                              date=date_formatter,
                              amount=currency_formatter,
                              description=string_formatter,
