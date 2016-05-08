@@ -1,8 +1,12 @@
 import string
 from datetime import datetime, date
 
-from flask import url_for
+from flask import url_for, request
 from markupsafe import Markup
+
+
+def redirect_url(default='index'):
+    return request.args.get('next') or request.referrer or url_for(default)
 
 
 def account_formatter(view, context, model, name):

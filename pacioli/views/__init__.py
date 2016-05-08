@@ -3,10 +3,6 @@ from flask.ext.admin.contrib import sqla
 from flask_security import current_user
 
 
-def redirect_url(default='index'):
-    return request.args.get('next') or request.referrer or url_for(default)
-
-
 class PacioliModelView(sqla.ModelView):
     def is_accessible(self):
         if not current_user.is_active or not current_user.is_authenticated:

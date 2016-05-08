@@ -1,21 +1,23 @@
 {% extends 'admin/model/list.html' %}
+
 {% block model_menu_bar_before_filters %}
     <li>
-    <a href="{{ get_url('banking/transactions.apply_all_mappings_view') }}" title="Apply All Mappings">Apply All Mappings</a>
+    <a href="{{ get_url('banking/transactions.apply_all_mappings_view') }}" title="Apply All Mappings">
+        Apply All Mappings
+    </a>
     </li>
 {% endblock %}
 
 {% block model_menu_bar_after_filters %}
-
     {% if search %}
         <li>
-        <form  action="{{ url_for('banking/transactions.index_view')}}" method="POST"  class="form-inline">
-        <div class="form-group">
-            {{ new_mapping_form.subaccount() }}
-        </div>
-            {{ new_mapping_form.keyword(value=search) }}
-        <input class="btn btn-primary" type=submit value="Apply">
-        </form>
+            <form  action="{{ url_for('banking/transactions.index_view')}}" method="POST"  class="form-inline">
+                <div class="form-group">
+                    {{ new_mapping_form.subaccount() }}
+                </div>
+                {{ new_mapping_form.keyword(value=search) }}
+                <input class="btn btn-primary" type=submit value="Apply">
+            </form>
         </li>
         <li class="dropdown">
             <a class="dropdown-toggle" data-toggle="dropdown" href="javascript:void(0)">
@@ -34,12 +36,6 @@
                 </li>
             </ul>
         </li>
-    <br>
-        <div class="btn-group" role="group">
-
-        </div>
-        <br>
-        <br>
     {% endif %}
     {{ super() }}
 {% endblock %}

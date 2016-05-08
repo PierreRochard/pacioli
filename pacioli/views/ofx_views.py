@@ -1,4 +1,5 @@
 from flask import redirect, request, url_for
+from flask_admin.contrib.sqla.filters import FilterEmpty
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField
@@ -119,8 +120,11 @@ class TransactionsModelView(OFXModelView):
         return redirect(url_for('banking/transactions.index_view'))
 
 
-admin.add_view(TransactionsModelView(Transactions, db.session,
-                                     name='Transactions', category='Banking', endpoint='banking/transactions'))
+admin.add_view(TransactionsModelView(model=Transactions,
+                                     session=db.session,
+                                     name='Transactions',
+                                     category='Banking',
+                                     endpoint='banking/transactions'))
 
 
 class AccountsFromModelView(OFXModelView):
