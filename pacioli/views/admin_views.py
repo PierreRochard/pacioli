@@ -6,21 +6,21 @@ from flask.ext.admin import expose
 from pacioli.extensions import admin
 from pacioli.functions.ofx_functions import sync_ofx
 from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps)
-from pacioli.views import PacioliModelView
+from pacioli.views import PrivateModelView
 from pacioli.views.utilities import date_formatter, link_mapping_formatter, link_transaction_search_formatter
 
 
-class UserModelView(PacioliModelView):
+class UserModelView(PrivateModelView):
     column_list = ('id', 'email', 'active', 'confirmed_at', 'current_login_at',
                    'last_login_ip', 'current_login_ip', 'login_count')
     column_formatters = dict(confirmed_at=date_formatter, current_login_at=date_formatter)
 
 
 admin.add_view(UserModelView(User, db.session, category='Admin'))
-admin.add_view(PacioliModelView(Role, db.session, category='Admin'))
+admin.add_view(PrivateModelView(Role, db.session, category='Admin'))
 
 
-class ConnectionsModelView(PacioliModelView):
+class ConnectionsModelView(PrivateModelView):
     list_template = 'connections.html'
     column_list = ('id', 'source', 'type', 'url', 'org', 'fid', 'routing_number',
                    'account_number', 'user', 'synced_at')
@@ -33,7 +33,7 @@ class ConnectionsModelView(PacioliModelView):
     def create_model(self, form):
         # TODO: store the password in an encrypted form
         # form.password.data = encrypt_password(form.password.data)
-        super(PacioliModelView, self).create_model(form)
+        super(PrivateModelView, self).create_model(form)
 
     def after_model_change(self, form, model, is_created):
         if is_created:
@@ -47,7 +47,7 @@ class ConnectionsModelView(PacioliModelView):
 admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
 
 
-class ConnectionResponsesView(PacioliModelView):
+class ConnectionResponsesView(PrivateModelView):
     can_create = False
     can_delete = False
     can_edit = False
@@ -62,7 +62,7 @@ class ConnectionResponsesView(PacioliModelView):
 admin.add_view(ConnectionResponsesView(ConnectionResponses, db.session, category='Admin', endpoint='connection-responses'))
 
 
-class MappingsModelView(PacioliModelView):
+class MappingsModelView(PrivateModelView):
     column_labels = dict(id='ID')
     form_choices = dict(source=[('ofx', 'ofx')])
     column_display_all_relations = True
@@ -79,7 +79,7 @@ class MappingsModelView(PacioliModelView):
 admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
 
 
-class MappingOverlapsModelView(PacioliModelView):
+class MappingOverlapsModelView(PrivateModelView):
     can_create = False
     can_delete = False
     can_edit = False

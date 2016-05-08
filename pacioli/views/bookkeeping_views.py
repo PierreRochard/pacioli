@@ -6,11 +6,11 @@ from wtforms import StringField
 from pacioli.extensions import admin
 from pacioli.models import (db, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, DetailedJournalEntries)
-from pacioli.views import PacioliModelView
+from pacioli.views import PrivateModelView
 from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter
 
 
-class JournalEntriesView(PacioliModelView):
+class JournalEntriesView(PrivateModelView):
     column_list = ('id',
                    'transaction_id',
                    'transaction_source',
@@ -35,8 +35,13 @@ class JournalEntriesView(PacioliModelView):
                              description=string_formatter,
                              )
 
-    column_labels = dict(id='ID',
-                         transaction_id='Transaction ID',
+    column_labels = dict(id='JE',
+                         transaction_id='Tx',
+                         transaction_source='Source',
+                         timestamp='Date',
+                         debit_subaccount='Debit',
+                         credit_subaccount='Credit',
+                         functional_amount='Amount',
                          )
 
     def get_query(self):
@@ -90,7 +95,7 @@ class JournalEntriesView(PacioliModelView):
 admin.add_view(JournalEntriesView(DetailedJournalEntries, db.session, category='Bookkeeping', endpoint='journalentries', name='Journal Entries'))
 
 
-class TaxonomyModelView(PacioliModelView):
+class TaxonomyModelView(PrivateModelView):
     form_extra_fields = dict(name=StringField('Name'))
     column_searchable_list = ['name']
 admin.add_view(TaxonomyModelView(Subaccounts, db.session, category='Bookkeeping'))

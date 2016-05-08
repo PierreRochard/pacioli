@@ -10,12 +10,12 @@ from pacioli.functions.ofx_functions import apply_all_mappings, apply_single_ofx
 from pacioli.models import (db, Subaccounts, Mappings, Transactions, AccountsFrom,
                             BankAccounts, CreditCardAccounts, InvestmentTransactions, CostBases, InvestmentAccounts,
                             InvestmentBalances, InvestmentPositions, Securities)
-from pacioli.views import PacioliModelView
+from pacioli.views import PrivateModelView
 from pacioli.views.utilities import (account_formatter, date_formatter, currency_formatter,
                                      id_formatter, string_formatter, percent_formatter, link_journal_entry_formatter)
 
 
-class OFXModelView(PacioliModelView):
+class OFXModelView(PrivateModelView):
     can_create = False
     can_delete = False
     can_edit = False

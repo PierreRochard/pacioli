@@ -3,7 +3,7 @@ from flask.ext.admin.contrib import sqla
 from flask_security import current_user
 
 
-class PacioliModelView(sqla.ModelView):
+class PrivateModelView(sqla.ModelView):
     def is_accessible(self):
         if not current_user.is_active or not current_user.is_authenticated:
             return False

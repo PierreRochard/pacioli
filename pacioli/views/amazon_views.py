@@ -10,10 +10,10 @@ from wtforms import Form, HiddenField
 
 from pacioli.extensions import admin
 from pacioli.models import (db, AmazonCategories, AmazonOrders, AmazonTransactions, Subaccounts, Mappings)
-from pacioli.views import PacioliModelView
+from pacioli.views import PrivateModelView
 
 
-class AmazonItemView(PacioliModelView):
+class AmazonItemView(PrivateModelView):
     list_template = 'amazon_items.html'
 
     can_edit = False
@@ -74,7 +74,7 @@ class AmazonItemView(PacioliModelView):
         return redirect(url_for('amazonitems.index_view'))
 admin.add_view(AmazonItemView(AmazonTransactions, db.session, endpoint='amazonitems', name='Amazon Items', category='Amazon'))
 
-class AmazonOrdersView(PacioliModelView):
+class AmazonOrdersView(PrivateModelView):
     can_edit = False
     can_create = False
     can_delete = False
@@ -88,7 +88,7 @@ class AmazonOrdersView(PacioliModelView):
     column_labels = dict(id='ID')
 admin.add_view(AmazonOrdersView(AmazonOrders, db.session, category='Amazon'))
 
-class AmazonCategoriesView(PacioliModelView):
+class AmazonCategoriesView(PrivateModelView):
     can_edit = False
     can_create = False
     can_delete = False

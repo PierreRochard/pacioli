@@ -3,12 +3,12 @@ from flask.ext.admin import expose
 from pacioli.extensions import admin
 from pacioli.models import (db, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, TrialBalances)
-from pacioli.views import PacioliModelView
+from pacioli.views import PrivateModelView
 from pacioli.views.utilities import currency_formatter, fs_currency_format, fs_linked_currency_formatter
 from sqlalchemy import text, func
 
 
-class TrialBalancesView(PacioliModelView):
+class TrialBalancesView(PrivateModelView):
     list_template = 'trial_balances.html'
     column_list = ('id', 'period', 'period_interval', 'subaccount', 'debit_balance',
                    'credit_balance', 'net_balance', 'debit_changes', 'credit_changes', 'net_changes')
@@ -47,7 +47,7 @@ class TrialBalancesView(PacioliModelView):
 admin.add_view(TrialBalancesView(TrialBalances, db.session, category='Accounting'))
 
 
-class IncomeStatementsView(PacioliModelView):
+class IncomeStatementsView(PrivateModelView):
     list_template = 'financial_statements.html'
     column_list = ('subaccount', 'net_changes')
     column_default_sort = {'field': 'net_changes', 'sort_desc': True, 'absolute_value': True}
@@ -137,7 +137,7 @@ class IncomeStatementsView(PacioliModelView):
 admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting', name='Income Statements', endpoint='income-statements'))
 
 
-class BalanceSheetView(PacioliModelView):
+class BalanceSheetView(PrivateModelView):
     list_template = 'financial_statements.html'
     column_list = ('subaccount', 'net_balance')
     column_default_sort = {'field': 'net_balance', 'sort_desc': True, 'absolute_value': True}

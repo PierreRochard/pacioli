@@ -1,11 +1,11 @@
 from pacioli.extensions import admin
 from pacioli.models import (db, Paystubs, PaystubItems)
-from pacioli.views import PacioliModelView
+from pacioli.views import PrivateModelView
 
-admin.add_view(PacioliModelView(Paystubs, db.session, category='Payroll'))
+admin.add_view(PrivateModelView(Paystubs, db.session, category='Payroll'))
 
 
-class PaystubItemsModelView(PacioliModelView):
+class PaystubItemsModelView(PrivateModelView):
     form_choices = dict(description=[('Bonus Earnings', 'Bonus Earnings'),
                                      ('Federal Income Tax', 'Federal Income Tax'),
                                      ('Health Insurance Premium', 'Health Insurance Premium'),
