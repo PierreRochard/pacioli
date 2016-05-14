@@ -21,10 +21,10 @@ def create_amazon_views():
         pass
     db.engine.execute("""
     CREATE VIEW amazon.amazon_transactions AS SELECT amazon.items.*,
-            pacioli.journal_entries.id AS journal_entry_id
+            bookkeeping.journal_entries.id AS journal_entry_id
         FROM amazon.items
-        LEFT OUTER JOIN pacioli.journal_entries ON cast(amazon.items.id AS CHARACTER VARYING) = pacioli.journal_entries.transaction_id
-          AND pacioli.journal_entries.transaction_source = 'amazon'
+        LEFT OUTER JOIN bookkeeping.journal_entries ON cast(amazon.items.id AS CHARACTER VARYING) = bookkeeping.journal_entries.transaction_id
+          AND bookkeeping.journal_entries.transaction_source = 'amazon'
         ORDER BY amazon.items.shipment_date DESC;
     """)
 
