@@ -51,7 +51,9 @@ def create_ofx_views():
                ofx.stmttrn.trntype as type,
             ofx.acctfrom.name AS account,
             ofx.stmttrn.acctfrom_id as account_id,
-            bookkeeping.journal_entries.id AS journal_entry_id
+            bookkeeping.journal_entries.id AS journal_entry_id,
+            bookkeeping.journal_entries.debit_subaccount AS debit_subaccount,
+            bookkeeping.journal_entries.credit_subaccount AS credit_subaccount
         FROM ofx.stmttrn
         LEFT OUTER JOIN bookkeeping.journal_entries ON bookkeeping.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
                 ofx.stmttrn.acctfrom_id) and bookkeeping.journal_entries.transaction_source = 'ofx'

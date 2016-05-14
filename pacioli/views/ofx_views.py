@@ -27,13 +27,15 @@ class TransactionsModelView(OFXModelView):
 
     column_default_sort = dict(field='date', sort_desc=True, absolute_value=False)
 
-    column_list = ('journal_entry_id',
-                   'id',
+    column_list = ('id',
                    'date',
-                   'account',
-                   'amount',
-                   'description',
                    'type',
+                   'account',
+                   'description',
+                   'amount',
+                   'debit_subaccount',
+                   'credit_subaccount',
+                   'journal_entry_id'
                    )
 
     column_filters = column_list
