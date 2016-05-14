@@ -27,10 +27,10 @@ class TrialBalancesView(PrivateModelView):
     def refresh_all_subaccounts(self):
         connection = db.engine.connect()
         transaction = connection.begin()
-        connection.execute('TRUNCATE pacioli.trial_balances RESTART IDENTITY CASCADE;')
+        connection.execute('TRUNCATE bookkeeping.trial_balances RESTART IDENTITY CASCADE;')
         transaction.commit()
         transaction.close()
-        query_text = text('SELECT pacioli.update_trial_balance(:debit_subaccount, :credit_subaccount, :period_interval_name, :period_name);')
+        query_text = text('SELECT bookkeeping.update_trial_balance(:debit_subaccount, :credit_subaccount, :period_interval_name, :period_name);')
         for debit_subaccount, credit_subaccount in db.session.query(JournalEntries.debit_subaccount,
                                                                     JournalEntries.credit_subaccount).distinct():
             for period_interval_name in ['YYYY', 'YYYY-Q', 'YYYY-MM', 'YYYY-WW', 'YYYY-MM-DD']:

@@ -80,8 +80,8 @@ class Config(object):
                          'secinfo': 'Securities',
                          'transactions': 'Transactions',
                          },
-                 'pacioli': {'detailed_journal_entries': 'DetailedJournalEntries',
-                             },
+                 'bookkeeping': {'detailed_journal_entries': 'DetailedJournalEntries',
+                                 },
                  }
 
 

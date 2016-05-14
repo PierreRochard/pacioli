@@ -51,10 +51,10 @@ def create_ofx_views():
                ofx.stmttrn.trntype as type,
             ofx.acctfrom.name AS account,
             ofx.stmttrn.acctfrom_id as account_id,
-            pacioli.journal_entries.id AS journal_entry_id
+            bookkeeping.journal_entries.id AS journal_entry_id
         FROM ofx.stmttrn
-        LEFT OUTER JOIN pacioli.journal_entries ON pacioli.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
-                ofx.stmttrn.acctfrom_id) and pacioli.journal_entries.transaction_source = 'ofx'
+        LEFT OUTER JOIN bookkeeping.journal_entries ON bookkeeping.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
+                ofx.stmttrn.acctfrom_id) and bookkeeping.journal_entries.transaction_source = 'ofx'
         JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
         ORDER BY ofx.stmttrn.dtposted DESC;
     """)

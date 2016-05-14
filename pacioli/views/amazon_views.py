@@ -3,9 +3,7 @@ from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField
 from pacioli.functions.amazon_functions import apply_single_amazon_mapping, apply_all_mappings
-from sqlalchemy import PrimaryKeyConstraint
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.automap import automap_base
 from wtforms import Form, HiddenField
 
 from pacioli.extensions import admin
@@ -74,6 +72,7 @@ class AmazonItemView(PrivateModelView):
         return redirect(url_for('amazonitems.index_view'))
 admin.add_view(AmazonItemView(AmazonTransactions, db.session, endpoint='amazonitems', name='Amazon Items', category='Amazon'))
 
+
 class AmazonOrdersView(PrivateModelView):
     can_edit = False
     can_create = False
@@ -87,6 +86,7 @@ class AmazonOrdersView(PrivateModelView):
     column_default_sort = {'field': 'order_date', 'sort_desc': True, 'absolute_value': False}
     column_labels = dict(id='ID')
 admin.add_view(AmazonOrdersView(AmazonOrders, db.session, category='Amazon'))
+
 
 class AmazonCategoriesView(PrivateModelView):
     can_edit = False

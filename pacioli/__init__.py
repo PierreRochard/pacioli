@@ -1,7 +1,5 @@
 from flask import Flask
 from flask.ext.security import Security
-from sqlalchemy.exc import InvalidRequestError
-
 from webassets.loaders import PythonLoader as PythonAssetsLoader
 from flask_admin import helpers as admin_helpers
 

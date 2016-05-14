@@ -83,16 +83,16 @@ class Mappings(db.Model):
     source = db.Column(db.String)
     keyword = db.Column(db.String)
 
-    positive_debit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_debit_subaccount_id = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'))
     positive_debit_subaccount = db.relationship('Subaccounts', foreign_keys=[positive_debit_subaccount_id])
 
-    positive_credit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    positive_credit_subaccount_id = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'))
     positive_credit_subaccount = db.relationship('Subaccounts', foreign_keys=[positive_credit_subaccount_id])
 
-    negative_debit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_debit_subaccount_id = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'))
     negative_debit_subaccount = db.relationship('Subaccounts', foreign_keys=[negative_debit_subaccount_id])
 
-    negative_credit_subaccount_id = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    negative_credit_subaccount_id = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'))
     negative_credit_subaccount = db.relationship('Subaccounts', foreign_keys=[negative_credit_subaccount_id])
 
     def __repr__(self):
@@ -102,11 +102,11 @@ class Mappings(db.Model):
 class TrialBalances(db.Model):
     __table_args__ = (db.UniqueConstraint('subaccount', 'period', 'period_interval',
                                           name='trial_balances_unique_constraint'),
-                      {'schema': 'pacioli'})
+                      {'schema': 'bookkeeping'})
     __tablename__ = 'trial_balances'
 
     id = db.Column(db.Integer, primary_key=True)
-    subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'))
+    subaccount = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'))
     period = db.Column(db.String)
     period_interval = db.Column(db.String)
     debit_balance = db.Column(db.Numeric, nullable=False, default=0)
@@ -127,8 +127,8 @@ class JournalEntries(db.Model):
     mapping = db.relationship('Mappings', backref='journal_entries')
 
     timestamp = db.Column(db.DateTime(timezone=True), nullable=False)
-    debit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'), nullable=False)
-    credit_subaccount = db.Column(db.String, db.ForeignKey('pacioli.subaccounts.name'), nullable=False)
+    debit_subaccount = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'), nullable=False)
+    credit_subaccount = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'), nullable=False)
     functional_amount = db.Column(db.Numeric, nullable=False)
     functional_currency = db.Column(db.String, nullable=False)
     source_amount = db.Column(db.Numeric, nullable=False)
@@ -138,27 +138,27 @@ class JournalEntries(db.Model):
                                           name='journal_entries_unique_constraint'),
                       db.CheckConstraint(functional_amount >= 0, name='check_functional_amount_positive'),
                       db.CheckConstraint(source_amount >= 0, name='check_source_amount_positive'),
-                      {'schema': 'pacioli'})
+                      {'schema': 'bookkeeping'})
 
 
 class Subaccounts(db.Model):
-    __table_args__ = {'schema': 'pacioli'}
+    __table_args__ = {'schema': 'bookkeeping'}
     __tablename__ = 'subaccounts'
 
     name = db.Column(db.String, primary_key=True)
-    parent = db.Column(db.String, db.ForeignKey('pacioli.accounts.name'))
+    parent = db.Column(db.String, db.ForeignKey('bookkeeping.accounts.name'))
 
     def __repr__(self):
         return '{0} - {1}'.format(self.parent, self.name)
 
 
 class Accounts(db.Model):
-    __table_args__ = {'schema': 'pacioli'}
+    __table_args__ = {'schema': 'bookkeeping'}
     __tablename__ = 'accounts'
 
     name = db.Column(db.String, primary_key=True)
     cash_source = db.Column(db.String)
-    parent = db.Column(db.String, db.ForeignKey('pacioli.classifications.name'))
+    parent = db.Column(db.String, db.ForeignKey('bookkeeping.classifications.name'))
     subaccounts = db.relationship('Subaccounts',
                                   backref='account',
                                   lazy='select',
@@ -169,11 +169,11 @@ class Accounts(db.Model):
 
 
 class Classifications(db.Model):
-    __table_args__ = {'schema': 'pacioli'}
+    __table_args__ = {'schema': 'bookkeeping'}
     __tablename__ = 'classifications'
 
     name = db.Column(db.String, primary_key=True)
-    parent = db.Column(db.String, db.ForeignKey('pacioli.elements.name'))
+    parent = db.Column(db.String, db.ForeignKey('bookkeeping.elements.name'))
     accounts = db.relationship('Accounts',
                                backref='classification',
                                lazy='select',
@@ -184,7 +184,7 @@ class Classifications(db.Model):
 
 
 class Elements(db.Model):
-    __table_args__ = {'schema': 'pacioli'}
+    __table_args__ = {'schema': 'bookkeeping'}
     __tablename__ = 'elements'
 
     name = db.Column(db.String, primary_key=True)
@@ -331,7 +331,7 @@ def register_models():
     db.metadata.tables['ofx.cost_bases'].append_constraint(PrimaryKeyConstraint('ticker', name='cost_bases_pk'))
     db.metadata.tables['ofx.investment_transactions'].append_constraint(PrimaryKeyConstraint('id', name='investment_transactions_pk'))
     db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
-    db.metadata.tables['pacioli.detailed_journal_entries'].append_constraint(PrimaryKeyConstraint('id', name='detailed_journal_entries_pk'))
+    db.metadata.tables['bookkeeping.detailed_journal_entries'].append_constraint(PrimaryKeyConstraint('id', name='detailed_journal_entries_pk'))
 
     for schema_name in current_app.config['MODEL_MAP'].keys():
         base = automap_base(metadata=db.metadata)
