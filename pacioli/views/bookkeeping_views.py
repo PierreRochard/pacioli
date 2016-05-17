@@ -98,8 +98,30 @@ admin.add_view(JournalEntriesView(DetailedJournalEntries, db.session, category='
 class TaxonomyModelView(PrivateModelView):
     form_extra_fields = dict(name=StringField('Name'))
     column_searchable_list = ['name']
-admin.add_view(TaxonomyModelView(Subaccounts, db.session, category='Bookkeeping'))
-admin.add_view(TaxonomyModelView(Accounts, db.session, category='Bookkeeping'))
-admin.add_view(TaxonomyModelView(Classifications, db.session, category='Bookkeeping'))
-admin.add_view(TaxonomyModelView(Elements, db.session, category='Bookkeeping'))
+    create_modal = True
+    edit_modal = True
+
+
+class SubaccountsModelView(PrivateModelView):
+    column_list = ('name', 'parent')
+    column_labels = dict(parent='Account')
+
+
+class AccountsModelView(PrivateModelView):
+    column_list = ('name', 'cash_source', 'parent', 'subaccounts')
+    column_labels = dict(parent='Classification')
+
+
+class ClassificationsModelView(PrivateModelView):
+    column_list = ('name', 'parent', 'accounts')
+    column_labels = dict(parent='Element')
+
+
+class ElementsModelView(PrivateModelView):
+    column_list = ('name', 'classifications')
+
+admin.add_view(SubaccountsModelView(Subaccounts, db.session, category='Bookkeeping'))
+admin.add_view(AccountsModelView(Accounts, db.session, category='Bookkeeping'))
+admin.add_view(ClassificationsModelView(Classifications, db.session, category='Bookkeeping'))
+admin.add_view(ElementsModelView(Elements, db.session, category='Bookkeeping'))
 
