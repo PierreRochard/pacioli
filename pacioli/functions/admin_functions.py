@@ -1,30 +1,31 @@
-from sqlalchemy.exc import ProgrammingError
-
 from pacioli import db
 
 
 def create_mappings_views():
-    try:
-        db.engine.execute('DROP VIEW admin.mapping_overlaps;')
-    except ProgrammingError:
-        pass
     db.engine.execute("""
-    CREATE VIEW admin.mapping_overlaps
-    AS SELECT DISTINCT concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-              mappings_table_1.id AS mapping_id_1,
-              mappings_table_1.keyword AS mapping_keyword_1,
-              mappings_table_2.id AS mapping_id_2,
-              mappings_table_2.keyword AS mapping_keyword_2,
-              mappings_table_2.source AS source
-      FROM ofx.stmttrn
-      JOIN admin.mappings mappings_table_1 on lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
-                                            LIKE '%%' || array_to_string(regexp_split_to_array(lower(mappings_table_1.keyword), E'\\\s+'), '%%') || '%%'
-                                          AND mappings_table_1.source = 'ofx'
-      JOIN admin.mappings mappings_table_2 on lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
-                                            LIKE '%%' || array_to_string(regexp_split_to_array(lower(mappings_table_2.keyword), E'\\\s+'), '%%')  || '%%'
-                                          AND mappings_table_1.keyword != mappings_table_2.keyword
-                                          AND mappings_table_2.source = 'ofx'
-      ORDER BY description;
+    CREATE OR REPLACE VIEW admin.mapping_overlaps
+    AS SELECT DISTINCT
+      concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+      mappings_table_1.id AS mapping_id_1,
+      mappings_table_1.keyword AS mapping_keyword_1,
+      mappings_table_2.id AS mapping_id_2,
+      mappings_table_2.keyword AS mapping_keyword_2,
+      mappings_table_2.source AS source
+    FROM ofx.stmttrn
+    JOIN admin.mappings mappings_table_1
+      ON lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
+        LIKE '%%' || array_to_string(regexp_split_to_array(
+                        lower(mappings_table_1.keyword), E'\\\s+'
+                        ), '%%') || '%%'
+        AND mappings_table_1.source = 'ofx'
+    JOIN admin.mappings mappings_table_2
+      ON lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
+        LIKE '%%' || array_to_string(regexp_split_to_array(
+                        lower(mappings_table_2.keyword), E'\\\s+'
+                        ), '%%')  || '%%'
+        AND mappings_table_1.keyword != mappings_table_2.keyword
+        AND mappings_table_2.source = 'ofx'
+    ORDER BY description;
     """)
 
     # Todo: have view updates propagate to underlying physical tables
