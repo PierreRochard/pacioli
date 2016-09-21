@@ -39,34 +39,31 @@ def fix_ofx_file(ofx_file_path):
 
 
 def create_ofx_views():
-    try:
-        db.engine.execute('DROP VIEW ofx.transactions;')
-    except ProgrammingError:
-        pass
     db.engine.execute("""
-    CREATE VIEW ofx.transactions AS SELECT concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
-            ofx.stmttrn.dtposted AS date,
-            ofx.stmttrn.trnamt AS amount,
-            concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-               ofx.stmttrn.trntype as type,
-            ofx.acctfrom.name AS account,
-            ofx.stmttrn.acctfrom_id as account_id,
-            bookkeeping.journal_entries.id AS journal_entry_id,
-            bookkeeping.journal_entries.debit_subaccount AS debit_subaccount,
-            bookkeeping.journal_entries.credit_subaccount AS credit_subaccount
-        FROM ofx.stmttrn
-        LEFT OUTER JOIN bookkeeping.journal_entries ON bookkeeping.journal_entries.transaction_id = concat(ofx.stmttrn.fitid,
-                ofx.stmttrn.acctfrom_id) and bookkeeping.journal_entries.transaction_source = 'ofx'
-        JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
-        ORDER BY ofx.stmttrn.dtposted DESC;
+    CREATE OR REPLACE VIEW ofx.transactions
+      AS SELECT
+        concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+        ofx.stmttrn.dtposted AS date,
+        ofx.stmttrn.trnamt AS amount,
+        concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+        ofx.stmttrn.trntype AS type,
+        ofx.acctfrom.name AS account,
+        ofx.stmttrn.acctfrom_id AS account_id,
+        bookkeeping.journal_entries.id AS journal_entry_id,
+        bookkeeping.journal_entries.debit_subaccount AS debit_subaccount,
+        bookkeeping.journal_entries.credit_subaccount AS credit_subaccount
+      FROM ofx.stmttrn
+      LEFT OUTER JOIN bookkeeping.journal_entries
+        ON bookkeeping.journal_entries.transaction_id
+              = concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id)
+          AND bookkeeping.journal_entries.transaction_source = 'ofx'
+      JOIN ofx.acctfrom
+        ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+      ORDER BY ofx.stmttrn.dtposted DESC;
     """)
 
-    try:
-        db.engine.execute('DROP VIEW ofx.investment_transactions CASCADE;')
-    except ProgrammingError:
-        pass
     db.engine.execute("""
-    CREATE VIEW ofx.investment_transactions AS SELECT
+    CREATE OR REPLACE VIEW ofx.investment_transactions AS SELECT
             ofx.invtran.*,
             ofx.acctfrom.name AS account_name,
             CASE ofx.invtran.subclass
@@ -101,35 +98,46 @@ def create_ofx_views():
                     and ofx.invtran.subclass = 'sellmf'
         LEFT OUTER JOIN ofx.reinvest ON ofx.reinvest.id = ofx.invtran.id
                     and ofx.invtran.subclass = 'reinvest'
-        LEFT OUTER JOIN ofx.secinfo buymf_secinfo ON buymf_secinfo.id = ofx.buymf.secinfo_id
-        LEFT OUTER JOIN ofx.secinfo sellmf_secinfo ON sellmf_secinfo.id = ofx.sellmf.secinfo_id
-        LEFT OUTER JOIN ofx.secinfo reinvest_secinfo ON reinvest_secinfo.id = ofx.reinvest.secinfo_id
+        LEFT OUTER JOIN ofx.secinfo buymf_secinfo
+          ON buymf_secinfo.id = ofx.buymf.secinfo_id
+        LEFT OUTER JOIN ofx.secinfo sellmf_secinfo
+          ON sellmf_secinfo.id = ofx.sellmf.secinfo_id
+        LEFT OUTER JOIN ofx.secinfo reinvest_secinfo
+          ON reinvest_secinfo.id = ofx.reinvest.secinfo_id
         JOIN ofx.acctfrom ON acctfrom.id = ofx.invtran.acctfrom_id
         ORDER BY ofx.invtran.dttrade DESC;
     """)
 
-    try:
-        db.engine.execute('DROP VIEW ofx.cost_bases;')
-    except ProgrammingError:
-        pass
     db.engine.execute("""
-        CREATE VIEW ofx.cost_bases AS SELECT
-                investment_transactions.secname,
-                sum(investment_transactions.units) as total_units,
-                sum(investment_transactions.total) as cost_basis,
-                q1.ticker,
-                q1.adjusted_close as "close",
-                q1.adjusted_close * sum(investment_transactions.units) as market_value,
-                (q1.adjusted_close * sum(investment_transactions.units) - sum(investment_transactions.total)) as pnl,
-                (q1.adjusted_close * sum(investment_transactions.units) - sum(investment_transactions.total))/sum(investment_transactions.total) as pnl_percent,
-                q2.date as price_date
+        CREATE OR REPLACE VIEW ofx.cost_bases AS SELECT
+            investment_transactions.secname,
+            sum(investment_transactions.units) AS total_units,
+            sum(investment_transactions.total) AS cost_basis,
+            q1.ticker,
+            q1.adjusted_close AS "close",
+            q1.adjusted_close
+                  * sum(investment_transactions.units) AS market_value,
+            (q1.adjusted_close
+                  * sum(investment_transactions.units)
+                  - sum(investment_transactions.total)) AS pnl,
+            (q1.adjusted_close
+                  * sum(investment_transactions.units)
+                  - sum(investment_transactions.total))
+              / sum(investment_transactions.total) AS pnl_percent,
+            q2.date AS price_date
 
         FROM ofx.investment_transactions
-        JOIN (SELECT ticker, max(date) AS date FROM investments.security_prices GROUP BY ticker) AS q2
-            ON q2.ticker = investment_transactions.ticker
-        JOIN investments.security_prices q1 ON q1.ticker = ofx.investment_transactions.ticker
-                                           AND q2.date = q1.date
-        GROUP BY investment_transactions.secname, q1.ticker, q2.date, q1.adjusted_close
+        JOIN (SELECT ticker, max(date) AS date
+                FROM investments.security_prices
+                GROUP BY ticker) AS q2
+          ON q2.ticker = investment_transactions.ticker
+        JOIN investments.security_prices q1
+          ON q1.ticker = ofx.investment_transactions.ticker
+            AND q2.date = q1.date
+        GROUP BY investment_transactions.secname,
+                 q1.ticker,
+                 q2.date,
+                 q1.adjusted_close
         ORDER BY sum(investment_transactions.total);
     """)
 
