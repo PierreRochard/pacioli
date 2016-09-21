@@ -12,12 +12,15 @@ from pacioli.models import SecurityPrices
 
 def update_ticker_prices():
     for ticker, in db.session.query(Securities.ticker).all():
-        data = fetch_historical_yahoo(ticker, datetime.now() - timedelta(days=7), datetime.now())
+        start_date = datetime.now() - timedelta(days=7)
+        end_date = datetime.now()
+        data = fetch_historical_yahoo(ticker, start_date, end_date)
         reader = csv.DictReader(data)
         for row in reader:
             new_record = SecurityPrices()
             for key in row:
-                row[key.lower().replace('adj close', 'adjusted_close')] = row.pop(key)
+                key_name = key.lower().replace('adj close', 'adjusted_close')
+                row[key_name] = row.pop(key)
             for column in inspect(SecurityPrices).attrs:
                 if column.key == 'id':
                     continue

@@ -4,14 +4,15 @@ import imaplib
 from datetime import datetime, timedelta
 
 from sqlalchemy import func
-from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.elements import or_
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 import mechanize
 
-from pacioli.models import (db, AmazonItems, Subaccounts, Mappings, JournalEntries, Connections, AmazonCategories, AmazonOrders)
+from pacioli.models import (db, AmazonItems, Subaccounts, Mappings,
+                            JournalEntries, Connections, AmazonCategories,
+                            AmazonOrders)
 
 
 def create_amazon_views():

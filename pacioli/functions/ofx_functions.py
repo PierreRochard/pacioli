@@ -143,67 +143,92 @@ def create_ofx_views():
 
 
 def sync_ofx():
-    for connection in db.session.query(Connections).filter(Connections.source == 'ofx').all():
-        if connection.type in ['Checking', 'Savings']:
-            try:
-                start, = (db.session.query(Transactions.date)
-                          .join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
-                          .filter(BankAccounts.acctid == connection.account_number)
-                          .order_by(Transactions.date.desc()).first())
-                start = start.date()
-                end = date.today()
-            except TypeError:
-                start = None
-                end = None
-            account = BankAcct(connection.routing_number, connection.account_number, connection.type)
-        elif connection.type == 'Credit Card':
-            try:
-                start, = (db.session.query(Transactions.date)
-                          .join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
-                          .join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
-                          .filter(CreditCardAccounts.acctid == connection.account_number)
-                          .order_by(Transactions.date.desc()).first())
-                start = start.date()
-                end = date.today()
-            except TypeError:
-                start = None
-                end = None
-            account = CcAcct(connection.account_number)
-        else:
-            raise Exception('Unrecognized account/connection type: {0}'.format(connection.type))
-        ofx_client = OFXClient(connection.url, connection.org, connection.fid)
-        if start and end:
-            statement_request = ofx_client.statement_request(connection.user, connection.password, connection.clientuid,
-                                                             [account], dtstart=start, dtend=end)
-        else:
-            statement_request = ofx_client.statement_request(connection.user, connection.password,
-                                                             connection.clientuid, [account])
-        response = ofx_client.download(statement_request)
+    for connection in (db.session.query(Connections)
+                       .filter(Connections.source == 'ofx')
+                       .all()):
+        sync_ofx_connection(connection)
 
-        new_response = ConnectionResponses()
-        new_response.connection_id = connection.id
-        new_response.connected_at = datetime.now(tzlocal())
-        new_response.response = response.read()
-        db.session.add(new_response)
-        db.session.commit()
-
-        response.seek(0)
-        parser = OFXParser()
-        engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
-        DBSession.configure(bind=engine)
-        parser.parse(response)
-        parser.instantiate()
-        DBSession.commit()
-        connection.synced_at = datetime.now(tzlocal())
-        db.session.commit()
-
-    for account in db.session.query(AccountsFrom).filter(AccountsFrom.name.is_(None)).all():
+    for account in (db.session.query(AccountsFrom)
+                    .filter(AccountsFrom.name.is_(None))
+                    .all()):
         account.name = ''
         db.session.commit()
 
 
+def sync_ofx_connection(connection):
+    if connection.type in ['Checking', 'Savings']:
+        start = db.session.query(Transactions.date)
+        start = start.join(AccountsFrom,
+                           Transactions.account_id == AccountsFrom.id)
+        start = start.filter(BankAccounts.acctid == connection.account_number)
+        start = start.order_by(Transactions.date.desc())
+        start, = start.first()
+        if start:
+            start = start.date()
+            end = date.today()
+        else:
+            start = None
+            end = None
+        account = BankAcct(connection.routing_number,
+                           connection.account_number,
+                           connection.type)
+    elif connection.type == 'Credit Card':
+        start = db.session.query(Transactions.date)
+        start = start.join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
+        start = start.join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
+        start = start.filter(CreditCardAccounts.acctid == connection.account_number)
+        start = start.order_by(Transactions.date.desc())
+        start, = start.first()
+        if start:
+            start = start.date()
+            end = date.today()
+        else:
+            start = None
+            end = None
+        account = CcAcct(connection.account_number)
+    else:
+        raise Exception('Unrecognized account/'
+                        'connection type: {0}'.format(connection.type))
+
+    ofx_client = OFXClient(connection.url, connection.org, connection.fid)
+
+    if start and end:
+        statement_request = ofx_client.statement_request(connection.user,
+                                                         connection.password,
+                                                         connection.clientuid,
+                                                         [account],
+                                                         dtstart=start,
+                                                         dtend=end)
+    else:
+        statement_request = ofx_client.statement_request(connection.user,
+                                                         connection.password,
+                                                         connection.clientuid,
+                                                         [account])
+    response = ofx_client.download(statement_request)
+
+    new_response = ConnectionResponses()
+    new_response.connection_id = connection.id
+    new_response.connected_at = datetime.now(tzlocal())
+    new_response.response = response.read()
+    db.session.add(new_response)
+    db.session.commit()
+
+    response.seek(0)
+    parser = OFXParser()
+    engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'],
+                           echo=False)
+    DBSession.configure(bind=engine)
+    parser.parse(response)
+    parser.instantiate()
+    DBSession.commit()
+    connection.synced_at = datetime.now(tzlocal())
+    db.session.commit()
+
+
 def apply_all_mappings():
-    for mapping_id, in db.session.query(Mappings.id).filter(Mappings.source == 'ofx').all():
+    for mapping_id, in (db.session.query(Mappings.id)
+                        .filter(Mappings.source == 'ofx')
+                        .all()):
         apply_single_ofx_mapping(mapping_id)
 
 
