@@ -16,7 +16,7 @@ from flask_mail import Message
 from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.ofxalchemy import Base as OFX_Base
 from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.exc import IntegrityError
 
 from pacioli import create_app, mail
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
@@ -40,30 +40,12 @@ def make_shell_context():
 
 @manager.command
 def createdb():
-    try:
-        db.engine.execute('CREATE SCHEMA admin;')
-    except ProgrammingError:
-        pass
-    try:
-        db.engine.execute('CREATE SCHEMA ofx;')
-    except ProgrammingError:
-        pass
-    try:
-        db.engine.execute('CREATE SCHEMA pacioli;')
-    except ProgrammingError:
-        pass
-    try:
-        db.engine.execute('CREATE SCHEMA amazon;')
-    except ProgrammingError:
-        pass
-    try:
-        db.engine.execute('CREATE SCHEMA investments;')
-    except ProgrammingError:
-        pass
-    try:
-        db.engine.execute('CREATE SCHEMA payroll;')
-    except ProgrammingError:
-        pass
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS admin;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS ofx;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS pacioli;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS amazon;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS investments;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS payroll;')
 
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
