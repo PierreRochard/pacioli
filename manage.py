@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from pacioli import create_app, mail
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 
-env = os.environ.get('pacioli_ENV', 'dev')
+env = os.environ.get('pacioli_ENV', 'prod')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
 
 manager = Manager(app)
