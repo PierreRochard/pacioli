@@ -1,5 +1,6 @@
 import keyring
 import os
+import uuid
 
 
 class Config(object):
@@ -7,6 +8,9 @@ class Config(object):
         SECRET_KEY = keyring.get_password('flask_secret_key', 'flask_secret_key')
     except RuntimeError:
         SECRET_KEY = os.environ['SECRET_KEY']
+    except keyring.backends._OS_X_API.Error:
+        SECRET_KEY = str(uuid.uuid4())
+        keyring.set_password('flask_secret_key', 'flask_secret_key', SECRET_KEY)
 
     # Flask Security Core
     SECURITY_BLUEPRINT_NAME = 'security'
@@ -17,6 +21,9 @@ class Config(object):
         SECURITY_PASSWORD_SALT = keyring.get_password('flask_security', 'password_salt')
     except RuntimeError:
         SECURITY_PASSWORD_SALT = os.environ['SECURITY_PASSWORD_SALT']
+    except keyring.backends._OS_X_API.Error:
+        SECRET_KEY = str(uuid.uuid4())
+        keyring.set_password('flask_security', 'password_salt', SECRET_KEY)
     SECURITY_EMAIL_SENDER = 'no-reply@localhost'
     SECURITY_TOKEN_AUTHENTICATION_KEY = 'auth_token'
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'

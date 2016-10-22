@@ -2,7 +2,7 @@ from datetime import datetime
 
 from dateutil.tz import tzlocal
 from flask import url_for, redirect
-from flask.ext.admin import expose
+from flask_admin import expose
 from pacioli.extensions import admin
 from pacioli.functions.ofx_functions import sync_ofx
 from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps)

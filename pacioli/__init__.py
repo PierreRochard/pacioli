@@ -1,5 +1,5 @@
 from flask import Flask, url_for
-from flask.ext.security import Security
+from flask_security import Security
 from flask_admin import helpers as admin_helpers
 
 from pacioli import settings

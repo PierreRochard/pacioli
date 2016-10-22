@@ -1,5 +1,5 @@
 from flask import url_for, redirect, request
-from flask.ext.admin import expose
+from flask_admin import expose
 from pacioli.extensions import admin
 from pacioli.models import (db, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, TrialBalances)

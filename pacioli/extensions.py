@@ -1,6 +1,6 @@
-from flask.ext.admin import Admin
-from flask.ext.mail import Mail
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_admin import Admin
+from flask_mail import Mail
+from flask_sqlalchemy import SQLAlchemy
 
 admin = Admin(url='/',
               base_template='base_master.html',

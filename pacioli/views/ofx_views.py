@@ -1,7 +1,7 @@
 from flask import redirect, request, url_for
-from flask.ext.admin import expose
-from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
-from flask.ext.admin.model.fields import AjaxSelectField
+from flask_admin import expose
+from flask_admin.contrib.sqla.ajax import QueryAjaxModelLoader
+from flask_admin.model.fields import AjaxSelectField
 from sqlalchemy.exc import IntegrityError
 from wtforms import Form, HiddenField
 

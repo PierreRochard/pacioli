@@ -8,10 +8,10 @@ import subprocess
 
 from dateutil.tz import tzlocal
 from flask import current_app
-from flask.ext.migrate import MigrateCommand, Migrate
-from flask.ext.script import Manager, Server
-from flask.ext.script.commands import ShowUrls, Clean
-from flask.ext.security.utils import encrypt_password
+from flask_migrate import MigrateCommand, Migrate
+from flask_script import Manager, Server
+from flask_script.commands import ShowUrls, Clean
+from flask_security.utils import encrypt_password
 from flask_mail import Message
 from ofxtools.ofxalchemy import OFXParser, DBSession
 from ofxtools.ofxalchemy import Base as OFX_Base
@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from pacioli import create_app, mail
 from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
 
-env = os.environ.get('pacioli_ENV', 'prod')
+env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
 
 manager = Manager(app)
@@ -84,20 +84,24 @@ def create_admin(email, password):
         db.session.add(admin)
         db.session.commit()
 
-        superuser = Role()
-        superuser.name = 'superuser'
-        superuser.description = 'superuser'
-        db.session.add(superuser)
-        db.session.commit()
-
-        admin.roles.append(superuser)
-        db.session.commit()
     except IntegrityError:
         db.session.rollback()
         admin = db.session.query(User).filter(User.email == email).one()
         admin.password = encrypt_password(password)
         db.session.commit()
+        print('Password reset for {0}'.format(email))
 
+    try:
+        superuser = Role()
+        superuser.name = 'superuser'
+        superuser.description = 'superuser'
+        db.session.add(superuser)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        superuser = db.session.query(Role).filter(Role.name == 'superuser').one()
+    admin.roles.append(superuser)
+    db.session.commit()
 
 @manager.command
 def import_ofx():

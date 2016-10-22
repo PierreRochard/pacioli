@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import os
 
 from flask import current_app
-from flask.ext.mail import Message
+from flask_mail import Message
 from jinja2 import Template
 from premailer import transform
 

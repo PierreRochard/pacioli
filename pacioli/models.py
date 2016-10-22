@@ -1,5 +1,5 @@
 from flask import current_app
-from flask.ext.security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
+from flask_security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
 from sqlalchemy import PrimaryKeyConstraint
 from sqlalchemy.ext.automap import automap_base
 
@@ -115,6 +115,24 @@ class TrialBalances(db.Model):
     debit_changes = db.Column(db.Numeric, nullable=False, default=0)
     credit_changes = db.Column(db.Numeric, nullable=False, default=0)
     net_changes = db.Column(db.Numeric, nullable=False, default=0)
+
+
+class Accruals(db.Model):
+    __table_args__ = (db.UniqueConstraint('id', 'name', 'start_date', 'end_date',
+                                          name='accruals_unique_constraint'),
+                      {'schema': 'bookkeeping'},)
+    __tablename__ = 'accruals'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    description = db.Column(db.String)
+    accrual_type = db.Column(db.String, nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    business_days = db.Column(db.Boolean, nullable=False)
+    daily_amount = db.Column(db.Numeric, nullable=False)
+    income_statement_subaccount = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'), nullable=False)
+    balance_sheet_subaccount = db.Column(db.String, db.ForeignKey('bookkeeping.subaccounts.name'), nullable=False)
 
 
 class JournalEntries(db.Model):

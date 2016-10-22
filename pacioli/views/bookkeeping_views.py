@@ -1,5 +1,5 @@
 from flask import request
-from flask.ext.admin import expose
+from flask_admin import expose
 from sqlalchemy import func
 from wtforms import StringField
 
