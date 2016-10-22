@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import csv
-import platform
 from datetime import datetime
-import subprocess
 import os
+import platform
+import subprocess
 
 from dateutil.tz import tzlocal
 from flask import current_app
@@ -94,6 +94,9 @@ def create_admin(email, password):
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
+        admin = db.session.query(User).filter(User.email == email).one()
+        admin.password = encrypt_password(password)
+        db.session.commit()
 
 
 @manager.command
