@@ -5,6 +5,7 @@ docutils
 ecdsa
 futures
 jmespath
+keyring
 paramiko
 pycrypto
 python-dateutil

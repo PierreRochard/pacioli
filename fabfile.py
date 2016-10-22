@@ -133,13 +133,13 @@ def create_dns_records():
 def install():
     # APP
     packages = ['gcc', 'gcc-c++', 'git', 'python', 'python-pip', 'python-setuptools', 'python-devel', 'postgresql94-devel',
-                'libxslt-devel', 'libxml-devel', 'freetype-devel', 'libpng-devel']
+                'libxslt-devel', 'libxml-devel', 'freetype-devel', 'libpng-devel', 'libffi-devel']
     run('sudo yum -y install ' + ' '.join(packages))
     put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, use_sudo=True)
     run('sudo chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
     run("ssh-agent bash -c 'ssh-add {0}; git clone git@github.com:PierreRochard/pacioli.git'".format(
         GITHUB_SSH_PRIVATE_KEY_FILE))
-    run('sudo pip install -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip --no-cache-dir install -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     run('git clone https://github.com/PierreRochard/ofxtools')
     with cd('/home/ec2-user/ofxtools/'):
@@ -209,7 +209,7 @@ def update():
         run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/' + GITHUB_SSH_PRIVATE_KEY_FILE))
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
 
-    run('sudo pip install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
+    run('sudo pip --no-cache-dir install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     with cd('ofxtools'):
         run('git pull')
