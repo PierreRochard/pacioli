@@ -1,4 +1,4 @@
-from flask import request, redirect, url_for, current_app
+from flask import request, redirect, url_for
 from flask.ext.admin import expose
 from flask.ext.admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask.ext.admin.model.fields import AjaxSelectField

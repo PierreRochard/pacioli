@@ -8,12 +8,12 @@ from ofxtools import OFXClient
 from ofxtools.Client import CcAcct, BankAcct
 from ofxtools.ofxalchemy import OFXParser, DBSession
 from sqlalchemy import func, create_engine
-from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm.exc import NoResultFound
 
 from pacioli import db
-from pacioli.models import (Subaccounts, Mappings, JournalEntries, Connections,
-                            ConnectionResponses, Transactions, AccountsFrom, CreditCardAccounts, BankAccounts)
+from pacioli.models import (Subaccounts, Mappings, JournalEntries,
+                            Connections, ConnectionResponses, Transactions,
+                            AccountsFrom, CreditCardAccounts, BankAccounts)
 
 
 def fix_ofx_file(ofx_file_path):
@@ -157,38 +157,44 @@ def sync_ofx():
 
 def sync_ofx_connection(connection):
     if connection.type in ['Checking', 'Savings']:
-        start = db.session.query(Transactions.date)
-        start = start.join(AccountsFrom,
-                           Transactions.account_id == AccountsFrom.id)
-        start = start.filter(BankAccounts.acctid == connection.account_number)
-        start = start.order_by(Transactions.date.desc())
-        start, = start.first()
-        if start:
-            start = start.date()
-            end = date.today()
-        else:
-            start = None
-            end = None
+        filter_boolean = BankAccounts.acctid == connection.account_number
         account = BankAcct(connection.routing_number,
                            connection.account_number,
                            connection.type)
     elif connection.type == 'Credit Card':
-        start = db.session.query(Transactions.date)
-        start = start.join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
-        start = start.join(CreditCardAccounts, CreditCardAccounts.id == AccountsFrom.id)
-        start = start.filter(CreditCardAccounts.acctid == connection.account_number)
-        start = start.order_by(Transactions.date.desc())
-        start, = start.first()
-        if start:
-            start = start.date()
-            end = date.today()
-        else:
-            start = None
-            end = None
+        filter_boolean = CreditCardAccounts.acctid == connection.account_number
         account = CcAcct(connection.account_number)
     else:
         raise Exception('Unrecognized account/'
                         'connection type: {0}'.format(connection.type))
+
+    start, = (db.session.query(Transactions.date)
+              .filter(filter_boolean)
+              .order_by(Transactions.date.desc())
+              .first())
+    if start:
+        start = start.date()
+        end = date.today()
+    else:
+        start = None
+        end = None
+
+
+    # start = start.join(AccountsFrom,
+    #                    Transactions.account_id == AccountsFrom.id)
+
+    # elif connection.type == 'Credit Card':
+    #     start = db.session.query(Transactions.date)
+    #     start = start.join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
+    #     start = start.filter(CreditCardAccounts.acctid == connection.account_number)
+    #     start = start.order_by(Transactions.date.desc())
+    #     start, = start.first()
+    #     if start:
+    #         start = start.date()
+    #         end = date.today()
+    #     else:
+    #         start = None
+    #         end = None
 
     ofx_client = OFXClient(connection.url, connection.org, connection.fid)
 
