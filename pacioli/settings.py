@@ -127,3 +127,4 @@ class DevConfig(Config):
 
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(POSTGRES_USERNAME, POSTGRES_PASSWORD,
                                                                                      POSTGRES_HOST, POSTGRES_PORT)
+

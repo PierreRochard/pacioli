@@ -3,14 +3,14 @@ from flask_security import Security
 from flask_admin import helpers as admin_helpers
 
 from pacioli import settings
-from pacioli.models import db, User, Role, user_datastore, register_models
 from pacioli.extensions import admin, mail
+from pacioli.models import db, User, Role, user_datastore
 
 
-def create_app(object_name, env="prod"):
+def create_app(config_object, env="prod"):
     app = Flask(__name__)
 
-    app.config.from_object(object_name)
+    app.config.from_object(config_object)
     app.config['ENV'] = env
     db.init_app(app)
     mail.init_app(app)
@@ -24,15 +24,5 @@ def create_app(object_name, env="prod"):
                     get_url=url_for)
 
     admin.init_app(app)
-
-    with app.app_context():
-        register_models()
-
-    import pacioli.views.admin_views
-    import pacioli.views.bookkeeping_views
-    import pacioli.views.accounting_views
-    import pacioli.views.ofx_views
-    import pacioli.views.amazon_views
-    import pacioli.views.payroll_views
 
     return app
