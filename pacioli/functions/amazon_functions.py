@@ -15,20 +15,6 @@ from pacioli.models import (db, AmazonItems, Subaccounts, Mappings,
                             AmazonOrders)
 
 
-def create_amazon_views():
-    db.engine.execute("""
-    CREATE OR REPLACE VIEW amazon.amazon_transactions
-    AS SELECT
-      amazon.items.*,
-      bookkeeping.journal_entries.id AS journal_entry_id
-    FROM amazon.items
-    LEFT OUTER JOIN bookkeeping.journal_entries
-      ON cast(amazon.items.id AS CHARACTER VARYING) = bookkeeping.journal_entries.transaction_id
-        AND bookkeeping.journal_entries.transaction_source = 'amazon'
-    ORDER BY amazon.items.shipment_date DESC;
-    """)
-
-
 def apply_all_mappings():
     for mapping in db.session.query(Mappings).all():
         matches = (db.session.query(AmazonItems)

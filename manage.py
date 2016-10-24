@@ -27,10 +27,26 @@ app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
 manager = Manager(app)
 migrate = Migrate(app, db)
 
-manager.add_command("server", Server())
+manager.add_command("runserver", Server())
 manager.add_command("show-urls", ShowUrls())
 manager.add_command("clean", Clean())
 manager.add_command('db', MigrateCommand)
+
+
+@manager.command
+def run_server():
+    from pacioli.models import register_models
+    with app.app_context():
+        register_models()
+
+    import pacioli.views.admin_views
+    import pacioli.views.bookkeeping_views
+    import pacioli.views.accounting_views
+    import pacioli.views.ofx_views
+    import pacioli.views.amazon_views
+    import pacioli.views.payroll_views
+
+    app.run()
 
 
 @manager.shell
@@ -41,8 +57,8 @@ def make_shell_context():
 @manager.command
 def createdb():
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS admin;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS bookkeeping;')
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS ofx;')
-    db.engine.execute('CREATE SCHEMA IF NOT EXISTS pacioli;')
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS amazon;')
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS investments;')
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS payroll;')
@@ -50,20 +66,8 @@ def createdb():
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)
 
-    from pacioli.functions.accounting_functions import create_trial_balances_trigger_function
-    create_trial_balances_trigger_function()
-
-    from pacioli.functions.amazon_functions import create_amazon_views
-    create_amazon_views()
-
-    from pacioli.functions.bookkeeping_functions import create_bookkeeping_views
-    create_bookkeeping_views()
-
-    from pacioli.functions.ofx_functions import create_ofx_views
-    create_ofx_views()
-
-    from pacioli.functions.admin_functions import create_mappings_views
-    create_mappings_views()
+    from pacioli.database.sql_views import create_all
+    create_all()
 
 
 @manager.command
