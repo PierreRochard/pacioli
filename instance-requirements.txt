@@ -4,7 +4,7 @@ Flask
 Flask-Assets
 Flask-Cache
 Flask-DebugToolbar
-Flask-Login
+Flask-Login<0.4
 #Flask-Mail
 Flask-Migrate
 Flask-Script
