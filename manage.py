@@ -96,15 +96,15 @@ def create_admin(email, password):
         print('Password reset for {0}'.format(email))
 
     try:
-        superuser = Role()
-        superuser.name = 'superuser'
-        superuser.description = 'superuser'
-        db.session.add(superuser)
+        administrator = Role()
+        administrator.name = 'administrator'
+        administrator.description = 'administrator'
+        db.session.add(administrator)
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        superuser = db.session.query(Role).filter(Role.name == 'superuser').one()
-    admin.roles.append(superuser)
+        administrator = db.session.query(Role).filter(Role.name == 'administrator').one()
+    admin.roles.append(administrator)
     db.session.commit()
 
 @manager.command
