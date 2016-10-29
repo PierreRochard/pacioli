@@ -94,6 +94,7 @@ def create_admin(email, password):
         db.session.rollback()
         admin = db.session.query(User).filter(User.email == email).one()
         admin.password = encrypt_password(password)
+        admin.confirmed_at = datetime.now(tzlocal())
         db.session.commit()
         print('Password reset for {0}'.format(email))
 
