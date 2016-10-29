@@ -279,7 +279,6 @@ def create_admin():
     with cd('/home/ec2-user/pacioli/'):
         with prefix('source ~/.bash_profile'):
             run('python manage.py create_admin -e {0} -p {1}'.format(admin_email, admin_password))
-            run('python manage.py create_superuser')
 
 
 def cron():
@@ -287,7 +286,7 @@ def cron():
 
 
 def python_error():
-    run('cat ~/pacioli/logs/supervisord_stdout.log | tail')
+    run('cat ~/pacioli/logs/supervisord_stdout.log | tail -n 100')
 
 
 def nginx_error():

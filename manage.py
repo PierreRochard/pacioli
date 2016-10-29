@@ -24,6 +24,8 @@ from pacioli.models import db, User, Role, Elements, Classifications, Accounts, 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
 
+print(env)
+
 manager = Manager(app)
 migrate = Migrate(app, db)
 
@@ -106,6 +108,7 @@ def create_admin(email, password):
         administrator = db.session.query(Role).filter(Role.name == 'administrator').one()
     admin.roles.append(administrator)
     db.session.commit()
+
 
 @manager.command
 def import_ofx():

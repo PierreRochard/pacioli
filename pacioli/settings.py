@@ -22,6 +22,7 @@ class Config(object):
     except RuntimeError:
         SECURITY_PASSWORD_SALT = os.environ['SECURITY_PASSWORD_SALT']
     except keyring.backends._OS_X_API.Error:
+        print('settings.py : Creating a new password salt')
         SECRET_KEY = str(uuid.uuid4())
         keyring.set_password('flask_security', 'password_salt', SECRET_KEY)
     SECURITY_EMAIL_SENDER = 'no-reply@localhost'
