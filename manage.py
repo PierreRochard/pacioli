@@ -130,6 +130,10 @@ def import_ofx():
 
 @manager.command
 def runs_at_7am_and_7pm():
+    from pacioli.models import register_models
+    with app.app_context():
+        register_models()
+
     from pacioli.functions.ofx_functions import sync_ofx
     sync_ofx()
 
