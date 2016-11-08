@@ -12,9 +12,9 @@ app = create_app('pacioli.settings.ProdConfig', env='prod')
 sentry = Sentry()
 sentry.init_app(app)
 
-from pacioli.models import register_models
+from pacioli.models import register_views
 with app.app_context():
-    register_models()
+    register_views()
 
 import pacioli.views.admin_views
 import pacioli.views.bookkeeping_views

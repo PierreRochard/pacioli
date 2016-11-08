@@ -13,8 +13,7 @@ def create_trial_balances_trigger_function():
     db.engine.execute("""
     CREATE OR REPLACE FUNCTION
       bookkeeping.update_trial_balance(
-          _debit_subaccount VARCHAR,
-          _credit_subaccount VARCHAR,
+          _subaccount VARCHAR,
           period_interval_name VARCHAR,
           period_name VARCHAR
       ) RETURNS VOID AS $$
@@ -30,17 +29,17 @@ def create_trial_balances_trigger_function():
 
       SELECT coalesce(sum(functional_amount), 0) INTO debit_balance_amount
         FROM bookkeeping.journal_entries
-        WHERE bookkeeping.journal_entries.debit_subaccount = _debit_subaccount
+        WHERE debit_subaccount = _subaccount
           AND to_char(timestamp, period_interval_name) <= period_name;
 
       SELECT coalesce(sum(functional_amount), 0) INTO debit_changes_amount
         FROM bookkeeping.journal_entries
-        WHERE bookkeeping.journal_entries.debit_subaccount = _debit_subaccount
+        WHERE debit_subaccount = _subaccount
           AND to_char(timestamp, period_interval_name) = period_name;
 
       SELECT * INTO existing_debit_record
         FROM bookkeeping.trial_balances
-        WHERE bookkeeping.trial_balances.subaccount = _debit_subaccount
+        WHERE bookkeeping.trial_balances.subaccount = _subaccount
           AND bookkeeping.trial_balances.period = period_name
           AND bookkeeping.trial_balances.period_interval = period_interval_name;
 
@@ -49,7 +48,7 @@ def create_trial_balances_trigger_function():
           (subaccount, debit_balance, credit_balance,
             net_balance, debit_changes, credit_changes,
             net_changes, period, period_interval)
-        VALUES (_debit_subaccount, debit_balance_amount, 0,
+        VALUES (_subaccount, debit_balance_amount, 0,
             debit_balance_amount, debit_changes_amount, 0,
             debit_changes_amount, period_name, period_interval_name);
       ELSE
@@ -63,26 +62,26 @@ def create_trial_balances_trigger_function():
 
       SELECT coalesce(sum(functional_amount), 0) INTO credit_balance_amount
         FROM bookkeeping.journal_entries
-        WHERE bookkeeping.journal_entries.credit_subaccount = _credit_subaccount
+        WHERE credit_subaccount = _subaccount
           AND to_char(timestamp, period_interval_name) <= period_name;
 
       SELECT coalesce(sum(functional_amount), 0) INTO credit_changes_amount
         FROM bookkeeping.journal_entries
-        WHERE bookkeeping.journal_entries.credit_subaccount = _credit_subaccount
+        WHERE credit_subaccount = _subaccount
           AND to_char(timestamp, period_interval_name) = period_name;
 
       SELECT * INTO existing_credit_record
         FROM bookkeeping.trial_balances
-        WHERE bookkeeping.trial_balances.subaccount = _credit_subaccount
-          AND bookkeeping.trial_balances.period = period_name
-          AND bookkeeping.trial_balances.period_interval = period_interval_name;
+        WHERE subaccount = _subaccount
+          AND period = period_name
+          AND period_interval = period_interval_name;
 
       IF existing_credit_record IS NULL THEN
         INSERT INTO bookkeeping.trial_balances
             (subaccount, debit_balance, credit_balance,
               net_balance, debit_changes, credit_changes,
               net_changes, period, period_interval)
-        VALUES (_credit_subaccount, 0, credit_balance_amount,
+        VALUES (_subaccount, 0, credit_balance_amount,
                 -credit_balance_amount, 0, credit_changes_amount,
                 -credit_changes_amount, period_name, period_interval_name);
       ELSE
@@ -121,6 +120,9 @@ def create_trial_balances_trigger_function():
                     WHERE bookkeeping.journal_entries.timestamp >= new.timestamp LOOP
                   PERFORM bookkeeping.update_trial_balance(
                         new.debit_subaccount,
+                        period_interval_name,
+                        period_name.p);
+                  PERFORM bookkeeping.update_trial_balance(
                         new.credit_subaccount,
                         period_interval_name,
                         period_name.p);

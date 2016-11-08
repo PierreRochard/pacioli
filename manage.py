@@ -19,7 +19,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 
 from pacioli import create_app, mail
-from pacioli.models import db, User, Role, Elements, Classifications, Accounts, Subaccounts
+from pacioli.extensions import db
+from pacioli.models import (User, Role, Elements, Classifications,
+                            Accounts, Subaccounts)
 
 env = os.environ.get('pacioli_ENV', 'dev')
 app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
@@ -37,9 +39,9 @@ manager.add_command('db', MigrateCommand)
 
 @manager.command
 def run_server():
-    from pacioli.models import register_models
+    from pacioli.models import register_views
     with app.app_context():
-        register_models()
+        register_views()
 
     import pacioli.views.admin_views
     import pacioli.views.bookkeeping_views
@@ -130,9 +132,9 @@ def import_ofx():
 
 @manager.command
 def runs_at_7am_and_7pm():
-    from pacioli.models import register_models
+    from pacioli.models import register_views
     with app.app_context():
-        register_models()
+        register_views()
 
     from pacioli.functions.ofx_functions import sync_ofx
     sync_ofx()

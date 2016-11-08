@@ -341,21 +341,46 @@ class PaystubItems(db.Model):
         return self.description
 
 
-def register_models():
+def register_views():
     for schema_name in current_app.config['MODEL_MAP'].keys():
-        db.metadata.reflect(bind=db.engine, schema=schema_name, views=True, only=current_app.config['MODEL_MAP'][schema_name].keys())
-    db.metadata.tables['admin.mapping_overlaps'].append_constraint(PrimaryKeyConstraint('description', 'mapping_id_1', 'mapping_id_2', name='mapping_overlaps_pk'))
-    db.metadata.tables['amazon.amazon_transactions'].append_constraint(PrimaryKeyConstraint('id', name='amazon_transactions_pk'))
-    db.metadata.tables['ofx.cost_bases'].append_constraint(PrimaryKeyConstraint('ticker', name='cost_bases_pk'))
-    db.metadata.tables['ofx.investment_transactions'].append_constraint(PrimaryKeyConstraint('id', name='investment_transactions_pk'))
-    db.metadata.tables['ofx.transactions'].append_constraint(PrimaryKeyConstraint('id', name='transactions_pk'))
-    db.metadata.tables['bookkeeping.detailed_journal_entries'].append_constraint(PrimaryKeyConstraint('id', name='detailed_journal_entries_pk'))
+        view_names = current_app.config['MODEL_MAP'][schema_name].keys()
+        db.metadata.reflect(bind=db.engine,
+                            schema=schema_name,
+                            views=True,
+                            only=view_names)
+    manual_constraints = [
+        {'view_name': 'admin.mapping_overlaps',
+         'columns': ['description', 'mapping_id_1', 'mapping_id_2'],
+         'constraint_name': 'mapping_overlaps_pk'},
+        {'view_name': 'amazon.amazon_transactions',
+         'columns': ['id', ],
+         'constraint_name': 'amazon_transactions_pk'},
+        {'view_name': 'ofx.cost_bases',
+         'columns': ['ticker', ],
+         'constraint_name': 'cost_bases_pk'},
+        {'view_name': 'ofx.investment_transactions',
+         'columns': ['id', ],
+         'constraint_name': 'investment_transactions_pk'},
+        {'view_name': 'ofx.transactions',
+         'columns': ['id', ],
+         'constraint_name': 'transactions_pk'},
+        {'view_name': 'bookkeeping.detailed_journal_entries',
+         'columns': ['id', ],
+         'constraint_name': 'detailed_journal_entries_pk'},
+    ]
+    for c in manual_constraints:
+        constraint = PrimaryKeyConstraint(*c['columns'],
+                                          name=c['constraint_name'])
+        db.metadata.tables[c['view_name']].append_constraint(constraint)
+
+    base = automap_base(metadata=db.metadata)
+    base.prepare()
 
     for schema_name in current_app.config['MODEL_MAP'].keys():
-        base = automap_base(metadata=db.metadata)
-        base.prepare()
-        for table_name in current_app.config['MODEL_MAP'][schema_name]:
-            globals()[current_app.config['MODEL_MAP'][schema_name][table_name]] = base.classes[table_name]
+        tables_names = current_app.config['MODEL_MAP'][schema_name]
+        for table_name in tables_names:
+            model_name = tables_names[table_name]
+            globals()[model_name] = base.classes[table_name]
 
     setattr(AccountsFrom, '__repr__', lambda self: self.name)
     setattr(InvestmentAccounts, '__repr__', lambda self: self.acctfrom.name)
@@ -363,3 +388,8 @@ def register_models():
     setattr(InvestmentTransactions, '__repr__', lambda self: self.subclass)
     setattr(Securities, '__repr__', lambda self: '{0} ({1})'.format(self.secname, self.ticker))
 
+
+def remove_views_from_metadata():
+    for schema_name in current_app.config['MODEL_MAP'].keys():
+        for view_name in current_app.config['MODEL_MAP'][schema_name].keys():
+            db.metadata.remove(db.metadata.tables[schema_name + '.' + view_name])

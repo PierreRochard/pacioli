@@ -3,8 +3,8 @@ from flask_security import Security
 from flask_admin import helpers as admin_helpers
 
 from pacioli import settings
-from pacioli.extensions import admin, mail
-from pacioli.models import db, User, Role, user_datastore
+from pacioli.extensions import admin, mail, db
+from pacioli.models import User, Role, user_datastore
 
 
 def create_app(config_object, env="prod"):
