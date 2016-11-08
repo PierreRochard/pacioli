@@ -9,10 +9,10 @@ from premailer import transform
 from pacioli import db, mail
 from pacioli.models import Transactions, AccountsFrom
 
+templates_directory = os.path.abspath(__file__ + "/../../templates")
+
 
 def results_to_email_template(title, table_caption, table_header, query_results):
-    templates_directory = os.path.abspath(__file__ + "/../../templates")
-    assert os.path.exists(templates_directory), 'templates directory is missing'
     email_template = os.path.join(templates_directory, 'email_table_template.html')
     with open(email_template, 'r') as html_template:
         html_template_string = html_template.read()
@@ -48,3 +48,32 @@ def send_ofx_bank_transactions_report():
         html_body = results_to_email_template('New Transactions', '', header, transactions)
         msg = Message('New Transactions', recipients=[current_app.config['MAIL_USERNAME']], html=html_body)
         mail.send(msg)
+
+
+def send_error_message(error_message):
+    email_template = os.path.join(templates_directory,
+                                  'email_message.html')
+    with open(email_template, 'r') as html_template:
+        html_template_string = html_template.read()
+
+    css_template = os.path.join(templates_directory, 'email_bootstrap.min.css')
+    with open(css_template, 'r') as css:
+        css_string = css.read()
+
+    template = Template(html_template_string)
+
+    message = '''
+    <div class="alert alert-danger" role="alert">
+        {0}
+    </div>'''.format(error_message)
+
+    html_body = template.render(title='Error Updating Bank Information',
+                                css=css_string,
+                                message=message).encode('utf-8')
+
+    html_body = transform(html_body).encode('utf-8')
+
+    msg = Message('Error Updating Bank Information',
+                  recipients=[current_app.config['MAIL_USERNAME']],
+                  html=html_body)
+    mail.send(msg)

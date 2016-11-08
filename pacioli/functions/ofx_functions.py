@@ -11,6 +11,7 @@ from sqlalchemy import func, create_engine
 from sqlalchemy.orm.exc import NoResultFound
 
 from pacioli import db
+from pacioli.functions.email_reports import send_error_message
 from pacioli.models import (Subaccounts, Mappings, JournalEntries,
                             Connections, ConnectionResponses, Transactions,
                             AccountsFrom, CreditCardAccounts, BankAccounts)
@@ -42,7 +43,9 @@ def sync_ofx():
     for connection in (db.session.query(Connections)
                        .filter(Connections.source == 'ofx')
                        .all()):
-        sync_ofx_connection(connection)
+        success = sync_ofx_connection(connection)
+        if not success:
+            break
 
     for account in (db.session.query(AccountsFrom)
                     .filter(AccountsFrom.name.is_(None))
@@ -115,6 +118,11 @@ def sync_ofx_connection(connection):
     db.session.add(new_response)
     db.session.commit()
 
+    if '<SEVERITY>ERROR' in new_response.response:
+        status = new_response.response.lower().title()
+        send_error_message(status)
+        return False
+
     response.seek(0)
     parser = OFXParser()
     engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'],
@@ -125,6 +133,8 @@ def sync_ofx_connection(connection):
     DBSession.commit()
     connection.synced_at = datetime.now(tzlocal())
     db.session.commit()
+
+    return True
 
 
 def apply_all_mappings():
