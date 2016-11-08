@@ -5,10 +5,10 @@ Flask-Assets
 Flask-Cache
 Flask-DebugToolbar
 Flask-Login<0.4
-#Flask-Mail
+Flask-Mail
 Flask-Migrate
 Flask-Script
-#Flask-Security
+Flask-Security
 Flask-SQLAlchemy
 Flask-WTF
 
