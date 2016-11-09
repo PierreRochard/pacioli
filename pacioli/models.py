@@ -5,38 +5,41 @@ from sqlalchemy.ext.automap import automap_base
 
 from pacioli.extensions import db
 
-roles_users = db.Table('roles_users',
-                       db.Column('user_id', db.Integer(), db.ForeignKey('admin.user.id')),
-                       db.Column('role_id', db.Integer(), db.ForeignKey('admin.role.id')))
+roles_users = db.Table('roles_users', db.Model.metadata,
+                       db.Column('users_id', db.Integer(),
+                                 db.ForeignKey('admin.users.id')),
+                       db.Column('roles_id', db.Integer(),
+                                 db.ForeignKey('admin.roles.id')),
+                       schema='admin')
 
 
-class Role(db.Model, RoleMixin):
+class Roles(db.Model, RoleMixin):
     __table_args__ = {'schema': 'admin'}
 
     id = db.Column(db.Integer(), primary_key=True)
-    name = db.Column(db.String(80), unique=True)
-    description = db.Column(db.String(255))
+    name = db.Column(db.String(), unique=True)
+    description = db.Column(db.String())
 
 
-class User(db.Model, UserMixin):
+class Users(db.Model, UserMixin):
     __table_args__ = {'schema': 'admin'}
 
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True)
-    password = db.Column(db.String(255))
+    email = db.Column(db.String(), unique=True)
+    password = db.Column(db.String())
     active = db.Column(db.Boolean())
     confirmed_at = db.Column(db.DateTime(timezone=True))
     last_login_at = db.Column(db.DateTime(timezone=True))
     current_login_at = db.Column(db.DateTime(timezone=True))
-    last_login_ip = db.Column(db.String(255))
-    current_login_ip = db.Column(db.String(255))
+    last_login_ip = db.Column(db.String())
+    current_login_ip = db.Column(db.String())
     login_count = db.Column(db.Integer)
-    roles = db.relationship('Role',
+    roles = db.relationship('Roles',
                             secondary=roles_users,
                             backref=db.backref('users'))
 
 
-user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+user_datastore = SQLAlchemyUserDatastore(db, Users, Roles)
 
 
 class Connections(db.Model):
@@ -75,7 +78,8 @@ class ConnectionResponses(db.Model):
 
 
 class Mappings(db.Model):
-    __table_args__ = (db.UniqueConstraint('source', 'keyword', name='mappings_unique_constraint'),
+    __table_args__ = (db.UniqueConstraint('source', 'keyword',
+                                          name='mappings_unique_constraint'),
                       {'schema': 'admin'})
     __tablename__ = 'mappings'
 

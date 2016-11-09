@@ -5,7 +5,7 @@ from flask import url_for, redirect
 from flask_admin import expose
 from pacioli.extensions import admin
 from pacioli.functions.ofx_functions import sync_ofx
-from pacioli.models import (db, User, Role, Connections, Mappings, ConnectionResponses, MappingOverlaps)
+from pacioli.models import (db, Users, Roles, Connections, Mappings, ConnectionResponses, MappingOverlaps)
 from pacioli.views import PrivateModelView
 from pacioli.views.utilities import date_formatter, link_mapping_formatter, link_transaction_search_formatter
 
@@ -16,8 +16,8 @@ class UserModelView(PrivateModelView):
     column_formatters = dict(confirmed_at=date_formatter, current_login_at=date_formatter)
 
 
-admin.add_view(UserModelView(User, db.session, category='Admin'))
-admin.add_view(PrivateModelView(Role, db.session, category='Admin'))
+admin.add_view(UserModelView(Users, db.session, category='Admin'))
+admin.add_view(PrivateModelView(Roles, db.session, category='Admin'))
 
 
 class ConnectionsModelView(PrivateModelView):

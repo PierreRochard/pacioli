@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 
 from pacioli import create_app, mail
 from pacioli.extensions import db
-from pacioli.models import (User, Role, Elements, Classifications,
+from pacioli.models import (Users, Roles, Elements, Classifications,
                             Accounts, Subaccounts)
 
 env = os.environ.get('pacioli_ENV', 'dev')
@@ -55,7 +55,7 @@ def run_server():
 
 @manager.shell
 def make_shell_context():
-    return dict(app=app, db=db, User=User)
+    return dict(app=app, db=db, User=Users)
 
 
 @manager.command
@@ -84,7 +84,7 @@ def dropdb():
 @manager.option('-p', '--password', dest='password')
 def create_admin(email, password):
     try:
-        admin = User()
+        admin = Users()
         admin.email = email
         admin.password = encrypt_password(password)
         admin.active = True
@@ -94,21 +94,22 @@ def create_admin(email, password):
 
     except IntegrityError:
         db.session.rollback()
-        admin = db.session.query(User).filter(User.email == email).one()
+        admin = db.session.query(Users).filter(Users.email == email).one()
         admin.password = encrypt_password(password)
         admin.confirmed_at = datetime.now(tzlocal())
         db.session.commit()
         print('Password reset for {0}'.format(email))
 
     try:
-        administrator = Role()
+        administrator = Roles()
         administrator.name = 'administrator'
         administrator.description = 'administrator'
         db.session.add(administrator)
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        administrator = db.session.query(Role).filter(Role.name == 'administrator').one()
+        administrator = (db.session.query(Roles)
+                         .filter(Roles.name == 'administrator').one())
     admin.roles.append(administrator)
     db.session.commit()
 

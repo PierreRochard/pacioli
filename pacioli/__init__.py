@@ -4,7 +4,7 @@ from flask_admin import helpers as admin_helpers
 
 from pacioli import settings
 from pacioli.extensions import admin, mail, db
-from pacioli.models import User, Role, user_datastore
+from pacioli.models import Users, Roles, user_datastore
 
 
 def create_app(config_object, env="prod"):

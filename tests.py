@@ -10,7 +10,7 @@ from decimal import Decimal
 from psycopg2._psycopg import ProgrammingError
 from sqlalchemy.engine.url import URL
 
-from manage import createdb, populate_chart_of_accounts
+from manage import createdb, populate_chart_of_accounts, create_admin
 from pacioli import create_app
 from pacioli.extensions import db
 from pacioli.models import (register_views, JournalEntries,
@@ -112,6 +112,9 @@ class TestCase(unittest.TestCase):
             pass
         cursor.close()
         connection.close()
+
+    def test_create_admin(self):
+        create_admin('test@localhost', test_user_password)
 
     def test_expense_accrual(self):
 
