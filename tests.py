@@ -152,8 +152,7 @@ class TestCase(unittest.TestCase):
                 .order_by(TrialBalances.period.desc()).offset(1).limit(
                 1).first()
         )
-        print(pformat(prior_month_balance.__dict__))
-        assert prior_month_balance.net_balance == Decimal('-100')
+        self.assertEqual(prior_month_balance.net_balance, Decimal('-100'))
 
         current_month_balance = (
             db.session.query(TrialBalances)
@@ -161,8 +160,7 @@ class TestCase(unittest.TestCase):
             .filter(TrialBalances.subaccount == payables_account)
             .order_by(TrialBalances.period.desc()).limit(1).first()
         )
-        print(pformat(current_month_balance.__dict__))
-        assert current_month_balance.net_balance == Decimal('0')
+        self.assertEqual(current_month_balance.net_balance, Decimal('0'))
 
     def test_income_accrual(self):
         today = datetime.now(tzlocal())
@@ -201,7 +199,7 @@ class TestCase(unittest.TestCase):
                 .filter(TrialBalances.subaccount == receivables_account)
                 .order_by(TrialBalances.period.desc()).offset(1).limit(1).first()
         )
-        assert prior_month_balance.net_balance == Decimal('100')
+        self.assertEqual(prior_month_balance.net_balance, Decimal('100'))
 
         current_month_balance = (
             db.session.query(TrialBalances)
@@ -209,8 +207,7 @@ class TestCase(unittest.TestCase):
                 .filter(TrialBalances.subaccount == receivables_account)
                 .order_by(TrialBalances.period.desc()).limit(1).first()
         )
-        print(pformat(current_month_balance.__dict__))
-        assert current_month_balance.net_balance == Decimal('0')
+        self.assertEqual(current_month_balance.net_balance, Decimal('0'))
 
 if __name__ == '__main__':
     unittest.main()
