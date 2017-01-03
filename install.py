@@ -26,9 +26,6 @@ def install_dependencies():
     custom_repos = [{'package': 'ofxtools',
                      'url': 'https://github.com/PierreRochard/ofxtools',
                      'branch': None},
-                    {'package': 'flask-security',
-                     'url': 'https://github.com/PierreRochard/flask-security',
-                     'branch': 'develop'},
                     {'package': 'flask-admin',
                      'url': 'https://github.com/PierreRochard/flask-admin',
                      'branch': None}
@@ -78,6 +75,6 @@ def setup_cron():
 
 if __name__ == '__main__':
     install_dependencies()
-    setup_settings()
-    setup_database()
-    setup_cron()
+    # setup_settings()
+    # setup_database()
+    # setup_cron()
