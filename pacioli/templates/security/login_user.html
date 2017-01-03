@@ -14,6 +14,7 @@
                 {{ render_field(login_user_form.next) }}
                 {{ render_field(login_user_form.submit, class="btn btn-primary") }}
             </form>
+            <p><a href="{{ url_for('security.forgot_password') }}">Recover password</a></p>
         </div>
     </div>
 </div>
