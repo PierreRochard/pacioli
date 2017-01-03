@@ -23,8 +23,8 @@ class Config(object):
         SECURITY_PASSWORD_SALT = os.environ['SECURITY_PASSWORD_SALT']
     except keyring.backends._OS_X_API.Error:
         print('settings.py : Creating a new password salt')
-        SECRET_KEY = str(uuid.uuid4())
-        keyring.set_password('flask_security', 'password_salt', SECRET_KEY)
+        SECURITY_PASSWORD_SALT = str(uuid.uuid4())
+        keyring.set_password('flask_security', 'password_salt', SECURITY_PASSWORD_SALT)
     SECURITY_EMAIL_SENDER = 'no-reply@localhost'
     SECURITY_TOKEN_AUTHENTICATION_KEY = 'auth_token'
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'
@@ -49,7 +49,7 @@ class Config(object):
     # Flask Security Feature Flags
     SECURITY_CONFIRMABLE = True
     SECURITY_REGISTERABLE = False
-    SECURITY_RECOVERABLE = False
+    SECURITY_RECOVERABLE = True
     SECURITY_TRACKABLE = True
     SECURITY_PASSWORDLESS = False
     SECURITY_CHANGEABLE = False
@@ -107,6 +107,18 @@ class ProdConfig(Config):
 
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(POSTGRES_USERNAME, POSTGRES_PASSWORD,
                                                                                      POSTGRES_HOST, POSTGRES_PORT)
+
+
+class ProdDevConfig(ProdConfig):
+    """
+        Use the production database but provide local debug output.
+    """
+
+    DEBUG = True
+    DEBUG_TB_INTERCEPT_REDIRECTS = True
+    ASSETS_DEBUG = True
+
+    SQLALCHEMY_ECHO = False
 
 
 class DevConfig(Config):
