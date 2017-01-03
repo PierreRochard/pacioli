@@ -23,10 +23,8 @@ from pacioli.extensions import db
 from pacioli.models import (Users, Roles, Elements, Classifications,
                             Accounts, Subaccounts)
 
-env = os.environ.get('pacioli_ENV', 'dev')
-app = create_app('pacioli.settings.%sConfig' % env.capitalize(), env=env)
-
-print(env)
+env = os.environ.get('pacioli_ENV', 'ProdDev')
+app = create_app('pacioli.settings.{0}Config'.format(env), env=env)
 
 manager = Manager(app)
 migrate = Migrate(app, db)
