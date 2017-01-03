@@ -8,7 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.elements import or_
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
-import mechanize
+# import mechanize
 
 from pacioli.models import (db, AmazonItems, Subaccounts, Mappings,
                             JournalEntries, Connections, AmazonCategories,
