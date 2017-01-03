@@ -103,7 +103,7 @@ class TaxonomyModelView(PrivateModelView):
 
 
 class SubaccountsModelView(PrivateModelView):
-    column_list = ('name', 'parent')
+    column_list = ('name', 'parent', 'tax_tags')
     column_labels = dict(parent='Account')
 
 

@@ -47,8 +47,9 @@ def run_server():
     import pacioli.views.ofx_views
     import pacioli.views.amazon_views
     import pacioli.views.payroll_views
+    import pacioli.views.tax_views
 
-    app.run()
+    app.run(port=5001)
 
 
 @manager.shell
@@ -64,6 +65,7 @@ def createdb():
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS amazon;')
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS investments;')
     db.engine.execute('CREATE SCHEMA IF NOT EXISTS payroll;')
+    db.engine.execute('CREATE SCHEMA IF NOT EXISTS tax;')
 
     db.create_all()
     OFX_Base.metadata.create_all(db.engine)

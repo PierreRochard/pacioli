@@ -169,9 +169,30 @@ class Subaccounts(db.Model):
 
     name = db.Column(db.String, primary_key=True)
     parent = db.Column(db.String, db.ForeignKey('bookkeeping.accounts.name'))
+    tax_tags = db.relationship('TaxTags', backref='subaccounts', secondary='tax.subaccounts_tax_tags')
 
     def __repr__(self):
         return '{0} - {1}'.format(self.parent, self.name)
+
+
+class TaxTags(db.Model):
+    __table_args__ = {'schema': 'tax'}
+    __tablename__ = 'tax_tags'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, unique=True)
+    description = db.Column(db.String)
+
+    def __repr__(self):
+        return f'{self.name}'
+
+
+subaccounts_tax_tags = db.Table('subaccounts_tax_tags', db.Model.metadata,
+                                db.Column('subaccount_name', db.String(),
+                                          db.ForeignKey('bookkeeping.subaccounts.name')),
+                                db.Column('tax_tag_id', db.Integer(),
+                                          db.ForeignKey('tax.tax_tags.id')),
+                                schema='tax')
 
 
 class Accounts(db.Model):
