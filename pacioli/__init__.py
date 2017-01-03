@@ -23,6 +23,6 @@ def create_app(config_object, env="prod"):
                     h=admin_helpers,
                     get_url=url_for)
 
-    admin.init_app(app)
+    admin.init_app(app, url='/')
 
     return app
