@@ -7,7 +7,8 @@ from pacioli.extensions import admin
 from pacioli.models import (db, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, DetailedJournalEntries)
 from pacioli.views import PrivateModelView
-from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter
+from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter, CKTextAreaField, \
+    html_formatter
 
 
 class JournalEntriesView(PrivateModelView):
@@ -103,8 +104,13 @@ class TaxonomyModelView(PrivateModelView):
 
 
 class SubaccountsModelView(PrivateModelView):
-    column_list = ('name', 'parent', 'tax_tags')
+    column_list = ('name', 'description', 'parent', 'tax_tags')
     column_labels = dict(parent='Account')
+    column_filters = column_list
+    column_formatters = dict(description=html_formatter)
+    form_overrides = dict(description=CKTextAreaField)
+    create_template = 'create.html'
+    edit_template = 'edit.html'
 
 
 class AccountsModelView(PrivateModelView):

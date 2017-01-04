@@ -167,7 +167,9 @@ class Subaccounts(db.Model):
     __table_args__ = {'schema': 'bookkeeping'}
     __tablename__ = 'subaccounts'
 
-    name = db.Column(db.String, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
+    description = db.Column(db.String)
     parent = db.Column(db.String, db.ForeignKey('bookkeeping.accounts.name'))
     tax_tags = db.relationship('TaxTags', backref='subaccounts', secondary='tax.subaccounts_tax_tags')
 

@@ -3,6 +3,7 @@ from datetime import datetime, date
 
 from flask import url_for, request
 from markupsafe import Markup
+from wtforms import fields, widgets
 
 
 def redirect_url(default='index'):
@@ -124,3 +125,19 @@ def link_transaction_search_formatter(view, context, model, name):
         '''.format(getattr(model, name), url_for('banking/transactions.index_view', search=getattr(model, name)),
                    getattr(model, 'mapping_id_' + name[-1]), view.url))
     return link
+
+
+class CKTextAreaWidget(widgets.TextArea):
+    def __call__(self, field, **kwargs):
+        existing_classes = kwargs.pop('class', '') or kwargs.pop('class_', '')
+        kwargs['class'] = f'{existing_classes} ckeditor'
+        return super(CKTextAreaWidget, self).__call__(field, **kwargs)
+
+
+class CKTextAreaField(fields.TextAreaField):
+    widget = CKTextAreaWidget()
+
+
+def html_formatter(view, context, model, name):
+    return Markup(getattr(model, name))
+
