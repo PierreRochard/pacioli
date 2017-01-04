@@ -49,7 +49,7 @@ def run_server():
     import pacioli.views.payroll_views
     import pacioli.views.tax_views
 
-    app.run(port=5001)
+    app.run(port=5000)
 
 
 @manager.shell
