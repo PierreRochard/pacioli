@@ -28,8 +28,8 @@ class JournalEntriesView(PrivateModelView):
 
     column_sortable_list = column_list
 
-    column_default_sort = dict(field='timestamp', sort_desc=True, absolute_value=False)
-
+    # column_default_sort = dict(field='timestamp', sort_desc=True, absolute_value=False)
+    column_default_sort = ('timestamp', True)
     column_formatters = dict(transaction_id=id_formatter,
                              timestamp=date_formatter,
                              functional_amount=currency_formatter,
