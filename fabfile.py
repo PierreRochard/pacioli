@@ -209,16 +209,12 @@ def update():
     # APP
     with cd('/home/ec2-user/pacioli/'):
         run('git stash')
-        run("ssh-agent bash -c 'ssh-add {0}; git pull'".format('/home/ec2-user/' + GITHUB_SSH_PRIVATE_KEY_FILE))
+        run('git pull')
     put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
 
     run('sudo pip --no-cache-dir install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     with cd('ofxtools'):
-        run('git pull')
-        run('sudo python setup.py install')
-
-    with cd('flask-admin'):
         run('git pull')
         run('sudo python setup.py install')
 

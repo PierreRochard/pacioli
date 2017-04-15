@@ -26,9 +26,6 @@ def install_dependencies():
     custom_repos = [{'package': 'ofxtools',
                      'url': 'https://github.com/PierreRochard/ofxtools',
                      'branch': None},
-                    {'package': 'flask-admin',
-                     'url': 'https://github.com/PierreRochard/flask-admin',
-                     'branch': None}
                     ]
     for repo in custom_repos:
         directory = os.path.join(library_directory, repo['package'])

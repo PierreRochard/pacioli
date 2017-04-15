@@ -58,6 +58,10 @@ libraries/
 
 Chart of Accounts.csv
 
-migrations/versions
+migrations
 
 adhoc.py
+
+logs
+gunicorn_configuration.py
+
