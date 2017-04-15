@@ -14,9 +14,10 @@ class TrialBalancesView(PrivateModelView):
     column_list = ('id', 'period', 'period_interval', 'subaccount',
                    'debit_balance', 'credit_balance', 'net_balance',
                    'debit_changes', 'credit_changes', 'net_changes')
-    column_default_sort = {'field': 'period',
-                           'sort_desc': True,
-                           'absolute_value': False}
+    # column_default_sort = {'field': 'period',
+    #                        'sort_desc': True,
+    #                        'absolute_value': False}
+    column_default_sort = ('period', True)
     column_searchable_list = ['subaccount']
     column_filters = column_list
     column_sortable_list = column_list
@@ -77,9 +78,10 @@ admin.add_view(TrialBalancesView(TrialBalances, db.session,
 class IncomeStatementsView(PrivateModelView):
     list_template = 'financial_statements.html'
     column_list = ('subaccount', 'net_changes')
-    column_default_sort = {'field': 'net_changes',
-                           'sort_desc': True,
-                           'absolute_value': True}
+    # column_default_sort = {'field': 'net_changes',
+    #                        'sort_desc': True,
+    #                        'absolute_value': True}
+    column_default_sort = ('net_changes', True)
     column_searchable_list = ['subaccount']
     column_filters = column_list
     column_sortable_list = column_list
@@ -175,7 +177,8 @@ admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Account
 class BalanceSheetView(PrivateModelView):
     list_template = 'financial_statements.html'
     column_list = ('subaccount', 'net_balance')
-    column_default_sort = {'field': 'net_balance', 'sort_desc': True, 'absolute_value': True}
+    # column_default_sort = {'field': 'net_balance', 'sort_desc': True, 'absolute_value': True}
+    column_default_sort = ('net_balance', True)
     column_searchable_list = ['subaccount']
     column_filters = column_list
     column_sortable_list = column_list

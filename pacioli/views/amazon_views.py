@@ -25,7 +25,8 @@ class AmazonItemView(PrivateModelView):
                    'payment_instrument_type', 'category_id', 'shipment_date')
     column_filters = column_list
     column_searchable_list = ('title', 'category_id')
-    column_default_sort = {'field': 'id', 'sort_desc': True, 'absolute_value': False}
+    # column_default_sort = {'field': 'id', 'sort_desc': True, 'absolute_value': False}
+    column_default_sort = ('id', True)
     column_labels = dict(id='ID', journal_entry_id='JE', order_status='Status', quantity='#',
                          purchase_price_per_unit='Price', item_subtotal='Subtotal',
                          item_subtotal_tax='Tax', item_total='Total', payment_instrument_type='Payment',
@@ -83,7 +84,8 @@ class AmazonOrdersView(PrivateModelView):
     column_list = ('id', 'order_date')
     column_filters = column_list
     column_searchable_list = column_list
-    column_default_sort = {'field': 'order_date', 'sort_desc': True, 'absolute_value': False}
+    # column_default_sort = {'field': 'order_date', 'sort_desc': True, 'absolute_value': False}
+    column_default_sort = ('order_state', True)
     column_labels = dict(id='ID')
 admin.add_view(AmazonOrdersView(AmazonOrders, db.session, category='Amazon'))
 
@@ -94,5 +96,6 @@ class AmazonCategoriesView(PrivateModelView):
     can_delete = False
     can_export = True
     column_display_actions = False
-    column_default_sort = {'field': 'name', 'sort_desc': False, 'absolute_value': False}
+    # column_default_sort = {'field': 'name', 'sort_desc': False, 'absolute_value': False}
+    column_default_sort = ('name', False)
 admin.add_view(AmazonCategoriesView(AmazonCategories, db.session, category='Amazon'))

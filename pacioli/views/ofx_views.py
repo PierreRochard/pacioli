@@ -130,7 +130,8 @@ admin.add_view(TransactionsModelView(model=Transactions,
 
 
 class AccountsFromModelView(OFXModelView):
-    column_default_sort = {'field': 'id', 'sort_desc': False, 'absolute_value': False}
+    # column_default_sort = {'field': 'id', 'sort_desc': False, 'absolute_value': False}
+    column_default_sort = ('id', False)
     column_list = ['id', 'name', 'subclass']
     column_searchable_list = ['name']
     column_filters = column_list
@@ -152,7 +153,8 @@ admin.add_view(OFXModelView(CreditCardAccounts, db.session,
 
 
 class InvestmentTransactionsView(OFXModelView):
-    column_default_sort = {'field': 'dttrade', 'sort_desc': True, 'absolute_value': False}
+    # column_default_sort = {'field': 'dttrade', 'sort_desc': True, 'absolute_value': False}
+    column_default_sort = ('dttrade', True)
     column_list = ('account_name', 'fitid', 'subclass', 'memo', 'dttrade', 'ticker', 'secname', 'units', 'unitprice', 'total')
     column_filters = column_list
     column_labels = dict(account_name='Account', fitid='ID', dttrade='Trade', secname='Security Name',
@@ -175,7 +177,8 @@ admin.add_view(CostBasesView(CostBases, db.session, name='Cost Bases',
 
 
 class InvestmentAccountsModelView(OFXModelView):
-    column_default_sort = {'field': 'acctid', 'sort_desc': True, 'absolute_value': False}
+    # column_default_sort = {'field': 'acctid', 'sort_desc': True, 'absolute_value': False}
+    column_default_sort = ('acctid', True)
     column_labels = dict(acctfrom='Account', brokerid='Broker ID', acctid='Account ID')
 
 
@@ -184,7 +187,8 @@ admin.add_view(InvestmentAccountsModelView(InvestmentAccounts, db.session, name=
 
 
 class InvestmentBalancesView(OFXModelView):
-    column_default_sort = {'field': 'availcash', 'sort_desc': True, 'absolute_value': False}
+    # column_default_sort = {'field': 'availcash', 'sort_desc': True, 'absolute_value': False}
+    column_default_sort = ('availcash', True)
     column_labels = dict(invacctfrom='Account', dtasof='Date', availcash='Cash', marginbalance='Margin', shortbalance='Short', buypower='Buying Power')
     column_formatters = dict(dtasof=date_formatter, availcash=currency_formatter, marginbalance=currency_formatter,
                              shortbalance=currency_formatter, buypower=currency_formatter)
@@ -195,7 +199,8 @@ admin.add_view(InvestmentBalancesView(InvestmentBalances, db.session, name='Bala
 
 
 class InvestmentPositionsModelView(OFXModelView):
-    column_default_sort = {'field': 'mktval', 'sort_desc': True, 'absolute_value': True}
+    # column_default_sort = {'field': 'mktval', 'sort_desc': True, 'absolute_value': True}
+    column_default_sort = ('mktval', True)
     column_list = ['dtasof', 'invacctfrom', 'id', 'secinfo', 'postype', 'units', 'unitprice', 'mktval', 'dtpriceasof']
     column_filters = column_list
     column_labels = dict(id='ID', secinfo='Security Name', invacctfrom='Account', dtasof='Date',

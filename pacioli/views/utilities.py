@@ -130,7 +130,7 @@ def link_transaction_search_formatter(view, context, model, name):
 class CKTextAreaWidget(widgets.TextArea):
     def __call__(self, field, **kwargs):
         existing_classes = kwargs.pop('class', '') or kwargs.pop('class_', '')
-        kwargs['class'] = f'{existing_classes} ckeditor'
+        kwargs['class'] = '{existing_classes} ckeditor'.format(existing_classes=existing_classes)
         return super(CKTextAreaWidget, self).__call__(field, **kwargs)
 
 

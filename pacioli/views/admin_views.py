@@ -51,7 +51,8 @@ class ConnectionResponsesView(PrivateModelView):
     can_create = False
     can_delete = False
     can_edit = False
-    column_default_sort = {'field': 'connected_at', 'sort_desc': True, 'absolute_value': False}
+    # column_default_sort = {'field': 'connected_at', 'sort_desc': True, 'absolute_value': False}
+    column_default_sort = ('connected_at', True)
     column_list = ('id', 'connection', 'connected_at', 'response')
     column_sortable_list = column_list
     column_filters = column_list

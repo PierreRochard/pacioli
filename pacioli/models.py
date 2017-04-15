@@ -186,7 +186,7 @@ class TaxTags(db.Model):
     description = db.Column(db.String)
 
     def __repr__(self):
-        return f'{self.name}'
+        return self.name
 
 
 subaccounts_tax_tags = db.Table('subaccounts_tax_tags', db.Model.metadata,
