@@ -25,7 +25,8 @@ class OFXModelView(PrivateModelView):
 class TransactionsModelView(OFXModelView):
     list_template = 'transactions.html'
 
-    column_default_sort = dict(field='date', sort_desc=True, absolute_value=False)
+    # column_default_sort = dict(field='date', sort_desc=True, absolute_value=False)
+    column_default_sort = ('date', True)
 
     column_list = ('id',
                    'date',
