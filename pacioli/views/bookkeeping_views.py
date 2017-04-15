@@ -107,6 +107,7 @@ class SubaccountsModelView(PrivateModelView):
     column_list = ('name', 'description', 'parent', 'tax_tags')
     column_labels = dict(parent='Account')
     column_filters = column_list
+    column_searchable_list = column_list[:-1]
     column_formatters = dict(description=html_formatter)
     form_overrides = dict(description=CKTextAreaField)
     create_template = 'create.html'

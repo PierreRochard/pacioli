@@ -6,8 +6,9 @@ from dateutil.tz import tzlocal
 from flask import current_app
 from ofxtools import OFXClient
 from ofxtools.Client import CcAcct, BankAcct
-from ofxtools.ofxalchemy import OFXParser, DBSession
+from ofxtools.ofxalchemy import OFXParser
 from sqlalchemy import func, create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.orm.exc import NoResultFound
 
 from pacioli import db
@@ -127,6 +128,7 @@ def sync_ofx_connection(connection):
     parser = OFXParser()
     engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'],
                            echo=False)
+    DBSession = scoped_session(sessionmaker())
     DBSession.configure(bind=engine)
     parser.parse(response)
     parser.instantiate()

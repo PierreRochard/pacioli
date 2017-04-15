@@ -13,10 +13,11 @@ from flask_script import Manager, Server
 from flask_script.commands import ShowUrls, Clean
 from flask_security.utils import encrypt_password
 from flask_mail import Message
-from ofxtools.ofxalchemy import OFXParser, DBSession
+from ofxtools.ofxalchemy import OFXParser
 from ofxtools.ofxalchemy import Base as OFX_Base
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 from pacioli import create_app, mail
 from pacioli.extensions import db
@@ -123,6 +124,7 @@ def import_ofx():
         ofx_file_path = os.path.join(directory, ofx_file_name)
         parser = OFXParser()
         engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'], echo=False)
+        DBSession = scoped_session(sessionmaker())
         DBSession.configure(bind=engine)
         if 'fixed' not in ofx_file_path:
             ofx_file_path = fix_ofx_file(ofx_file_path)

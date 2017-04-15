@@ -132,8 +132,11 @@ def create_dns_records():
 
 def install():
     # APP
-    packages = ['gcc', 'gcc-c++', 'git', 'python', 'python-pip', 'python-setuptools', 'python-devel', 'postgresql94-devel',
-                'libxslt-devel', 'libxml-devel', 'freetype-devel', 'libpng-devel', 'libffi-devel']
+    packages = ['gcc', 'gcc-c++', 'git', 'python',
+                'python-pip', 'python-setuptools',
+                'python-devel', 'postgresql94-devel',
+                'libxslt-devel', 'libxml-devel', 'freetype-devel',
+                'libpng-devel', 'libffi-devel']
     run('sudo yum -y install ' + ' '.join(packages))
     put(GITHUB_SSH_PRIVATE_KEY_FILE, GITHUB_SSH_PRIVATE_KEY_FILE, use_sudo=True)
     run('sudo chmod 400 {0}'.format(GITHUB_SSH_PRIVATE_KEY_FILE))
@@ -212,11 +215,6 @@ def update():
     run('sudo pip --no-cache-dir install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
 
     with cd('ofxtools'):
-        run('git pull')
-        run('sudo python setup.py install')
-
-    with cd('flask-security'):
-        run('git checkout develop')
         run('git pull')
         run('sudo python setup.py install')
 
