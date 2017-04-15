@@ -205,58 +205,6 @@ def ssh():
     print('ssh -i {0} ec2-user@{1}'.format(AWS_SSH_PRIVATE_KEY_FILE, env.host_string))
 
 
-def update():
-    # APP
-    with cd('/home/ec2-user/pacioli/'):
-        run('git stash')
-        run('git pull')
-    put('pacioli/settings.py', '/home/ec2-user/pacioli/pacioli/settings.py')
-
-    run('sudo pip --no-cache-dir install --upgrade -r /home/ec2-user/pacioli/instance-requirements.txt')
-
-    with cd('ofxtools'):
-        run('git pull')
-        run('sudo python setup.py install')
-
-    with cd('/home/ec2-user/pacioli/'):
-        with prefix('source ~/.bash_profile'):
-            run('python manage.py createdb')
-
-    with cd('/home/ec2-user/pacioli/logs/'):
-        run('sudo rm -f *.log')
-    with cd('/home/ec2-user/pacioli/logs/nginx/'):
-        run('sudo rm -f *.log')
-
-    # GUNICORN
-    put('configuration_files/gunicorn_configuration.py', '/home/ec2-user/pacioli/gunicorn_configuration.py')
-
-    # SUPERVISORD
-    put('configuration_files/supervisord.conf', '/etc/supervisord.conf', use_sudo=True)
-    run('supervisorctl reread')
-    run('supervisorctl update')
-    run('supervisorctl restart pacioli')
-
-    # NGINX
-    put('configuration_files/nginx.conf', '/etc/nginx/nginx.conf', use_sudo=True)
-    put('configuration_files/pacioli-nginx', '/etc/nginx/sites-available/pacioli', use_sudo=True)
-    put('configuration_files/rochard-nginx', '/etc/nginx/sites-available/rochard', use_sudo=True)
-    run('sudo chown nginx:nginx -R /var/www/')
-    run('sudo /etc/init.d/nginx restart')
-
-    # Cron
-    with open('local_cron', 'w') as cron_file:
-        cron_file.write('pacioli_ENV=prod\n')
-        cron_file.write('0 11,23 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py runs_at_7am_and_7pm\n')
-        cron_file.write('0 11 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py submit_amazon_report_request\n')
-        cron_file.write('0 11 30 * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py import_amazon_report\n')
-        cron_file.write('0 10 * * * source ~/.bash_profile; cd /home/ec2-user/pacioli/ && python manage.py backup_db\n')
-        cron_file.write('*/10 * * * * source ~/.bash_profile; cd /home/ec2-user/coinbase-exchange-twitter/ && python3 main.py --t\n')
-    put('local_cron', 'remote_cron')
-    run('crontab remote_cron')
-    run('rm -f remote_cron')
-    os.remove('local_cron')
-
-
 def create_db():
     with cd('/home/ec2-user/pacioli/'):
         with prefix('source ~/.bash_profile'):
