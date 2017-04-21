@@ -7,7 +7,7 @@ from pacioli import create_app
 
 logging.basicConfig(stream=sys.stderr)
 
-app = create_app('pacioli.settings.ProdConfig', env='prod')
+app = create_app('pacioli.settings.ProdConfig', env='Prod')
 
 sentry = Sentry()
 sentry.init_app(app)
