@@ -27,9 +27,9 @@ def results_to_email_template(title, table_caption, table_header, query_results)
                                 css=css_string,
                                 table_caption=table_caption,
                                 table_header=table_header,
-                                table_rows=query_results).encode('utf-8')
+                                table_rows=query_results)
 
-    return transform(html_body).encode('utf-8')
+    return transform(html_body)
 
 
 def send_ofx_bank_transactions_report():
