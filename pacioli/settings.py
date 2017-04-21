@@ -1,30 +1,14 @@
-import keyring
 import os
-import uuid
 
 
 class Config(object):
-    try:
-        SECRET_KEY = keyring.get_password('flask_secret_key', 'flask_secret_key')
-    except RuntimeError:
-        SECRET_KEY = os.environ['SECRET_KEY']
-    except keyring.backends._OS_X_API.Error:
-        SECRET_KEY = str(uuid.uuid4())
-        keyring.set_password('flask_secret_key', 'flask_secret_key', SECRET_KEY)
-
+    SECRET_KEY = os.environ['SECRET_KEY']
     # Flask Security Core
     SECURITY_BLUEPRINT_NAME = 'security'
     SECURITY_URL_PREFIX = None
     SECURITY_FLASH_MESSAGES = True
     SECURITY_PASSWORD_HASH = 'pbkdf2_sha512'
-    try:
-        SECURITY_PASSWORD_SALT = keyring.get_password('flask_security', 'password_salt')
-    except RuntimeError:
-        SECURITY_PASSWORD_SALT = os.environ['SECURITY_PASSWORD_SALT']
-    except keyring.backends._OS_X_API.Error:
-        print('settings.py : Creating a new password salt')
-        SECURITY_PASSWORD_SALT = str(uuid.uuid4())
-        keyring.set_password('flask_security', 'password_salt', SECURITY_PASSWORD_SALT)
+    SECURITY_PASSWORD_SALT = os.environ['SECURITY_PASSWORD_SALT']
     SECURITY_EMAIL_SENDER = 'no-reply@localhost'
     SECURITY_TOKEN_AUTHENTICATION_KEY = 'auth_token'
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'
@@ -58,12 +42,8 @@ class Config(object):
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
     MAIL_USE_SSL = True
-    try:
-        MAIL_USERNAME = keyring.get_password('mail_username', 'mail_username')
-        MAIL_PASSWORD = keyring.get_password('mail_password', MAIL_USERNAME)
-    except RuntimeError:
-        MAIL_USERNAME = os.environ['MAIL_USERNAME']
-        MAIL_PASSWORD = os.environ['MAIL_PASSWORD']
+    MAIL_USERNAME = os.environ['MAIL_USERNAME']
+    MAIL_PASSWORD = os.environ['MAIL_PASSWORD']
     MAIL_DEFAULT_SENDER = MAIL_USERNAME
     MAIL_MAX_EMAILS = None
     MAIL_ASCII_ATTACHMENTS = False
@@ -94,20 +74,14 @@ class Config(object):
 
 
 class ProdConfig(Config):
-    try:
-        POSTGRES_USERNAME = keyring.get_password('postgres_username', 'postgres_username')
-        POSTGRES_PASSWORD = keyring.get_password('postgres_password', 'postgres_password')
-        POSTGRES_HOST = keyring.get_password('postgres_aws_host', 'postgres_aws_host')
-        POSTGRES_PORT = keyring.get_password('postgres_aws_port', 'postgres_aws_port')
-    except RuntimeError:
-        POSTGRES_USERNAME = os.environ['PGUSER']
-        POSTGRES_PASSWORD = os.environ['PGPASSWORD']
-        POSTGRES_HOST = os.environ['PGHOST']
-        POSTGRES_PORT = os.environ['PGPORT']
+
+    POSTGRES_USERNAME = os.environ['PGUSER']
+    POSTGRES_PASSWORD = os.environ['PGPASSWORD']
+    POSTGRES_HOST = os.environ['PGHOST']
+    POSTGRES_PORT = os.environ['PGPORT']
 
     SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://{0}:{1}@{2}:{3}/pacioli'.format(POSTGRES_USERNAME, POSTGRES_PASSWORD,
                                                                                      POSTGRES_HOST, POSTGRES_PORT)
-
 
 class ProdDevConfig(ProdConfig):
     """
@@ -128,13 +102,8 @@ class DevConfig(Config):
 
     SQLALCHEMY_ECHO = False
 
-    try:
-        POSTGRES_USERNAME = keyring.get_password('postgres_username', 'postgres_username')
-        POSTGRES_PASSWORD = keyring.get_password('postgres_password', 'postgres_password')
-    except RuntimeError:
-        POSTGRES_USERNAME = os.environ['PGUSER']
-        POSTGRES_PASSWORD = os.environ['PGPASSWORD']
-
+    POSTGRES_USERNAME = os.environ['PGUSER']
+    POSTGRES_PASSWORD = os.environ['PGPASSWORD']
     POSTGRES_HOST = 'localhost'
     POSTGRES_PORT = 5432
 
