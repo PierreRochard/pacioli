@@ -15,10 +15,10 @@ Flask-WTF
 
 # Other
 alembic
-itsdangerous
 cssmin
+gunicorn
 jsmin
-keyring
+itsdangerous
 matplotlib
 # mechanize
 premailer
