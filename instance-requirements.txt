@@ -25,6 +25,7 @@ premailer
 python-dateutil
 psycopg2
 pytz
+raven
 speaklater
 
 # Testing
