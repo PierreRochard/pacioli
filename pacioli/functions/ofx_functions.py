@@ -4,13 +4,12 @@ from datetime import datetime, date
 
 from dateutil.tz import tzlocal
 from flask import current_app
-from ofxtools import OFXClient
-from ofxtools.Client import CcAcct, BankAcct
-from ofxtools.ofxalchemy import OFXParser
-from sqlalchemy import func, create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy import func
 from sqlalchemy.orm.exc import NoResultFound
 
+from ofxtools import OFXClient
+from ofxtools.Client import CcAcct, BankAcct
+from ofxtools.ofxalchemy import OFXParser, get_session
 from pacioli import db
 from pacioli.functions.email_reports import send_error_message
 from pacioli.models import (Subaccounts, Mappings, JournalEntries,
@@ -96,13 +95,14 @@ def sync_ofx_connection(connection):
     #         start = None
     #         end = None
 
-    ofx_client = OFXClient(connection.url, connection.org, connection.fid)
+    ofx_client = OFXClient(connection.url, connection.org, connection.fid,
+                           version=220, appid='QWIN', appver='2500')
 
     if start and end:
         statement_request = ofx_client.statement_request(connection.user,
                                                          connection.password,
-                                                         connection.clientuid,
                                                          [account],
+                                                         clientuid=connection.clientuid,
                                                          dtstart=start,
                                                          dtend=end)
     else:
@@ -125,14 +125,11 @@ def sync_ofx_connection(connection):
         return False
 
     response.seek(0)
+    ofx_session = get_session(current_app.config['SQLALCHEMY_DATABASE_URI'], 'ofx')
     parser = OFXParser()
-    engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'],
-                           echo=False)
-    DBSession = scoped_session(sessionmaker())
-    DBSession.configure(bind=engine)
     parser.parse(response)
     parser.instantiate()
-    DBSession.commit()
+    ofx_session.commit()
     connection.synced_at = datetime.now(tzlocal())
     db.session.commit()
 
