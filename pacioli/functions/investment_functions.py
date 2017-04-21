@@ -18,7 +18,7 @@ def update_ticker_prices():
         reader = csv.DictReader(data)
         for row in reader:
             new_record = SecurityPrices()
-            for key in row:
+            for key in list(row.keys()):
                 key_name = key.lower().replace('adj close', 'adjusted_close')
                 row[key_name] = row.pop(key)
             for column in inspect(SecurityPrices).attrs:
