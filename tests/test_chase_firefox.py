@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -107,19 +108,26 @@ def firefox(tmp_path):
     }
     (profile / 'user.js').write_text('\n'.join('user_pref({}, {});'.format(json.dumps(k), json.dumps(v))
                                              for k, v in preferences.items()))
-    port = free_port()
+    log_path = tmp_path / 'firefox.log'
+    log = log_path.open('wb')
+    # Port 0 lets Firefox bind its own free port. A port chosen here can be taken
+    # before Firefox binds it; BiDi then never starts while the browser stays up.
     process = subprocess.Popen(['/snap/bin/firefox', '--headless', '--no-remote',
-                                '--profile', str(profile), '--remote-debugging-port', str(port),
-                                origin + '/personal'], stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL)
+                                '--profile', str(profile), '--remote-debugging-port', '0',
+                                origin + '/personal'], stdout=log, stderr=subprocess.STDOUT)
     try:
-        deadline = time.monotonic() + 40
-        while True:
-            try:
-                with socket.create_connection(('127.0.0.1', port), timeout=.2):
-                    break
-            except OSError:
-                assert process.poll() is None and time.monotonic() < deadline, 'Fixture Firefox did not start'
+        # Startup takes about five seconds; profiles on a busy HDD can stall it for minutes.
+        started = time.monotonic()
+        port = None
+        while port is None:
+            text = log_path.read_text(errors='replace')
+            match = re.search(r'WebDriver BiDi listening on ws://127\.0\.0\.1:(\d+)', text)
+            if match:
+                port = int(match.group(1))
+            elif process.poll() is not None or time.monotonic() - started > 90:
+                pytest.fail('Fixture Firefox did not start (exit {}, {:.0f}s):\n{}'.format(
+                    process.poll(), time.monotonic() - started, text[-2000:]))
+            else:
                 time.sleep(.2)
         yield SimpleNamespace(port=port, origin=origin, bank=bank, process=process, downloads=downloads)
     finally:
@@ -129,6 +137,7 @@ def firefox(tmp_path):
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
+        log.close()
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
@@ -423,7 +432,7 @@ def test_firefox_expired_session_handoff_checks_approved_account(
         monotonic=time.monotonic, sleep=approve_window))
     connector.run_worker(run.id)
     run, credentials = _reload(run, credentials)
-    assert prompts == ['open_browser']
+    assert prompts == ['open_browser'], (run.status, run.error_code)
     if changed_account:
         assert run.status == 'needs_attention'
         assert run.error_code == 'account_selection_changed'

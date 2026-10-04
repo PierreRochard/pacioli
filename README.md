@@ -210,8 +210,10 @@ make ci
 ```
 
 This command checks available memory and disk space, starts a private
-PostgreSQL cluster under `TMPDIR`, checks Python syntax and installed package
-dependencies, runs the tests serially, then stops and removes the cluster.
+PostgreSQL cluster under `.local/ci` (or `PACIOLI_CI_SCRATCH`), checks Python
+syntax and installed package dependencies, runs the tests serially, then stops
+and removes the cluster. Keep the scratch directory on a fast local disk:
+browser tests time out when Firefox profiles sit on a busy hard drive.
 It needs local PostgreSQL server binaries and does not need `.env` or an
 existing application database.
 

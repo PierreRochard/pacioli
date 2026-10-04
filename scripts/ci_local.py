@@ -43,10 +43,10 @@ def check_python_syntax():
 
 
 def main():
-    scratch = os.environ.get('TMPDIR')
-    if not scratch:
-        raise SystemExit('Set TMPDIR to a writable scratch directory')
-    scratch = Path(scratch).resolve()
+    # Not TMPDIR: it may point at bulk storage. On a busy shingled HDD, browser
+    # profile writes stalled Firefox startup past the browser tests' timeouts.
+    scratch = Path(os.environ.get('PACIOLI_CI_SCRATCH') or ROOT / '.local' / 'ci').resolve()
+    scratch.mkdir(mode=0o700, parents=True, exist_ok=True)
     check_resources(scratch)
 
     bindir = Path(subprocess.check_output(['pg_config', '--bindir'], text=True).strip())
@@ -75,6 +75,7 @@ def main():
             # Never load this checkout's persistent app configuration in tests.
             environment['PACIOLI_CONFIG'] = str(work / 'no-app-config.json')
             environment['PIP_CACHE_DIR'] = str(work / 'pip-cache')
+            environment['TMPDIR'] = str(work)
             environment['PYTHONDONTWRITEBYTECODE'] = '1'
 
             check_python_syntax()
