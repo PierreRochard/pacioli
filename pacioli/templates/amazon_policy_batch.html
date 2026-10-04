@@ -1,0 +1,143 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<style>
+.amazon-policy-batch { max-width: 1160px; overflow-wrap: anywhere; }
+.amazon-policy-batch .table td, .amazon-policy-batch .table th { vertical-align: top; }
+.amazon-policy-batch .batch-table { width: 100%; table-layout: fixed; }
+.amazon-policy-batch .purchase-column { width: 51%; }
+.amazon-policy-batch .amount-column { width: 14%; }
+.amazon-policy-batch .category-column { width: 35%; }
+.amazon-policy-batch .money { text-align: right; white-space: nowrap; }
+.amazon-policy-batch select, .amazon-policy-batch textarea { max-width: 100%; }
+.amazon-policy-batch .btn { white-space: normal; }
+.amazon-policy-batch details { margin: 10px 0; }
+.amazon-policy-batch .source-note { margin-top: 8px; font-size: 14px; }
+.amazon-policy-batch .batch-summary { background: #fff; border-top: 2px solid #ddd; padding: 15px 0; position: sticky; bottom: 0; z-index: 1; }
+.amazon-policy-batch .batch-summary p { margin: 0 0 10px; }
+.amazon-policy-batch .decision-list li { margin-bottom: 8px; }
+@media (max-width: 650px) {
+  .amazon-policy-batch .batch-table caption { display: block; width: 100%; box-sizing: border-box; }
+  .amazon-policy-batch .batch-table, .amazon-policy-batch .batch-table tbody,
+  .amazon-policy-batch .batch-table tr, .amazon-policy-batch .batch-table td { display: block; width: 100%; box-sizing: border-box; }
+  .amazon-policy-batch .batch-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .amazon-policy-batch .batch-table tr { border-top: 2px solid #ddd; padding: 12px 0; }
+  .amazon-policy-batch .batch-table td { border: 0; padding: 6px 8px; }
+  .amazon-policy-batch .batch-table .money { text-align: left; }
+  .amazon-policy-batch .batch-summary { position: static; }
+}
+</style>
+<main class="amazon-policy-batch">
+<h2>Review Amazon classifications</h2>
+<nav aria-label="Amazon accounting">
+<a href="{{ url_for('.amazon_policy_history',plan_id=plan.id if plan else none) }}">Your saved answers and history</a> ·
+<a href="{{ url_for('.amazon_suspense',plan_id=plan.id if plan else none) }}">Detailed suspense evidence</a> ·
+<a href="{{ url_for('.amazon_items',run_id=plan.review_run_id if plan else none,_anchor='post-items-heading') }}">Posting preview and status</a>
+</nav>
+{% if not plan %}
+{% if invalid_request %}<div class="alert alert-warning" style="margin-top: 16px">The batch could not be saved. <a href="{{ url_for('.amazon_policy_questions') }}">Reload the current classifications</a> and review the message above.</div>
+{% else %}<p style="margin-top: 16px">No Amazon suspense review is available yet. <a href="{{ url_for('.amazon_items') }}">Open imported item evidence</a>.</p>{% endif %}
+{% else %}
+{% set ready = plan.current_policy and not plan.posting_active and not needs_implementation %}
+<p style="margin-top: 16px">Your saved decisions are reflected below. Change anything that looks wrong, or keep a purchase in suspense. You do not need to answer the same questions again.</p>
+{% if owner_decisions %}<details><summary>Your {{ owner_decisions|length }} saved decisions</summary>
+<ul class="decision-list">{% for decision in owner_decisions %}<li><strong>{{ decision.label }}</strong>{% if decision.count is defined %} — {{ decision.count }} purchases{% endif %}{% if decision.amount %} · {{ decision.amount }} USD{% endif %}{% if decision.scope == 'future' %}. Reused as guidance for future reviews.{% endif %}{% if decision.answer_id %} <a href="{{ url_for('.amazon_policy_history',plan_id=plan.id,_anchor='saved-answer-history-heading') }}">Saved answer {{ decision.answer_id }}</a>{% endif %}</li>{% endfor %}</ul>
+</details>{% endif %}
+<section class="well" aria-labelledby="batch-totals-heading">
+<h3 id="batch-totals-heading">Current purchase review</h3>
+<p><strong>{{ totals.count }} purchases · {{ totals.amount }} USD</strong> still to resolve.</p>
+{% if totals.eligible_count %}<p>{{ totals.eligible_count }} purchases · {{ totals.eligible_amount }} USD have supported classifications ready for review.</p>{% endif %}
+{% if totals.held_count %}<p>{{ totals.held_count }} purchases · {{ totals.held_amount }} USD remain held for the specific reason shown below.</p>{% endif %}
+{% if totals.reviewed_count %}<p>{{ totals.reviewed_count }} classifications have been saved. <a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Review posting totals and status</a>.</p>{% endif %}
+{% if totals.resolved_count is defined %}<p>Verified posted outside suspense: {{ totals.resolved_count }} purchases · {{ totals.resolved_amount }} USD.</p>{% endif %}
+{% if totals.unverified_count %}<p class="text-warning">{{ totals.unverified_count }} purchases need their ledger allocations verified and are excluded from the confirmed totals.</p>{% endif %}
+</section>
+{% if plan.posting_active %}<div class="alert alert-info">Posting is queued or running. <a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Follow its live status</a>; classifications will be available again when it finishes.</div>{% endif %}
+{% if not plan.current_policy %}<div class="alert alert-warning">The accounting policy changed after this review was prepared. <a href="{{ url_for('.amazon_suspense',plan_id=plan.id) }}">Prepare the current review</a> before saving classifications.</div>{% endif %}
+{% if needs_implementation %}<div class="alert alert-warning">{{ message or 'The saved decisions need an updated source review before they can be applied. Existing answers and ledger entries are preserved.' }}</div>{% endif %}
+{% if items %}
+<p>The categories shown are proposals until you save them. Amounts include the item’s recorded tax, shipping, discounts and other adjustments. Save categories and notes here; supported classifications then open the separate posting preview. Saving does not change journals.</p>
+{% if batch_pages > 1 %}<p><strong>Showing purchases {{ batch_first }}–{{ batch_last }} of {{ batch_total }}</strong> · Page {{ batch_page }} of {{ batch_pages }}. Saving applies only to the purchases shown on this page. Other purchases remain available for the next review.</p>
+<nav aria-label="Classification review pages" style="margin-bottom: 15px">
+{% if batch_page > 1 %}<a href="{{ url_for('.amazon_policy_questions',plan_id=plan.id,page=batch_page-1) }}">Previous purchases</a>{% endif %}
+{% if batch_page > 1 and batch_page < batch_pages %} · {% endif %}
+{% if batch_page < batch_pages %}<a href="{{ url_for('.amazon_policy_questions',plan_id=plan.id,page=batch_page+1) }}">Next purchases</a>{% endif %}
+</nav>{% endif %}
+<form method="post" id="amazon-policy-batch">
+<input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+<input type="hidden" name="action" value="save">
+<input type="hidden" name="plan_id" value="{{ plan.id }}">
+<input type="hidden" name="page" value="{{ batch_page }}">
+<input type="hidden" name="token" value="{{ token }}">
+<table class="table table-striped batch-table">
+<caption>Supported purchases first, ordered by amount; remaining holds follow. Review or edit each category shown before saving.</caption>
+<thead><tr><th scope="col" class="purchase-column">Purchase and reason</th><th scope="col" class="amount-column money">Amount (USD)</th><th scope="col" class="category-column">Classification</th></tr></thead>
+<tbody>{% for item in items %}
+{% set edit = submitted.get(item.item_id) %}
+{% set chosen = edit.category if edit else item.category %}
+{% set correction = edit.note if edit else item.saved_correction|default('') %}
+{% set allowed = item.allowed_categories or [] %}
+<tr class="batch-item" data-amount="{{ item.amount }}">
+<td><strong id="batch-item-{{ loop.index }}">{{ item.title }}</strong>
+<input type="hidden" name="item_id" value="{{ item.item_id }}">
+<p class="source-note">{{ item.reason }}</p>
+{% if item.saved_review_reason %}<details class="saved-review"><summary>Saved review</summary><p style="white-space: pre-wrap">{{ item.saved_review_reason }}</p></details>{% endif %}
+{% if item.hold_reason %}<p class="text-warning"><strong>Still needed:</strong> {{ item.hold_reason }}</p>{% endif %}
+<details><summary>Source evidence and exact costs</summary>
+{% if item.components %}<ul>{% for component in item.components %}<li>{{ component.kind|replace('_',' ')|capitalize }}: {{ component.amount }} USD{% if component.source_refs %} · {% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %} ({{ source.fields|join(', ') }}){% endif %}{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}</li>{% endfor %}</ul>{% endif %}
+<p>Original purchase: {% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+{% if item.research %}<ul>{% for finding in item.research %}<li>{{ finding.summary }}<br>{% if finding.ref.startswith('https://') %}<a href="{{ finding.ref }}" rel="noreferrer">Product reference</a>{% else %}{{ finding.ref }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+</details>
+</td>
+<td class="money">{{ item.amount }}</td>
+<td><label for="batch-category-{{ loop.index }}" class="sr-only">Category for {{ item.title }}</label>
+<select name="category_{{ item.item_id }}" id="batch-category-{{ loop.index }}" class="form-control batch-category" aria-describedby="batch-item-{{ loop.index }}" required>
+<option value="__suspense__" {% if not chosen or chosen not in allowed %}selected{% endif %}>Keep in suspense</option>
+{% for category in allowed %}<option value="{{ category }}" {% if chosen == category %}selected{% endif %}>{{ category }}</option>{% endfor %}
+</select>
+{% if edit and edit.category and edit.category not in allowed %}<p class="text-warning">The prior category is no longer supported by this review. Check the current evidence before saving.</p>{% endif %}
+<details {% if correction %}open{% endif %}><summary>Add a correction or context</summary>
+<label for="batch-note-{{ loop.index }}">Optional note</label>
+<textarea name="note_{{ item.item_id }}" id="batch-note-{{ loop.index }}" rows="2" maxlength="1000" class="form-control">{{ correction }}</textarea>
+<p class="source-note">For a different treatment, keep the item in suspense and describe the correction here. Your note is saved with this review.</p>
+</details></td>
+</tr>{% endfor %}</tbody>
+</table>
+<div class="batch-summary">
+<p id="batch-selection-summary" role="status" aria-live="polite">Review the categories above, then save this batch.</p>
+<button type="submit" class="btn btn-primary" id="batch-save" {% if not ready %}disabled{% endif %}>{{ 'Save classifications and review posting' if batch_has_classifications else 'Save notes and suspense decisions' }}</button>
+<p style="margin-top: 10px">Saving preserves your earlier answers. Journal entries change only after a separate posting approval.</p>
+</div>
+</form>
+{% elif not needs_implementation %}
+<div class="alert alert-success">No purchases remain to classify in this batch.</div>
+<p><a class="btn btn-primary" href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">View posted allocations and status</a> <a class="btn btn-default" href="{{ url_for('.amazon_policy_history',plan_id=plan.id) }}">Read your saved decisions</a></p>
+{% endif %}
+{% endif %}
+</main>
+<script>
+(function () {
+  var form = document.getElementById('amazon-policy-batch');
+  if (!form) return;
+  var changed = false;
+  function update() {
+    var classified = 0, held = 0, count = 0;
+    form.querySelectorAll('.batch-item').forEach(function (row) {
+      var cents = Math.round(Number(row.dataset.amount) * 100);
+      if (row.querySelector('.batch-category').value === '__suspense__') held += cents;
+      else { classified += cents; count += 1; }
+    });
+    document.getElementById('batch-selection-summary').textContent = count + ' classifications · ' +
+      (classified / 100).toFixed(2) + ' USD · ' + (held / 100).toFixed(2) + ' USD kept in suspense';
+    document.getElementById('batch-save').textContent = count ?
+      'Save classifications and review posting' : 'Save notes and suspense decisions';
+  }
+  form.addEventListener('input', function () { changed = true; });
+  form.addEventListener('change', function () { changed = true; update(); });
+  form.addEventListener('submit', function () { changed = false; });
+  window.addEventListener('beforeunload', function (event) {
+    if (changed) { event.preventDefault(); event.returnValue = ''; }
+  });
+  update();
+}());
+</script>
+{% endblock %}

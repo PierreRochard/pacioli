@@ -17,15 +17,20 @@ Assets,Current Assets,Prepaids,Operating,Prepaid Transportation
 Assets,Current Assets,Prepaids,Operating,Prepaid Public Transportation
 Assets,Current Assets,Inventory,Operating,Inventory
 Assets,Current Assets,Prepaid Expenses,Operating,Prepaid Expenses
-Assets,Long-term Investments,Bitcoins,Investing,Cold Wallet
+Assets,Long-term Investments,Bitcoin Investments,Investing,Cold Wallet
 Liabilities,Current Liabilities,Accounts Payable,Operating,Accounts Payable
+Liabilities,Current Liabilities,Accounts Payable,Operating,Amazon Payable
 Liabilities,Current Liabilities,Accounts Payable,Operating,Credit Card
 Liabilities,Long-term Liabilities,Notes Payable,Financing,Notes Payable
 Liabilities,Long-term Liabilities,Student Loans,Financing,Student Loans - Payment in Transit
 Capital Contributions,Personal Equity,Personal Equity,Financing,Personal Equity
-Capital Distributions,Personal Equity,Personal Equity,Financing,Personal Equity
+Capital Distributions,Personal Distributions,Personal Distributions,Financing,Personal Distributions
 Revenues,Revenues,Revenues,Operating,Revenues
 Revenues,Revenues,Salary,Operating,Salary
+Revenues,Revenues,Investment Income,Investing,Qualified Dividends
+Revenues,Revenues,Investment Income,Investing,Ordinary Dividends
+Revenues,Revenues,Investment Income,Investing,Investment Interest
+Revenues,Revenues,Investment Income,Investing,Capital Gain Distributions
 Expenses,Fixed Costs,Rent Expense,Operating,Rent
 Expenses,Fixed Costs,Utilities Expense,Operating,Gas
 Expenses,Fixed Costs,Utilities Expense,Operating,Electricity
@@ -44,4 +49,31 @@ Expenses,Discretionary Costs,Clothing Expense,Operating,Clothing
 Expenses,Discretionary Costs,Programming Expense,Operating,Web Hosting
 Expenses,Discretionary Costs,Programming Expense,Operating,Domain Names
 Gains,Gains,Investment Gain,Investing,Gain on Sale of BTC
+Gains,Gains,Investment Gain,Investing,Realized Gain - Short Term
+Gains,Gains,Investment Gain,Investing,Realized Gain - Long Term
 Losses,Losses,Investment Loss,Investing,Loss on Sale of BTC
+Losses,Losses,Investment Loss,Investing,Realized Loss - Short Term
+Losses,Losses,Investment Loss,Investing,Realized Loss - Long Term
+Losses,Losses,Investment Loss,Investing,Wash Sale Disallowed Loss
+Assets,Current Assets,Bookkeeping Suspense,,Bookkeeping Suspense
+Assets,Current Assets,Transfer Clearing,,Transfer Clearing
+Expenses,Discretionary Costs,Programming Expense,Operating,Software Subscriptions
+Expenses,Discretionary Costs,Publications Expense,Operating,Books and Publications
+Expenses,Fixed Costs,Household Services Expense,Operating,Household Services
+Expenses,Fixed Costs,Home Maintenance Expense,Operating,Home Maintenance
+Expenses,Fixed Costs,Transportation Expense,Operating,Vehicle Fuel
+Expenses,Fixed Costs,Transportation Expense,Operating,Vehicle Maintenance
+Expenses,Fixed Costs,Transportation Expense,Operating,Parking
+Expenses,Fixed Costs,Transportation Expense,Operating,Ride Services
+Expenses,Discretionary Costs,Travel Expense,Operating,Air Travel
+Expenses,Discretionary Costs,Travel Expense,Operating,Lodging
+Expenses,Discretionary Costs,Fitness Expense,Operating,Fitness
+Expenses,Discretionary Costs,Personal Care Expense,Operating,Personal Care
+Expenses,Discretionary Costs,Education Expense,Operating,Education
+Expenses,Discretionary Costs,Donations Expense,Operating,Charitable Contributions
+Expenses,Discretionary Costs,Cash Expense,Operating,Cash Spending
+Expenses,Fixed Costs,Investment Expense,Investing,Investment Fees
+Expenses,Fixed Costs,Investment Expense,Investing,Foreign Taxes Paid
+Expenses,Fixed Costs,Bank Fees Expense,Operating,Bank Fees
+Expenses,Fixed Costs,Utilities Expense,Operating,Water and Sewer
+Expenses,Fixed Costs,Utilities Expense,Operating,Waste Disposal

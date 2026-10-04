@@ -2,11 +2,88 @@ from pacioli.models import db
 
 
 def create_all():
+    create_journal_audit_trigger()
     create_ofx_views()
     create_trial_balances_trigger_function()
+    create_period_close_trigger()
     create_amazon_views()
     create_bookkeeping_views()
     create_mappings_views()
+
+
+def create_journal_audit_trigger():
+    db.engine.execute("""
+    CREATE OR REPLACE FUNCTION bookkeeping.record_journal_event()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      INSERT INTO bookkeeping.journal_entry_events
+        (journal_entry_id, action, happened_at, actor, reason, before_row, after_row)
+      VALUES
+        (COALESCE(NEW.id, OLD.id), TG_OP, clock_timestamp(),
+         NULLIF(current_setting('pacioli.actor', true), ''),
+         NULLIF(current_setting('pacioli.reason', true), ''),
+         CASE WHEN TG_OP IN ('UPDATE', 'DELETE') THEN to_jsonb(OLD) ELSE NULL END,
+         CASE WHEN TG_OP IN ('INSERT', 'UPDATE') THEN to_jsonb(NEW) ELSE NULL END);
+      RETURN NULL;
+    END;
+    $$;
+    DROP TRIGGER IF EXISTS journal_event_trigger ON bookkeeping.journal_entries;
+    CREATE TRIGGER journal_event_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON bookkeeping.journal_entries
+    FOR EACH ROW EXECUTE FUNCTION bookkeeping.record_journal_event();
+    CREATE OR REPLACE FUNCTION bookkeeping.reject_journal_event_change()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      RAISE EXCEPTION 'Journal audit events cannot be changed';
+    END;
+    $$;
+    DROP TRIGGER IF EXISTS journal_event_immutable ON bookkeeping.journal_entry_events;
+    CREATE TRIGGER journal_event_immutable
+    BEFORE UPDATE OR DELETE ON bookkeeping.journal_entry_events
+    FOR EACH ROW EXECUTE FUNCTION bookkeeping.reject_journal_event_change();
+    """)
+
+
+def create_period_close_trigger():
+    db.engine.execute("""
+    CREATE OR REPLACE FUNCTION bookkeeping.reject_closed_period_change()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    DECLARE
+      last_closed text;
+    BEGIN
+      PERFORM pg_advisory_xact_lock(hashtext('pacioli.trial_balances'));
+      SELECT max(period) INTO last_closed FROM bookkeeping.closed_periods;
+      IF last_closed IS NOT NULL THEN
+        IF TG_OP IN ('UPDATE', 'DELETE') AND
+           to_char(OLD.timestamp AT TIME ZONE 'UTC', 'YYYY-MM') <= last_closed THEN
+          RAISE EXCEPTION 'Cannot change a journal in or before closed month %%', last_closed;
+        END IF;
+        IF TG_OP IN ('INSERT', 'UPDATE') AND
+           to_char(NEW.timestamp AT TIME ZONE 'UTC', 'YYYY-MM') <= last_closed THEN
+          RAISE EXCEPTION 'Cannot post a journal in or before closed month %%', last_closed;
+        END IF;
+      END IF;
+      IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+      END IF;
+      RETURN NEW;
+    END;
+    $$;
+    DROP TRIGGER IF EXISTS journal_closed_period_guard ON bookkeeping.journal_entries;
+    CREATE TRIGGER journal_closed_period_guard
+    BEFORE INSERT OR UPDATE OR DELETE ON bookkeeping.journal_entries
+    FOR EACH ROW EXECUTE FUNCTION bookkeeping.reject_closed_period_change();
+    CREATE OR REPLACE FUNCTION bookkeeping.reject_closed_record_change()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      RAISE EXCEPTION 'Closed month records cannot be changed';
+    END;
+    $$;
+    DROP TRIGGER IF EXISTS closed_period_immutable ON bookkeeping.closed_periods;
+    CREATE TRIGGER closed_period_immutable
+    BEFORE UPDATE OR DELETE ON bookkeeping.closed_periods
+    FOR EACH ROW EXECUTE FUNCTION bookkeeping.reject_closed_record_change();
+    """)
 
 
 def create_trial_balances_trigger_function():
@@ -18,85 +95,54 @@ def create_trial_balances_trigger_function():
           period_name VARCHAR
       ) RETURNS VOID AS $$
       DECLARE
-          existing_debit_record RECORD;
-          existing_credit_record RECORD;
           debit_balance_amount NUMERIC;
           debit_changes_amount NUMERIC;
           credit_balance_amount NUMERIC;
           credit_changes_amount NUMERIC;
-
       BEGIN
-
       SELECT coalesce(sum(functional_amount), 0) INTO debit_balance_amount
         FROM bookkeeping.journal_entries
         WHERE debit_subaccount = _subaccount
-          AND to_char(timestamp, period_interval_name) <= period_name;
+          AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) <= period_name;
 
       SELECT coalesce(sum(functional_amount), 0) INTO debit_changes_amount
         FROM bookkeeping.journal_entries
         WHERE debit_subaccount = _subaccount
-          AND to_char(timestamp, period_interval_name) = period_name;
-
-      SELECT * INTO existing_debit_record
-        FROM bookkeeping.trial_balances
-        WHERE bookkeeping.trial_balances.subaccount = _subaccount
-          AND bookkeeping.trial_balances.period = period_name
-          AND bookkeeping.trial_balances.period_interval = period_interval_name;
-
-      IF existing_debit_record IS NULL THEN
-        INSERT INTO bookkeeping.trial_balances
-          (subaccount, debit_balance, credit_balance,
-            net_balance, debit_changes, credit_changes,
-            net_changes, period, period_interval)
-        VALUES (_subaccount, debit_balance_amount, 0,
-            debit_balance_amount, debit_changes_amount, 0,
-            debit_changes_amount, period_name, period_interval_name);
-      ELSE
-        UPDATE bookkeeping.trial_balances
-          SET debit_balance = debit_balance_amount,
-              net_balance = debit_balance_amount - existing_debit_record.credit_balance,
-              debit_changes = debit_changes_amount,
-              net_changes = debit_changes_amount - existing_debit_record.credit_changes
-          WHERE id = existing_debit_record.id;
-      END IF;
+          AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) = period_name;
 
       SELECT coalesce(sum(functional_amount), 0) INTO credit_balance_amount
         FROM bookkeeping.journal_entries
         WHERE credit_subaccount = _subaccount
-          AND to_char(timestamp, period_interval_name) <= period_name;
+          AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) <= period_name;
 
       SELECT coalesce(sum(functional_amount), 0) INTO credit_changes_amount
         FROM bookkeeping.journal_entries
         WHERE credit_subaccount = _subaccount
-          AND to_char(timestamp, period_interval_name) = period_name;
+          AND to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) = period_name;
 
-      SELECT * INTO existing_credit_record
-        FROM bookkeeping.trial_balances
-        WHERE subaccount = _subaccount
-          AND period = period_name
-          AND period_interval = period_interval_name;
-
-      IF existing_credit_record IS NULL THEN
-        INSERT INTO bookkeeping.trial_balances
-            (subaccount, debit_balance, credit_balance,
-              net_balance, debit_changes, credit_changes,
-              net_changes, period, period_interval)
-        VALUES (_subaccount, 0, credit_balance_amount,
-                -credit_balance_amount, 0, credit_changes_amount,
-                -credit_changes_amount, period_name, period_interval_name);
-      ELSE
-        UPDATE bookkeeping.trial_balances
-          SET credit_balance = credit_balance_amount,
-              net_balance = existing_credit_record.debit_balance - credit_balance_amount,
-              credit_changes = credit_changes_amount,
-              net_changes = existing_credit_record.debit_changes - credit_changes_amount
-          WHERE id = existing_credit_record.id;
-      END IF;
+      INSERT INTO bookkeeping.trial_balances
+        (subaccount, debit_balance, credit_balance, net_balance,
+         debit_changes, credit_changes, net_changes, period, period_interval)
+      VALUES
+        (_subaccount, debit_balance_amount, credit_balance_amount,
+         debit_balance_amount - credit_balance_amount,
+         debit_changes_amount, credit_changes_amount,
+         debit_changes_amount - credit_changes_amount,
+         period_name, period_interval_name)
+      ON CONFLICT ON CONSTRAINT trial_balances_unique_constraint
+      DO UPDATE SET
+        debit_balance = EXCLUDED.debit_balance,
+        credit_balance = EXCLUDED.credit_balance,
+        net_balance = EXCLUDED.net_balance,
+        debit_changes = EXCLUDED.debit_changes,
+        credit_changes = EXCLUDED.credit_changes,
+        net_changes = EXCLUDED.net_changes;
 
       RETURN;
       END;
     $$
     SECURITY DEFINER
+    SET search_path = pg_catalog, bookkeeping
     LANGUAGE  plpgsql;
     """)
 
@@ -107,31 +153,101 @@ def create_trial_balances_trigger_function():
           period_intervals VARCHAR[5] := '{"YYYY", "YYYY-Q", "YYYY-MM",
                                            "YYYY-WW", "YYYY-MM-DD"}';
           period_interval_name VARCHAR;
-          period_name RECORD;
+          period_name VARCHAR;
+          subaccount_name VARCHAR;
+          affected_subaccounts VARCHAR[];
+          affected_since TIMESTAMP WITH TIME ZONE;
           BEGIN
-            <<period_interval_loop>>
+            -- Serializing recalculation prevents concurrent inserts from
+            -- overwriting each other's aggregate with a partial snapshot.
+            PERFORM pg_advisory_xact_lock(hashtext('pacioli.trial_balances'));
+            IF TG_OP = 'INSERT' THEN
+              affected_subaccounts := ARRAY[NEW.debit_subaccount, NEW.credit_subaccount];
+              affected_since := NEW.timestamp;
+            ELSIF TG_OP = 'DELETE' THEN
+              affected_subaccounts := ARRAY[OLD.debit_subaccount, OLD.credit_subaccount];
+              affected_since := OLD.timestamp;
+            ELSE
+              affected_subaccounts := ARRAY[OLD.debit_subaccount, OLD.credit_subaccount,
+                                            NEW.debit_subaccount, NEW.credit_subaccount];
+              affected_since := least(OLD.timestamp, NEW.timestamp);
+            END IF;
+
             FOREACH period_interval_name IN ARRAY period_intervals
-              LOOP
-                <<periods_loop>>
-                 FOR period_name in SELECT DISTINCT
-                          to_char(bookkeeping.journal_entries.timestamp,
-                          period_interval_name) AS p
+            LOOP
+              FOR period_name IN
+                SELECT period FROM (
+                  SELECT to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) AS period
                     FROM bookkeeping.journal_entries
-                    WHERE bookkeeping.journal_entries.timestamp >= new.timestamp LOOP
-                  PERFORM bookkeeping.update_trial_balance(
-                        new.debit_subaccount,
-                        period_interval_name,
-                        period_name.p);
-                  PERFORM bookkeeping.update_trial_balance(
-                        new.credit_subaccount,
-                        period_interval_name,
-                        period_name.p);
-                END LOOP periods_loop;
-              END LOOP period_interval_loop;
-            RETURN new;
+                    WHERE timestamp >= affected_since
+                  UNION
+                  SELECT period FROM bookkeeping.trial_balances
+                    WHERE period_interval = period_interval_name
+                ) affected_periods
+                WHERE period >= to_char(affected_since AT TIME ZONE 'UTC', period_interval_name)
+              LOOP
+                IF NOT EXISTS (
+                  SELECT 1 FROM bookkeeping.journal_entries
+                  WHERE to_char(timestamp AT TIME ZONE 'UTC', period_interval_name) = period_name
+                ) THEN
+                  DELETE FROM bookkeeping.trial_balances
+                    WHERE period_interval = period_interval_name
+                      AND period = period_name;
+                ELSE
+                  -- A new global period needs a carried-forward row for every
+                  -- account with earlier activity, even if the new entry does
+                  -- not mention that account. Existing rows only need updating
+                  -- for accounts touched by this journal mutation.
+                  FOR subaccount_name IN
+                    SELECT DISTINCT account FROM (
+                      SELECT unnest(affected_subaccounts) AS account
+                      UNION
+                      SELECT debit_subaccount AS account
+                        FROM bookkeeping.journal_entries entry
+                        WHERE to_char(entry.timestamp AT TIME ZONE 'UTC', period_interval_name) <= period_name
+                          AND NOT EXISTS (
+                            SELECT 1 FROM bookkeeping.trial_balances balance
+                            WHERE balance.subaccount = entry.debit_subaccount
+                              AND balance.period_interval = period_interval_name
+                              AND balance.period = period_name)
+                      UNION
+                      SELECT credit_subaccount AS account
+                        FROM bookkeeping.journal_entries entry
+                        WHERE to_char(entry.timestamp AT TIME ZONE 'UTC', period_interval_name) <= period_name
+                          AND NOT EXISTS (
+                            SELECT 1 FROM bookkeeping.trial_balances balance
+                            WHERE balance.subaccount = entry.credit_subaccount
+                              AND balance.period_interval = period_interval_name
+                              AND balance.period = period_name)
+                    ) accounts_to_update
+                  LOOP
+                    IF EXISTS (
+                      SELECT 1 FROM bookkeeping.journal_entries entry
+                      WHERE (entry.debit_subaccount = subaccount_name
+                             OR entry.credit_subaccount = subaccount_name)
+                        AND to_char(entry.timestamp AT TIME ZONE 'UTC',
+                                    period_interval_name) <= period_name
+                    ) THEN
+                      PERFORM bookkeeping.update_trial_balance(
+                        subaccount_name, period_interval_name, period_name);
+                    ELSE
+                      DELETE FROM bookkeeping.trial_balances
+                        WHERE subaccount = subaccount_name
+                          AND period_interval = period_interval_name
+                          AND period = period_name;
+                    END IF;
+                  END LOOP;
+                END IF;
+              END LOOP;
+            END LOOP;
+            IF TG_OP = 'DELETE' THEN
+              RETURN OLD;
+            END IF;
+            RETURN NEW;
           END;
         $$
         SECURITY DEFINER
+        SET search_path = pg_catalog, bookkeeping
         LANGUAGE  plpgsql;
         """)
 
@@ -139,7 +255,7 @@ def create_trial_balances_trigger_function():
         DROP TRIGGER IF EXISTS subaccount_insert_trigger
             ON bookkeeping.journal_entries;
         CREATE TRIGGER subaccount_insert_trigger
-            AFTER INSERT OR UPDATE
+            AFTER INSERT OR UPDATE OR DELETE
             ON bookkeeping.journal_entries
             FOR EACH ROW
             EXECUTE PROCEDURE bookkeeping.subaccount_insert_triggered();
@@ -150,21 +266,30 @@ def create_ofx_views():
     db.engine.execute("""
     CREATE OR REPLACE VIEW ofx.transactions
       AS SELECT
-        concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id) AS id,
+        identity.public_id AS id,
         ofx.stmttrn.dtposted AS date,
         ofx.stmttrn.trnamt AS amount,
         concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
         ofx.stmttrn.trntype AS type,
         ofx.acctfrom.name AS account,
         ofx.stmttrn.acctfrom_id AS account_id,
-        bookkeeping.journal_entries.id AS journal_entry_id,
-        bookkeeping.journal_entries.debit_subaccount AS debit_subaccount,
-        bookkeeping.journal_entries.credit_subaccount AS credit_subaccount
+        posted.id AS journal_entry_id,
+        posted.debit_subaccount AS debit_subaccount,
+        posted.credit_subaccount AS credit_subaccount
       FROM ofx.stmttrn
-      LEFT OUTER JOIN bookkeeping.journal_entries
-        ON bookkeeping.journal_entries.transaction_id
-              = concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id)
-          AND bookkeeping.journal_entries.transaction_source = 'ofx'
+      JOIN bookkeeping.ofx_source_identities identity
+        ON identity.acctfrom_id=ofx.stmttrn.acctfrom_id AND identity.fitid=ofx.stmttrn.fitid
+      LEFT OUTER JOIN (
+        SELECT association.source_id, min(journal.id) AS id,
+               (CASE WHEN count(*) = 1 THEN min(debit_subaccount)
+                    ELSE '[split]' END)::varchar AS debit_subaccount,
+               (CASE WHEN count(*) = 1 THEN min(credit_subaccount)
+                    ELSE '[split]' END)::varchar AS credit_subaccount
+        FROM bookkeeping.journal_entries journal
+        JOIN bookkeeping.ofx_journal_sources association ON association.journal_entry_id=journal.id
+        WHERE transaction_source = 'ofx'
+        GROUP BY association.source_id
+      ) posted ON posted.source_id=identity.source_id
       JOIN ofx.acctfrom
         ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
       ORDER BY ofx.stmttrn.dtposted DESC;
@@ -255,11 +380,14 @@ def create_amazon_views():
     CREATE OR REPLACE VIEW amazon.amazon_transactions
     AS SELECT
       amazon.items.*,
-      bookkeeping.journal_entries.id AS journal_entry_id
+      posted.id AS journal_entry_id
     FROM amazon.items
-    LEFT OUTER JOIN bookkeeping.journal_entries
-      ON cast(amazon.items.id AS CHARACTER VARYING) = bookkeeping.journal_entries.transaction_id
-        AND bookkeeping.journal_entries.transaction_source = 'amazon'
+    LEFT OUTER JOIN (
+      SELECT transaction_id, min(id) AS id
+      FROM bookkeeping.journal_entries
+      WHERE transaction_source = 'amazon'
+      GROUP BY transaction_id
+    ) posted ON cast(amazon.items.id AS CHARACTER VARYING) = posted.transaction_id
     ORDER BY amazon.items.shipment_date DESC;
     """)
 
@@ -279,11 +407,16 @@ def create_bookkeeping_views():
         CASE bookkeeping.journal_entries.transaction_source
           WHEN 'ofx' THEN concat(ofx.stmttrn.name, ofx.stmttrn.memo)
           WHEN 'amazon' THEN amazon.items.title
-        END AS description
+        END AS description,
+        bookkeeping.journal_entries.mapping_id AS mapping_id,
+        bookkeeping.journal_entries.mapping_decision AS mapping_decision
     FROM bookkeeping.journal_entries
+    LEFT OUTER JOIN bookkeeping.ofx_journal_sources association
+      ON association.journal_entry_id=bookkeeping.journal_entries.id
+    LEFT OUTER JOIN bookkeeping.ofx_source_identities identity
+      ON identity.source_id=association.source_id
     LEFT OUTER JOIN ofx.stmttrn
-      ON concat(ofx.stmttrn.fitid, ofx.stmttrn.acctfrom_id)
-                  = bookkeeping.journal_entries.transaction_id
+      ON identity.acctfrom_id=ofx.stmttrn.acctfrom_id AND identity.fitid=ofx.stmttrn.fitid
       AND bookkeeping.journal_entries.transaction_source = 'ofx'
     LEFT OUTER JOIN amazon.items
       ON cast(amazon.items.id AS CHARACTER VARYING)
@@ -296,6 +429,43 @@ def create_bookkeeping_views():
 
 
 def create_mappings_views():
+    # Both sides use the same literal matcher. Percent and underscore in merchant
+    # descriptions are ordinary text, as in mapping_resolution.description_matches.
+    db.engine.execute("""
+    CREATE OR REPLACE FUNCTION admin.mapping_description_matches(
+        description text, keyword text, match_mode text)
+    RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+    DECLARE
+        lowered text := lower(description);
+        -- Python str.split() recognizes these Unicode whitespace characters,
+        -- including NBSP, which libc/POSIX space classes need not recognize.
+        whitespace text := chr(9)||chr(10)||chr(11)||chr(12)||chr(13)||
+            chr(28)||chr(29)||chr(30)||chr(31)||chr(32)||chr(133)||chr(160)||
+            chr(5760)||chr(8192)||chr(8193)||chr(8194)||chr(8195)||chr(8196)||
+            chr(8197)||chr(8198)||chr(8199)||chr(8200)||chr(8201)||chr(8202)||
+            chr(8232)||chr(8233)||chr(8239)||chr(8287)||chr(12288);
+        terms text[] := regexp_split_to_array(translate(lower(keyword), whitespace,
+                                                    repeat(' ', char_length(whitespace))), ' +');
+        term text;
+        offset_position integer := 1;
+        term_position integer;
+        has_term boolean := false;
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM unnest(terms) value WHERE value <> '') THEN
+            RETURN false;
+        END IF;
+        IF match_mode = 'exact' THEN RETURN lowered = lower(keyword); END IF;
+        IF match_mode <> 'keyword' THEN RETURN false; END IF;
+        FOREACH term IN ARRAY terms LOOP
+            IF term = '' THEN CONTINUE; END IF;
+            has_term := true;
+            term_position := strpos(substr(lowered, offset_position), term);
+            IF term_position = 0 THEN RETURN false; END IF;
+            offset_position := offset_position + term_position - 1 + char_length(term);
+        END LOOP;
+        RETURN has_term;
+    END $$;
+    """)
     db.engine.execute("""
     CREATE OR REPLACE VIEW admin.mapping_overlaps
     AS SELECT DISTINCT
@@ -306,40 +476,23 @@ def create_mappings_views():
       mappings_table_2.keyword AS mapping_keyword_2,
       mappings_table_2.source AS source
     FROM ofx.stmttrn
+    JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
     JOIN admin.mappings mappings_table_1
-      ON lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
-        LIKE '%%' || array_to_string(regexp_split_to_array(
-                        lower(mappings_table_1.keyword), E'\\\s+'
-                        ), '%%') || '%%'
+      ON admin.mapping_description_matches(concat(ofx.stmttrn.name, ofx.stmttrn.memo),
+                                           mappings_table_1.keyword, mappings_table_1.match_mode)
         AND mappings_table_1.source = 'ofx'
+        AND (CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_1.positive_debit_subaccount_id
+                  ELSE mappings_table_1.negative_credit_subaccount_id END IS NULL
+             OR CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_1.positive_debit_subaccount_id
+                     ELSE mappings_table_1.negative_credit_subaccount_id END = ofx.acctfrom.name)
     JOIN admin.mappings mappings_table_2
-      ON lower(concat(ofx.stmttrn.name, ofx.stmttrn.memo))
-        LIKE '%%' || array_to_string(regexp_split_to_array(
-                        lower(mappings_table_2.keyword), E'\\\s+'
-                        ), '%%')  || '%%'
-        AND mappings_table_1.keyword != mappings_table_2.keyword
+      ON admin.mapping_description_matches(concat(ofx.stmttrn.name, ofx.stmttrn.memo),
+                                           mappings_table_2.keyword, mappings_table_2.match_mode)
+        AND mappings_table_1.id < mappings_table_2.id
         AND mappings_table_2.source = 'ofx'
+        AND (CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_2.positive_debit_subaccount_id
+                  ELSE mappings_table_2.negative_credit_subaccount_id END IS NULL
+             OR CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_2.positive_debit_subaccount_id
+                     ELSE mappings_table_2.negative_credit_subaccount_id END = ofx.acctfrom.name)
     ORDER BY description;
     """)
-
-    # Todo: have view updates propagate to underlying physical tables
-    # try:
-    #     db.engine.execute('DROP RULE admin.ofx_mapping_overlaps_keyword_1_update_rule')
-    # except ProgrammingError:
-    #     pass
-    # db.engine.execute("""
-    # CREATE RULE ofx_mapping_overlaps_keyword_1_update_rule AS
-    # ON UPDATE TO admin.ofx_mapping_overlaps WHERE NEW.mapping_keyword_1 <> OLD.mapping_keyword_1
-    #     DO INSTEAD UPDATE admin.mappings SET keyword = NEW.mapping_keyword_1 WHERE id = NEW.mapping_id_1;
-    # """)
-    #
-    # try:
-    #     db.engine.execute('DROP RULE admin.ofx_mapping_overlaps_keyword_2_update_rule')
-    # except ProgrammingError:
-    #     pass
-    # db.engine.execute("""
-    # CREATE RULE ofx_mapping_overlaps_keyword_2_update_rule AS
-    # ON UPDATE TO admin.ofx_mapping_overlaps WHERE NEW.mapping_keyword_2 <> OLD.mapping_keyword_2
-    #     DO INSTEAD UPDATE admin.mappings SET keyword = NEW.mapping_keyword_2 WHERE id = NEW.mapping_id_2;
-    # """)
-

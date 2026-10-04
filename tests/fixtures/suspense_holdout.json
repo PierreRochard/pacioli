@@ -1,0 +1,418 @@
+[
+  {
+    "id": "case-01",
+    "input": {
+      "examples": [
+        {
+          "description": "SLACK TECHNOLOGIES SUBSCRIPTION",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Software Subscriptions"
+  },
+  {
+    "id": "case-02",
+    "input": {
+      "examples": [
+        {
+          "description": "DROPBOX CLOUD STORAGE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Software Subscriptions"
+  },
+  {
+    "id": "case-03",
+    "input": {
+      "examples": [
+        {
+          "description": "FINANCIAL TIMES DIGITAL",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Books and Publications"
+  },
+  {
+    "id": "case-04",
+    "input": {
+      "examples": [
+        {
+          "description": "NEW YORK TIMES SUBSCRIPTION",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Books and Publications"
+  },
+  {
+    "id": "case-05",
+    "input": {
+      "examples": [
+        {
+          "description": "CEDAR ORTHOPEDIC CLINIC",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Medical Out of Pocket"
+  },
+  {
+    "id": "case-06",
+    "input": {
+      "examples": [
+        {
+          "description": "WILLOW PEDIATRIC VISIT",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Medical Out of Pocket"
+  },
+  {
+    "id": "case-07",
+    "input": {
+      "examples": [
+        {
+          "description": "ASPEN DRY CLEANING SERVICE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Household Services"
+  },
+  {
+    "id": "case-08",
+    "input": {
+      "examples": [
+        {
+          "description": "BIRCH COFFEE HOUSE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Restaurants"
+  },
+  {
+    "id": "case-09",
+    "input": {
+      "examples": [
+        {
+          "description": "SAFEWAY SUPERMARKET",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Groceries"
+  },
+  {
+    "id": "case-10",
+    "input": {
+      "examples": [
+        {
+          "description": "IC* TRADER JOES GROCERY",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Groceries"
+  },
+  {
+    "id": "case-11",
+    "input": {
+      "examples": [
+        {
+          "description": "CITY ELECTRIC UTILITY BILL",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Electricity"
+  },
+  {
+    "id": "case-12",
+    "input": {
+      "examples": [
+        {
+          "description": "RESIDENTIAL TRASH COLLECTION",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Waste Disposal"
+  },
+  {
+    "id": "case-13",
+    "input": {
+      "examples": [
+        {
+          "description": "CELLULAR MONTHLY SERVICE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Cell Phone"
+  },
+  {
+    "id": "case-14",
+    "input": {
+      "examples": [
+        {
+          "description": "DOMAIN REGISTRATION RENEWAL",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Domain Names"
+  },
+  {
+    "id": "case-15",
+    "input": {
+      "examples": [
+        {
+          "description": "AUTOMATIC PAYMENT THANK YOU CARD",
+          "sign": "credit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Transfer Clearing"
+  },
+  {
+    "id": "case-16",
+    "input": {
+      "examples": [
+        {
+          "description": "AMERICAN EXPRESS ACH PMT",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Transfer Clearing"
+  },
+  {
+    "id": "case-17",
+    "input": {
+      "examples": [
+        {
+          "description": "TRANSFER BETWEEN MY BANK ACCOUNTS",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Transfer Clearing"
+  },
+  {
+    "id": "case-18",
+    "input": {
+      "examples": [
+        {
+          "description": "EMPLOYER WAGE DEPOSIT",
+          "sign": "credit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Salary"
+  },
+  {
+    "id": "case-19",
+    "input": {
+      "examples": [
+        {
+          "description": "CAFE LUNCH REFUND",
+          "sign": "credit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Restaurants"
+  },
+  {
+    "id": "case-20",
+    "input": {
+      "examples": [
+        {
+          "description": "TARGET GENERAL MERCHANDISE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-21",
+    "input": {
+      "examples": [
+        {
+          "description": "WALMART STORE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-22",
+    "input": {
+      "examples": [
+        {
+          "description": "APPLE SERVICES BILLING",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-23",
+    "input": {
+      "examples": [
+        {
+          "description": "DELIVERY PLATFORM PURCHASE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-24",
+    "input": {
+      "examples": [
+        {
+          "description": "ELECTRIC COMPANY HOME INSTALLATION",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-25",
+    "input": {
+      "examples": [
+        {
+          "description": "LOAN PAYMENT",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-26",
+    "input": {
+      "examples": [
+        {
+          "description": "PAYROLL DISBURSEMENT",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-27",
+    "input": {
+      "examples": [
+        {
+          "description": "VENMO TO NEIGHBOR",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-28",
+    "input": {
+      "examples": [
+        {
+          "description": "MEDICAL CROWDFUNDING FUND",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-29",
+    "input": {
+      "examples": [
+        {
+          "description": "WALGREENS STORE",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-30",
+    "input": {
+      "examples": [
+        {
+          "description": "INSURANCE PAYMENT UNSPECIFIED",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-31",
+    "input": {
+      "examples": [
+        {
+          "description": "REIMBURSEMENT DEPOSIT",
+          "sign": "credit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "case-32",
+    "input": {
+      "examples": [
+        {
+          "description": "TEMPLE MEMBERSHIP OR TUITION",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  }
+]

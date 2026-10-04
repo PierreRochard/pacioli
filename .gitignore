@@ -43,6 +43,12 @@ env*
 
 venv
 venv2
+.venv/
+.env
+.local/
+# Host-specific deployment files (LAN addresses, proxy layout)
+deploy/
+.pytest_cache/
 
 aws_config.py
 
@@ -64,4 +70,3 @@ adhoc.py
 
 logs
 gunicorn_configuration.py
-

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 2,
+  "name": "Pacioli Local Amazon Reader",
+  "version": "0.1.0",
+  "description": "Read order receipts from the Amazon tab you select and save them to your local Pacioli database.",
+  "browser_specific_settings": {"gecko": {"id": "amazon-local@pacioli.lan", "strict_min_version": "126.0"}},
+  "permissions": ["activeTab", "nativeMessaging", "https://www.amazon.com/*"],
+  "background": {"scripts": ["background.js"]},
+  "browser_action": {"default_title": "Use this Amazon orders tab with Pacioli"},
+  "content_security_policy": "script-src 'self'; object-src 'none'; connect-src 'none'"
+}

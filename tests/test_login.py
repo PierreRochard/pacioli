@@ -1,31 +1,18 @@
-#! ../env/bin/python
-# -*- coding: utf-8 -*-
+def test_administrator_can_log_in(client, admin_user):
+    response = client.post('/login/', data={
+        'email': admin_user['email'],
+        'password': admin_user['password'],
+    }, follow_redirects=False)
 
-import pytest
+    assert response.status_code == 302
+    assert client.get('/roles/').status_code == 200
 
-create_user = True
 
+def test_wrong_password_does_not_log_in(client, admin_user):
+    response = client.post('/login/', data={
+        'email': admin_user['email'],
+        'password': 'incorrect',
+    }, follow_redirects=False)
 
-@pytest.mark.usefixtures("testapp")
-class TestLogin:
-    def test_login(self, testapp):
-        """ Tests if the login form functions """
-
-        rv = testapp.post('/login', data=dict(
-            username='admin',
-            password="supersafepassword"
-        ), follow_redirects=True)
-
-        assert rv.status_code == 200
-        assert 'Logged in successfully.' in str(rv.data)
-
-    def test_login_fail(self, testapp):
-        """ Tests if the login form fails correctly """
-
-        rv = testapp.post('/login', data=dict(
-            username='admin',
-            password=""
-        ), follow_redirects=True)
-
-        assert rv.status_code == 200
-        assert 'Invalid username or password' in str(rv.data)
+    assert response.status_code == 200
+    assert client.get('/roles/').status_code == 302

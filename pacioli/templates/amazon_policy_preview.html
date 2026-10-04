@@ -1,0 +1,45 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<style>
+.amazon-policy-preview { max-width: 1050px; overflow-wrap: anywhere; }
+.amazon-policy-preview .money { white-space: nowrap; text-align: right; }
+.amazon-policy-preview .table td, .amazon-policy-preview .table th { vertical-align: top; }
+.amazon-policy-preview .btn { white-space: normal; }
+</style>
+<main class="amazon-policy-preview">
+<h2>Preview your Amazon answer</h2>
+<p><a href="{{ url_for('.amazon_policy_questions',plan_id=plan_id) }}">Review current classifications</a>. This receipt records the answer as originally saved; it is not a live posting status.</p>
+<p>{% if already_confirmed or stale %}<a href="{{ url_for('.amazon_policy_history',plan_id=plan_id) }}">Back to current questions</a>{% else %}<a href="{{ url_for('.amazon_policy_history',plan_id=plan_id,question_key=question.key) }}">Back to this question</a>{% endif %} · <a href="{{ url_for('.amazon_suspense',plan_id=plan_id) }}">Suspense workbench</a></p>
+{% if stale %}<div class="alert alert-warning">The sources, ledger, policy or saved answers changed after this preview. Return to the question and create a fresh preview before saving.</div>{% endif %}
+{% if posting_active and not already_confirmed %}<div class="alert alert-warning">A posting is queued or running. Wait for it to finish, then create a fresh preview before saving.</div>{% endif %}
+<section class="well" aria-labelledby="answer-preview-heading">
+<h3 id="answer-preview-heading">{{ question.title }}</h3>
+<p><strong>Your proposed direction:</strong> {{ choice.label }}</p>
+<p>{{ choice.explanation }}</p>
+<p><strong>Scope:</strong> {% if scope == 'this_item' %}This purchase only{% elif scope == 'future' %}Selected purchases and guidance for future reviews{% else %}Selected purchases only{% endif %}.</p>
+{% if scope == 'future' %}<p>Future guidance supports review; it does not classify purchases or post automatically.</p>{% endif %}
+{% if parameters %}<p><strong>Threshold:</strong> {{ parameters.threshold_amount }} USD · {% if parameters.threshold_basis == 'separate_item' %}Each independent item{% else %}The complete assembly or project{% endif %}.</p>{% endif %}
+{% if custom_text %}<p><strong>Your explanation:</strong></p><p style="white-space: pre-wrap">{{ custom_text }}</p>{% endif %}
+<p><strong>{{ count }} exact purchases · {{ amount }} USD including recorded adjustments</strong></p>
+<p><strong>Journal impact now: 0.00 USD.</strong> Saving this answer preserves the current classifications and balances.</p>
+{% if status == 'deferred' %}<p>After saving: deferred; these purchases stay in suspense.</p>
+{% elif status == 'saved_context_pending_review' %}<p>After saving: saved; needs individual accounting review.</p>
+{% else %}<p>After saving: saved; needs accounting implementation and review.</p>{% endif %}
+<h4>What remains before these purchases can be posted</h4>
+{% if next_steps is string %}<p>{{ next_steps }}</p>{% else %}<ul>{% for step in next_steps %}<li>{{ step }}</li>{% endfor %}</ul>{% endif %}
+</section>
+<div class="table-responsive"><table class="table table-striped"><caption>Only these exact purchase occurrences are included in this answer.</caption><thead><tr><th scope="col">Purchase</th><th scope="col">Quantity</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Source evidence</th></tr></thead><tbody>
+{% for item in items %}<tr><th scope="row">{{ item.title }}</th><td>{{ item.quantity }}</td><td class="money">{{ item.amount }}</td><td>{% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %}<br>{% endif %}{% endfor %}
+<details><summary>Cost components</summary>{% for component in item.components %}<p>{{ component.kind|replace('_',' ')|capitalize }}: {{ component.amount }} USD</p>{% endfor %}</details></td></tr>{% endfor %}
+</tbody><tfoot><tr><th scope="row" colspan="2">Selected purchase total</th><td class="money">{{ amount }}</td><td></td></tr></tfoot></table></div>
+{% if already_confirmed %}<div class="alert alert-success">This answer is already saved. Reopening this receipt changes nothing.</div><p><a class="btn btn-primary" href="{{ url_for('.amazon_policy_history',plan_id=plan_id) }}">Continue to the next question</a></p>
+{% else %}<form method="post">
+<input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+<input type="hidden" name="action" value="confirm">
+<input type="hidden" name="preview_id" value="{{ preview_id }}">
+<input type="hidden" name="token" value="{{ token }}">
+<button class="btn btn-primary" {% if stale or posting_active %}disabled{% endif %}>{% if status == 'deferred' %}Save deferral and continue{% else %}Save answer and continue{% endif %}</button>
+<a class="btn btn-default" href="{{ url_for('.amazon_policy_history',plan_id=plan_id,question_key=question.key if not stale else none) }}">Return without saving</a>
+</form>{% endif %}
+</main>
+{% endblock %}

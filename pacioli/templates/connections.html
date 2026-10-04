@@ -2,10 +2,18 @@
 
 {% block model_menu_bar_after_filters %}
     <li>
-        <a href="{{ url_for('connections.sync_connections') }}">
-        Sync
-        </a>
+        <form action="{{ url_for('connections.sync_connections') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+            <button type="submit">Sync direct OFX</button>
+        </form>
     </li>
+    <li><a href="{{ url_for('connections.import_chase') }}">Import Chase QFX</a></li>
+    <li><form action="{{ url_for('connections.chase_local') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <button type="submit" name="action" value="update">Update Chase</button>
+    </form></li>
+    <li><a href="{{ url_for('connections.chase_browser') }}">Supervised Chase connection</a></li>
+    <li><a href="{{ url_for('connections.schwab_connection') }}">Schwab connection</a></li>
 {% endblock %}
 
 {% block body %}

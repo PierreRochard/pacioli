@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create your Pacioli administrator</title>
+  <style nonce="{{ nonce }}">
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 0; background: #f4f6f8; color: #182536; }
+    main { max-width: 29rem; margin: 9vh auto; padding: 2rem; background: white;
+           border: 1px solid #d9e0e8; border-radius: 12px; box-shadow: 0 8px 24px #18253612; }
+    h1 { margin: 0 0 .5rem; font-size: 1.6rem; }
+    p { line-height: 1.5; }
+    label { display: block; font-weight: 600; margin-top: 1.2rem; }
+    input { box-sizing: border-box; width: 100%; margin-top: .35rem; padding: .7rem;
+            border: 1px solid #8290a3; border-radius: 6px; font: inherit; }
+    button { width: 100%; margin-top: 1.5rem; padding: .8rem; border: 0;
+             border-radius: 6px; background: #174a7c; color: white;
+             font: inherit; font-weight: 700; cursor: pointer; }
+    .error { color: #a21926; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Create your administrator account</h1>
+    <p>This one-time link sets up the first Pacioli administrator. Choose a password of at least 16 characters.</p>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <p id="missing-token" class="error" hidden>This setup link is missing its token.</p>
+    <form id="setup-form" method="post" action="{{ url_for('setup_admin') }}" hidden>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="token" id="setup-token" value="{{ token }}">
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" value="{{ email }}" autocomplete="email" required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="16" required>
+      <label for="confirm_password">Confirm password</label>
+      <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="16" required>
+      <button type="submit">Create administrator</button>
+    </form>
+  </main>
+  <script nonce="{{ nonce }}">
+    const field = document.getElementById('setup-token');
+    if (location.hash.length > 1) {
+      field.value = location.hash.slice(1);
+      history.replaceState(null, '', location.pathname);
+    }
+    document.getElementById('setup-form').hidden = !field.value;
+    document.getElementById('missing-token').hidden = !!field.value;
+  </script>
+</body>
+</html>

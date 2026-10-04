@@ -2,9 +2,10 @@
 
 {% block model_menu_bar_before_filters %}
     <li>
-    <a href="{{ get_url('banking/transactions.apply_all_mappings_view') }}" title="Apply All Mappings">
-        Apply All Mappings
-    </a>
+    <form action="{{ get_url('banking/transactions.apply_all_mappings_view') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+        <button type="submit" title="Apply All Mappings">Apply All Mappings</button>
+    </form>
     </li>
     <li>
     <a href="{{ get_url('banking/transactions.index_view', flt3_58=1) }}" title="Apply All Mappings">
@@ -17,6 +18,7 @@
     {% if search %}
         <li>
             <form  action="{{ url_for('banking/transactions.index_view')}}" method="POST"  class="form-inline">
+                <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
                 <div class="form-group">
                     {{ new_mapping_form.subaccount() }}
                 </div>
@@ -30,14 +32,16 @@
             </a>
             <ul class="dropdown-menu">
                 <li>
-                    <a href="{{ url_for('banking/transactions.favorite', expense_account='Restaurants', keyword=search) }}">
-                        Restaurant
-                    </a>
+                    <form action="{{ url_for('banking/transactions.favorite', expense_account='Restaurants', keyword=search) }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+                        <button type="submit">Restaurant</button>
+                    </form>
                 </li>
                 <li>
-                    <a href="{{ url_for('banking/transactions.favorite', expense_account='Groceries', keyword=search) }}">
-                        Groceries
-                    </a>
+                    <form action="{{ url_for('banking/transactions.favorite', expense_account='Groceries', keyword=search) }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+                        <button type="submit">Groceries</button>
+                    </form>
                 </li>
             </ul>
         </li>

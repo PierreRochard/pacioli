@@ -1,11 +1,311 @@
 {% extends 'admin/master.html' %}
+
+{% block head_css %}
+{{ super() }}
+<style>
+  .home { --ink: #1f2933; --muted: #637083; --line: #e3e7ed; --card: #fff; --wash: #f6f8fb;
+          --blue: #2f6fdf; --green: #17803d; --red: #c2352b; --amber: #b86e00;
+          color: var(--ink); padding-bottom: 32px; }
+  .home h1 { font-size: 28px; font-weight: 600; margin: 8px 0 2px; }
+  .home h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; text-transform: uppercase;
+             letter-spacing: .04em; color: var(--muted); }
+  .home .muted { color: var(--muted); }
+  .home .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .home .up { color: var(--green); } .home .down { color: var(--red); }
+  .home-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end;
+               gap: 12px; margin-bottom: 20px; }
+  .home-head .btn { margin-left: 6px; }
+  .home-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+               padding: 18px 20px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+  .home-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+                gap: 16px; margin-bottom: 16px; }
+  .home-tile .label { font-size: 13px; color: var(--muted); }
+  .home-tile .value { font-size: 30px; font-weight: 650; line-height: 1.2; margin: 4px 0 6px; }
+  .home-tile .note { font-size: 13px; }
+  .home-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px;
+               margin-bottom: 16px; }
+  @media (max-width: 991px) { .home-grid { grid-template-columns: minmax(0, 1fr); } }
+  .home svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .home svg text { font-size: 11px; fill: var(--muted); }
+  .home svg .grid { stroke: var(--line); }
+  .home svg .point { fill: var(--blue); stroke: #fff; stroke-width: 2; }
+  .home svg .income { fill: var(--green); } .home svg .spending { fill: #e8833a; }
+  .home svg a:hover rect, .home svg a:focus rect { opacity: .75; }
+  .home-legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .home-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+                   margin-right: 6px; vertical-align: -1px; }
+  .home-tasks { list-style: none; margin: 0; padding: 0; }
+  .home-tasks li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0;
+                   border-top: 1px solid var(--line); }
+  .home-tasks li:first-child { border-top: 0; padding-top: 0; }
+  .home-tasks .badge-count { flex: 0 0 auto; min-width: 42px; text-align: center; border-radius: 6px;
+                             padding: 4px 6px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .home-tasks .danger { background: #fdecea; color: var(--red); }
+  .home-tasks .warning { background: #fff4e0; color: var(--amber); }
+  .home-tasks .info { background: #e8f0fd; color: var(--blue); }
+  .home-tasks .muted-badge { background: var(--wash); color: var(--muted); }
+  .home-tasks .task-title { font-weight: 600; }
+  .home-tasks .task-detail { font-size: 13px; color: var(--muted); }
+  .home-clear { text-align: center; padding: 26px 0 18px; color: var(--muted); }
+  .home-clear .check { font-size: 34px; color: var(--green); line-height: 1; }
+  .home-bars { list-style: none; margin: 0; padding: 0; }
+  .home-bars li { margin-bottom: 11px; }
+  .home-bars .row-line { display: flex; justify-content: space-between; font-size: 14px; }
+  .home-bars .track { height: 8px; background: var(--wash); border-radius: 4px; margin-top: 4px; }
+  .home-bars .fill { height: 8px; background: #e8833a; border-radius: 4px; }
+  .home-bars .other .fill { background: #c9ced6; }
+  .home-table { margin: 0; }
+  .home-table > thead > tr > th { border-bottom: 1px solid var(--line); color: var(--muted);
+                                  font-weight: 600; font-size: 13px; }
+  .home-table > tbody > tr > td { border-top: 1px solid var(--line); vertical-align: middle; }
+  .home-pill { display: inline-block; font-size: 12px; border-radius: 10px; padding: 1px 8px; }
+  .home-pill.fresh { background: #e7f5ec; color: var(--green); }
+  .home-pill.aging { background: #fff4e0; color: var(--amber); }
+  .home-pill.stale { background: #fdecea; color: var(--red); }
+  .home-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .home-links a { display: block; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+                  color: var(--ink); text-decoration: none; background: var(--card); }
+  .home-links a:hover, .home-links a:focus { border-color: var(--blue); background: #f5f8ff; }
+  .home-links strong { display: block; }
+  .home-links span { font-size: 12px; color: var(--muted); }
+  .home-welcome { max-width: 560px; margin: 60px auto; text-align: center; }
+  .home-welcome .mark { font-size: 44px; font-weight: 700; letter-spacing: -.02em; }
+  .home-welcome p { font-size: 16px; color: var(--muted); margin: 10px 0 24px; }
+  .sr-only-focusable:focus { position: static; }
+  @media print {
+    .navbar, .home-head .btn, .home-links { display: none !important; }
+    .home-card { box-shadow: none; break-inside: avoid; }
+  }
+</style>
+{% endblock %}
+
 {% block body %}
 {{ super() }}
-<div class="container">
-    <div class="row">
-        <div class="col-sm-10 col-sm-offset-1">
-            <h1>Welcome</h1>
-        </div>
+<div class="home">
+{% if report %}
+  {% set month = report.month %}
+  {% set previous = report.previous %}
+  {% set this_month = month_name(report.period, '%B') %}
+  {% set last_month = month_name(previous.period, '%B') %}
+  {% set hour = now.hour %}
+  <header class="home-head">
+    <div>
+      <h1>Good {{ 'morning' if hour < 12 else 'afternoon' if hour < 18 else 'evening' }}</h1>
+      <div class="muted">
+        {{ now.strftime('%A, %B %-d, %Y') }}
+        {% if report.latest_entry %} · Ledger through {{ report.latest_entry.strftime('%b %-d, %Y') }}{% else %} · No journal entries yet{% endif %}
+      </div>
     </div>
+    <div>
+      <a class="btn btn-default" href="{{ url_for('connections.chase_browser') }}">
+        {% if chase_active %}Chase sync running…{% else %}Sync Chase{% endif %}</a>
+      <a class="btn btn-default" href="{{ url_for('reconciliation.index_view') }}">Reconcile</a>
+      <a class="btn btn-primary" href="{{ url_for('cash-flows.index_view') }}">Cash flows</a>
+    </div>
+  </header>
+
+  <section class="home-tiles" aria-label="Headline figures">
+    <div class="home-card home-tile">
+      <div class="label">Net worth</div>
+      <div class="value num">{{ dollars(month.net_worth) }}</div>
+      <div class="note">
+        {% set change = report.net_worth_change %}
+        {% if change %}<span class="{{ 'up' if change > 0 else 'down' }} num">{{ '▲' if change > 0 else '▼' }} {{ dollars(change|abs) }}</span>
+        <span class="muted">since the end of {{ last_month }}</span>
+        {% else %}<span class="muted">Unchanged since the end of {{ last_month }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="home-card home-tile">
+      <div class="label">Cash on hand</div>
+      <div class="value num">{{ dollars(month.cash) }}</div>
+      <div class="note muted">Assets {{ dollars(month.assets) }} · Liabilities {{ dollars(month.liabilities) }}</div>
+    </div>
+    <div class="home-card home-tile">
+      <div class="label">{{ this_month }} income</div>
+      <div class="value num">{{ dollars(month.income) }}</div>
+      <div class="note muted">{{ dollars(previous.income) }} in {{ last_month }}</div>
+    </div>
+    <div class="home-card home-tile">
+      <div class="label">{{ this_month }} spending</div>
+      <div class="value num">{{ dollars(month.spending) }}</div>
+      <div class="note">
+        {% if month.income > 0 %}
+          {% set rate = (month.net_income / month.income * 100)|round|int %}
+          <span class="{{ 'up' if rate >= 0 else 'down' }}">{{ 'Saved' if rate >= 0 else 'Overspent' }} {{ rate|abs }}%</span>
+          <span class="muted">of income so far</span>
+        {% else %}<span class="muted">{{ dollars(previous.spending) }} in {{ last_month }}</span>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  <div class="home-grid">
+    <section class="home-card" aria-labelledby="home-net-worth">
+      <h2 id="home-net-worth">Net worth · last 12 months</h2>
+      {% set c = net_worth_chart %}
+      <svg viewBox="0 0 {{ c.width }} {{ c.height }}" role="img"
+           aria-label="Net worth at each month end, from {{ dollars(c.points[0].value) }} in {{ c.points[0].label }} to {{ dollars(c.points[-1].value) }} in {{ c.points[-1].label }}">
+        <defs><linearGradient id="home-area" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#2f6fdf" stop-opacity=".22"/><stop offset="1" stop-color="#2f6fdf" stop-opacity="0"/>
+        </linearGradient></defs>
+        {% for tick in c.ticks %}
+          <line class="grid" x1="{{ c.left }}" x2="{{ c.right }}" y1="{{ tick.y }}" y2="{{ tick.y }}"/>
+          <text x="{{ c.left - 8 }}" y="{{ tick.y + 4 }}" text-anchor="end">{{ tick.label }}</text>
+        {% endfor %}
+        <path d="{{ c.area }}" fill="url(#home-area)"/>
+        <polyline points="{{ c.line }}" fill="none" stroke="#2f6fdf" stroke-width="2.5" stroke-linejoin="round"/>
+        {% for p in c.points %}
+          <a href="{{ url_for('balance-sheet.index_view', period_interval='YYYY-MM', period=p.period) }}">
+            <title>{{ month_name(p.period, '%B %Y') }}: {{ dollars(p.value) }}</title>
+            <circle class="point" cx="{{ p.x }}" cy="{{ p.y }}" r="{{ 5 if loop.last else 3.5 }}"/>
+          </a>
+          <text x="{{ p.x }}" y="{{ c.height - 8 }}" text-anchor="middle">{{ p.label }}</text>
+        {% endfor %}
+      </svg>
+    </section>
+
+    <section class="home-card" aria-labelledby="home-attention">
+      <h2 id="home-attention">Needs your attention</h2>
+      {% if attention %}
+        <ul class="home-tasks">
+        {% for item in attention %}
+          <li>
+            <span class="badge-count {{ 'muted-badge' if item.tone == 'muted' else item.tone }}">{{ item.count }}</span>
+            <div>
+              <div class="task-title">{{ item.title }}</div>
+              <div class="task-detail">{{ item.detail }}</div>
+              <a href="{{ item.href }}">{{ item.action }} →</a>
+            </div>
+          </li>
+        {% endfor %}
+        </ul>
+      {% else %}
+        <div class="home-clear">
+          <div class="check" aria-hidden="true">✓</div>
+          <p><strong>All caught up.</strong><br>Every transaction is categorized and every transfer is matched.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="home-grid">
+    <section class="home-card" aria-labelledby="home-flows">
+      <h2 id="home-flows">Income and spending by month</h2>
+      {% set f = flow_chart %}
+      <svg viewBox="0 0 {{ f.width }} {{ f.height }}" role="img" aria-label="Monthly income and spending for the last 12 months">
+        {% for tick in f.ticks %}
+          <line class="grid" x1="{{ f.left }}" x2="{{ f.right }}" y1="{{ tick.y }}" y2="{{ tick.y }}"/>
+          <text x="{{ f.left - 8 }}" y="{{ tick.y + 4 }}" text-anchor="end">{{ tick.label }}</text>
+        {% endfor %}
+        {% for g in f.groups %}
+          <a href="{{ url_for('income-statements.index_view', period_interval='YYYY-MM', period=g.period) }}">
+            <title>{{ month_name(g.period, '%B %Y') }}: income {{ dollars(g.bars[0].value) }}, spending {{ dollars(g.bars[1].value) }}</title>
+            {% for b in g.bars %}<rect class="{{ b.kind }}" x="{{ b.x }}" y="{{ b.y }}" width="{{ f.bar }}" height="{{ b.height }}" rx="2"/>{% endfor %}
+          </a>
+          <text x="{{ g.x }}" y="{{ f.height - 8 }}" text-anchor="middle">{{ g.label }}</text>
+        {% endfor %}
+        <line x1="{{ f.left }}" x2="{{ f.right }}" y1="{{ f.zero }}" y2="{{ f.zero }}" stroke="#aab2bd"/>
+      </svg>
+      <div class="home-legend"><span><i style="background:#17803d"></i>Income</span><span><i style="background:#e8833a"></i>Spending</span></div>
+    </section>
+
+    <section class="home-card" aria-labelledby="home-spending">
+      <h2 id="home-spending">Where {{ this_month }}'s money went</h2>
+      {% if report.spending %}
+        {% set largest = report.spending | map(attribute='amount') | max %}
+        <ul class="home-bars">
+        {% for row in report.spending %}
+          <li class="{{ 'other' if row.other }}">
+            <div class="row-line"><span>{{ row.name | replace(' Expense', '') }}</span><span class="num">{{ dollars(row.amount) }}</span></div>
+            <div class="track"><div class="fill" style="width: {{ (row.amount / largest * 100)|round(1) }}%"></div></div>
+          </li>
+        {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No categorized spending yet this month.</p>
+      {% endif %}
+      {% if report.month_suspense.entries %}
+        <p class="muted small">Plus {{ report.month_suspense.entries }} suspense
+          {{ 'entry' if report.month_suspense.entries == 1 else 'entries' }} this month not yet categorized.</p>
+      {% endif %}
+      <a href="{{ url_for('income-statements.index_view', period_interval='YYYY-MM', period=report.period) }}">Full income statement →</a>
+    </section>
+  </div>
+
+  <section class="home-card" aria-labelledby="home-accounts" style="margin-bottom: 16px">
+    <h2 id="home-accounts">Accounts</h2>
+    {% if report.accounts %}
+    <div class="table-responsive">
+      <table class="table home-table">
+        <thead><tr><th scope="col">Account</th><th scope="col">Type</th>
+          <th scope="col" class="text-right">Ledger balance</th>
+          <th scope="col" class="text-right">Bank reported</th><th scope="col">Latest activity</th></tr></thead>
+        <tbody>
+        {% for account in report.accounts %}
+          {% set age = days_since(account.newest, report.now) %}
+          <tr>
+            <td><a href="{{ url_for('journalentries.index_view', subaccount=account.name, period_interval='YYYY-MM', period=report.period, cumulative='balance-sheet') }}">{{ account.name }}</a></td>
+            <td class="muted">{{ account.kind }}</td>
+            <td class="text-right num">{% if account.ledger_balance is none %}—{% else %}{{ dollars(account.ledger_balance) }}{% endif %}</td>
+            <td class="text-right num">
+              {% if account.bank_balance is not none %}{{ dollars(account.bank_balance) }}
+                <div class="muted small">as of {{ account.bank_balance_asof.strftime('%b %-d') }}</div>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if age is none %}<span class="muted">No activity</span>
+              {% else %}
+                <span class="home-pill {{ 'fresh' if age <= 7 else 'aging' if age <= 30 else 'stale' }}">
+                  {{ 'today' if age == 0 else 'yesterday' if age == 1 else age ~ ' days ago' }}</span>
+                <span class="muted small">{{ account.transactions }} transactions</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="muted">No bank or card feeds yet. <a href="{{ url_for('connections.chase_browser') }}">Connect Chase</a> or
+        <a href="{{ url_for('connections.import_chase') }}">import a QFX file</a>.</p>
+    {% endif %}
+    {% if report.chase %}
+      <p class="muted small" style="margin: 10px 0 0">Last Chase sync:
+        {{ report.chase.status | replace('_', ' ') }}{% if report.chase.finished_at %},
+        {{ report.chase.finished_at.astimezone().strftime('%b %-d at %-I:%M %p') }}{% endif %}{% if report.chase.imported_count %}
+        · {{ report.chase.imported_count }} new transactions{% endif %}.</p>
+    {% endif %}
+  </section>
+
+  <section class="home-card" aria-labelledby="home-links">
+    <h2 id="home-links">Go to</h2>
+    <nav class="home-links">
+      <a href="{{ url_for('balance-sheet.index_view') }}"><strong>Balance sheet</strong><span>What you own and owe</span></a>
+      <a href="{{ url_for('income-statements.index_view') }}"><strong>Income statement</strong><span>Earnings and expenses by period</span></a>
+      <a href="{{ url_for('cash-flows.index_view') }}"><strong>Cash flows</strong><span>Direct-method cash statement</span></a>
+      <a href="{{ url_for('journalentries.index_view') }}"><strong>Journal entries</strong><span>Every posting in the ledger</span></a>
+      <a href="{{ url_for('banking/transactions.index_view') }}"><strong>Bank transactions</strong><span>Imported OFX and QFX activity</span></a>
+      <a href="{{ url_for('reconciliation.index_view') }}"><strong>Reconciliation</strong><span>Statements and opening balances</span></a>
+      <a href="{{ url_for('reconciliation.amazon') }}"><strong>Amazon workbench</strong><span>Orders, receipts, and item splits</span></a>
+      <a href="{{ url_for('mappings.index_view') }}"><strong>Mappings</strong><span>Merchant to category rules</span></a>
+    </nav>
+  </section>
+
+{% elif failed %}
+  <div class="alert alert-danger" role="alert" style="margin-top: 20px">
+    <strong>The dashboard figures could not be calculated.</strong>
+    The error was logged on the server. The menus above still work.
+  </div>
+{% elif current_user.is_authenticated %}
+  <div class="home-welcome">
+    <div class="mark">pacio.li</div>
+    <p>Your account does not have access to the books. Ask an administrator to grant it.</p>
+  </div>
+{% else %}
+  <div class="home-welcome">
+    <div class="mark">pacio.li</div>
+    <p>Personal double-entry accounting that runs on your own hardware.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('security.login') }}">Sign in</a>
+  </div>
+{% endif %}
 </div>
 {% endblock body %}

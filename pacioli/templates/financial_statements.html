@@ -30,4 +30,9 @@
 {% block body %}
     <h2>{{ period }} {{ dict(period_intervals)[period_interval] }} {{ admin_view.name }}</h2>
     {{ super() }}
+    {% if footer_row %}
+    <p class="statement-total"><strong>{{ footer_row.subaccount }}</strong>:
+        {{ footer_row.net_changes if footer_row.net_changes is defined else footer_row.net_balance }}
+    </p>
+    {% endif %}
 {% endblock %}

@@ -1,0 +1,195 @@
+{% extends 'admin/master.html' %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">{% endmacro %}
+{% block body %}
+<h2>Accounting reconciliation</h2>
+<nav aria-label="Accounting workbench">
+<a href="{{ url_for('.index_view') }}">Statements and openings</a> ·
+<a href="{{ url_for('.transfers') }}">Transfers</a> ·
+<a href="{{ url_for('.share_moves') }}">Schwab share moves</a> ·
+<a href="{{ url_for('.amazon') }}">Amazon item evidence</a> ·
+<a href="{{ url_for('.amazon_items') }}">Amazon item classification</a> ·
+<a href="{{ url_for('.amazon_suspense') }}">Resolve Amazon suspense</a> ·
+<a href="{{ url_for('.reviews') }}">Merchant review queue</a> ·
+<a href="{{ url_for('.evaluation') }}">Qwen evaluation</a></nav><hr>
+
+{% if tab == 'statements' %}
+<p>Balances are signed: cash is positive; card debt is negative. Statement closing balances include the entire closing date. Historical QFX snapshots remain visible separately.</p>
+<table class="table"><tr><th>Account</th><th>Opening evidence</th></tr>
+{% for a in accounts %}<tr><td>{{ a.name }}</td><td>
+{% if a.id in openings %}{{ openings[a.id].amount }} before {{ openings[a.id].cutover }} · adopted by {{ openings[a.id].reviewer }}
+{% else %}<form method="get"> <input type="hidden" name="account" value="{{ a.id }}"><label>Cutover <input type="date" required name="cutover" value="{{ a.first_date or '' }}"></label> <button class="btn btn-default">Preview statement opening</button></form>{% endif %}
+</td></tr>{% endfor %}</table>
+{% if preview %}<div class="well"><h3>Opening preview: {{ preview.account }}</h3><p>{{ preview.amount }} before {{ preview.cutover }}. {{ 'Directly documented beginning balance.' if preview.directly_documented else 'Calculated from statement closing balances and covered imported activity.' }}</p>
+<table class="table"><tr><th>Statement closes</th><th>Closing balance</th><th>Imported movement</th><th>Implied opening</th></tr>{% for c in preview.checks %}<tr><td>{{ c.end }}</td><td>{{ c.closing }}</td><td>{{ c.movement }}</td><td>{{ c.implied_opening }}</td></tr>{% endfor %}</table>
+<form method="post" action="{{ url_for('.opening') }}">{{ csrf() }}<input type="hidden" name="account" value="{{ preview.account_id }}"><input type="hidden" name="cutover" value="{{ preview.cutover }}"><input type="hidden" name="digest" value="{{ preview.digest }}"><button class="btn btn-primary">Adopt this opening balance</button></form></div>{% endif %}
+<h3>Statement reconciliation</h3><table class="table table-striped"><tr><th>Account / period</th><th>Statement</th><th>Book balance</th><th>Difference</th><th>Coverage and evidence</th></tr>
+{% for c in checks %}<tr><td>{{ c.account }}<br>{{ c.start }} – {{ c.end }}</td><td>{{ c.closing }}</td><td>{{ c.booked }}</td><td>{{ c.difference }}</td><td>{{ 'Full period export coverage' if c.full_coverage else 'Partial period coverage' }}<br>{{ c.details.verification }}<br><a href="{{ url_for('.document',identifier=c.evidence_id) }}">Download statement</a></td></tr>{% endfor %}</table>
+<details open><summary>Historical QFX snapshots ({{ snapshots|length }} different from day close)</summary>
+<p>A downloaded balance can precede transactions later posted on its labeled date. Each explanation requires the original files, a reconciled statement, complete coverage, exact source amounts, and a later balance. Approval records that specific cutoff; it changes no bank data or journals.</p>
+{% for s in snapshots %}<div class="well"><strong>{{ s.subaccount }} · {{ s.as_of }}</strong><p>Original bank balance {{ s.bank_balance }} · End-of-day book balance {{ s.booked }} · {{ 'Reviewed cutoff; evidence still validates' if s.reviewed else 'Unresolved' }} {{ s.problem or '' }}</p>
+{% if s.candidate %}{% set p=s.candidate %}<p>The original export contains none of this date’s {{ p.same_day_count }} transactions (net {{ p.same_day_movement }}). A later export contains every intervening transaction and its balance {{ p.later_balance }} agrees with the ledger. The statement ending {{ p.statement_end }} anchors the calculation. This supports a balance before this date’s activity; it does not establish Chase’s intraday processing time.</p>
+<details><summary>Calculation and source references</summary><pre>{{ p|tojson(indent=2) }}</pre></details>
+<form method="post" action="{{ url_for('.snapshot') }}">{{ csrf() }}{% for key in ('original_id','witness_id','statement_id','digest') %}<input type="hidden" name="{{ key }}" value="{{ p[key] }}">{% endfor %}<label>Independent evidence review <input name="reason" class="form-control" required maxlength="2000"></label><button class="btn btn-primary">Record this cutoff explanation</button></form>{% endif %}</div>{% endfor %}
+{% for review in snapshot_reviews %}<details><summary>Snapshot review {{ review.id }} · {% if review.superseded_by %}Superseded by review {{ review.superseded_by }}{% else %}{{ 'Validated' if review.valid else 'Needs renewed review' }}{% endif %} · {{ review.proof.account }}</summary><p>{{ review.problem or 'Original balances retained. The audit recalculates this evidence on every run.' }} · Reviewed by {{ review.reviewer }}</p><pre>{{ review.proof|tojson(indent=2) }}</pre></details>{% endfor %}</details>
+<details><summary>Import a reviewed statement</summary><p>Attach the original PDF and verify the account identity, dates and signed balances against it.</p>
+<form method="post" enctype="multipart/form-data" action="{{ url_for('.statement') }}">{{ csrf() }}
+<label>Account <select name="account_id" required>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></label>
+<label>Period starts <input type="date" name="start" required></label><label>Period ends <input type="date" name="end" required></label><br>
+<label>Beginning balance <input type="number" step="0.01" name="opening" required></label>
+<label>Signed net movement <input type="number" step="0.01" name="movement" required></label>
+<label>Ending balance <input type="number" step="0.01" name="closing" required></label><br>
+<label>Original PDF <input type="file" name="pdf" accept="application/pdf" required></label>
+<label>How you verified the account and amounts <textarea class="form-control" name="verification" required></textarea></label><br>
+<button class="btn btn-default">Import evidence</button></form></details>
+
+{% elif tab == 'transfers' %}
+<p>{{ resolved }} journal legs are linked to verified counterparts. Equal amounts and nearby dates suggest candidates; verify both descriptions and account ownership before matching. Unmatched legs remain provisional.</p>
+<details open><summary>All unresolved transfer legs ({{ unresolved|length }})</summary>
+<p>A missing counterpart may require another account’s transaction history or evidence of the payment’s purpose. It does not establish an expense or authorize a match.</p>
+<table class="table table-striped"><tr><th>Date / journal</th><th>Account</th><th>Bank description</th><th>Signed movement</th><th>Next review</th></tr>{% for l in unresolved %}<tr><td>{{ l.date[:10] }} / {{ l.journal_id }}</td><td>{{ l.account }}</td><td>{{ l.description }}</td><td>{{ l.amount }}</td><td>{{ l.status }}</td></tr>{% else %}<tr><td colspan="5">No unresolved clearing legs.</td></tr>{% endfor %}</table></details>
+<h3>Possible counterpart matches</h3>
+{% for p in pairs %}<div class="well"><strong>{{ 'Unique candidate' if p.unique else 'Ambiguous: other equal-amount candidates exist' }}</strong>{% if p.internal_move %} · Same-day move between cash buckets of one Schwab account (for example a sweep){% endif %}<table class="table">{% for l in p.legs %}<tr><td>{{ l.date[:10] }}</td><td>{{ l.account }}</td><td>{{ l.description }}</td><td>{{ l.amount }}</td></tr>{% endfor %}</table>
+<form method="post" action="{{ url_for('.transfer') }}">{{ csrf() }}<input type="hidden" name="left" value="{{ p.legs[0].journal_id }}"><input type="hidden" name="right" value="{{ p.legs[1].journal_id }}"><input type="hidden" name="digest" value="{{ p.digest }}"><label>Evidence that these are the same transfer <input class="form-control" name="reason" required maxlength="2000"></label> <button class="btn btn-primary">Confirm counterpart match</button></form></div>{% else %}<p>No unmatched counterpart candidates within five days.</p>{% endfor %}
+
+{% elif tab == 'share_moves' %}
+<p>Schwab rows that move shares with no cash amount. Shares that leave and re-enter the same account on the same
+  day offset each other and post nothing automatically. The groups below need a decision. Local Qwen proposes a classification from the description and
+  facts computed by Pacioli. Only a <em>memo</em> (a notice with no economic effect) can be approved here. Other
+  moves stay flagged until their cost basis is known.</p>
+<p>Run <code>scripts/schwab_share_moves.py propose --apply</code> to ask Qwen about new groups.</p>
+<table class="table table-striped"><tr><th>Action / symbol / description</th><th>Direction / rows</th><th>Facts</th><th>Qwen proposal</th><th>Decision</th></tr>
+{% for g in groups %}<tr><td>{{ g.action }}<br>{{ g.symbol }}<br>{{ g.description }}</td>
+<td>{{ g.direction }} / {{ g.facts.row_count }} in {{ g.facts.accounts }} account(s)</td>
+<td><small>{% for k, v in g.facts|dictsort %}{% if k not in ('direction', 'row_count', 'accounts') %}{{ k|replace('_', ' ') }}: {{ v }}<br>{% endif %}{% endfor %}</small></td>
+<td>{% if g.proposal %}<strong>{{ (g.proposal.classification or 'invalid answer')|replace('_', ' ') }}</strong>{% if g.stale %} (facts changed since; ask again){% endif %}<br>{{ g.proposal.reason or '' }}{% if g.proposal.validation_errors %}<br><small>Rejected: {{ g.proposal.validation_errors|join(', ') }}</small>{% endif %}{% else %}Not asked yet{% endif %}</td>
+<td>{% if g.approvable %}<form method="post" action="{{ url_for('.share_moves') }}">{{ csrf() }}<input type="hidden" name="proposal" value="{{ g.proposal.id }}"><input class="form-control" name="reason" required maxlength="2000" placeholder="Why these rows have no economic effect"><button class="btn btn-primary">Approve memo rule</button></form>{% else %}Stays flagged{% endif %}</td></tr>
+{% else %}<tr><td colspan="5">No share moves await review.</td></tr>{% endfor %}</table>
+
+{% elif tab == 'amazon' %}
+<h3>Amazon CSV exports</h3>
+<p>Download all evidence currently stored in Pacioli:
+<a href="{{ url_for('.amazon_export',export_name='all.zip') }}">All CSVs (ZIP)</a> ·
+<a href="{{ url_for('.amazon_export',export_name='receipts.csv') }}">Receipts</a> ·
+<a href="{{ url_for('.amazon_export',export_name='verified_items.csv') }}">Verified item lines</a> ·
+<a href="{{ url_for('.amazon_export',export_name='journal_allocations.csv') }}">Booked allocations</a>.
+Downloads include every saved row, even when the page shows only the most recent records.</p>
+<h4>Import Amazon’s full order-data export</h4>
+<p>Use <a href="https://www.amazon.com/hz/privacy-central/data-requests/preview.html" target="_blank" rel="noopener noreferrer">Amazon’s Request Your Data page</a> and choose Your Orders. After Amazon prepares the download, upload its original ZIP or order CSV here. Original bytes and every CSV row are preserved encrypted, including repeated items. Imported source snapshots require settlement review before booking.</p>
+<form method="post" enctype="multipart/form-data">{{ csrf() }}<input type="hidden" name="action" value="import_archive"><label>Amazon export (CSV or ZIP, up to 64 MiB) <input type="file" name="archive" accept=".csv,.zip" required></label> <button class="btn btn-primary">Import Amazon export</button></form>
+{% for archive in archives %}<details><summary>{{ archive.body.filename }} · {{ archive.body.tables|length }} CSV files · evidence {{ archive.id }}</summary>
+<p><a href="{{ url_for('.amazon_source',identifier=archive.id) }}">Download original export (exact bytes)</a>. Source evidence saved; this import creates no journal entries.</p>
+<table class="table"><tr><th>File</th><th>Rows</th><th>Distinct orders</th><th>CSV</th></tr>{% for table in archive.body.tables %}<tr><td>{{ table.filename }}</td><td>{{ table.rows }}</td><td>{{ table.orders if table.orders is not none else 'No order ID column' }}</td><td><a href="{{ url_for('.amazon_table',identifier=table.evidence_id) }}">Download for review</a></td></tr>{% endfor %}</table>
+{% if archive.body.unparsed_members %}<details><summary>{{ archive.body.unparsed_members|length }} other files preserved in the original archive</summary><p>Delivery photos and other non-CSV files are retained without accounting interpretation.</p><ul>{% for name in archive.body.unparsed_members %}<li>{{ name }}</li>{% endfor %}</ul></details>{% endif %}
+</details>{% endfor %}
+<hr>
+<section aria-labelledby="amazon-settlement-review">
+<h3 id="amazon-settlement-review">Match the export to bank transactions</h3>
+<p>Review purchase and refund records against imported bank activity. A unique candidate identifies a possible settlement; it does not approve a match or classify the purchase. Creating a review saves evidence and leaves journals unchanged.</p>
+{% if archives %}
+<form method="post">{{ csrf() }}<input type="hidden" name="action" value="reconcile_archive">
+<label for="amazon-review-archive">Source export</label>
+<select id="amazon-review-archive" name="archive_id" required>
+{% for archive in archives %}<option value="{{ archive.id }}" {% if archive_review.report and archive_review.report.body.archive_id == archive.id %}selected{% endif %}>{{ archive.body.filename }} · evidence {{ archive.id }}</option>{% endfor %}
+</select> <button class="btn btn-primary">Review bank matches</button></form>
+{% else %}<p>Import Amazon’s export above to create a settlement review.</p>{% endif %}
+{% if archive_review.report %}
+{% set match_report = archive_review.report %}{% set match_body = match_report.body %}{% set status_labels = dict(archive_review.statuses) %}
+<h4>Review {{ match_report.id }} · {{ match_body.archive_filename }}</h4>
+<p>{{ match_body.summary.records }} purchase/refund records reviewed · {{ match_body.summary.unmatched_bank }} Amazon bank transactions without a candidate in this export.<br>
+<a href="{{ url_for('.amazon_source',identifier=match_body.archive_id) }}">Original source export</a> ·
+<a href="{{ url_for('.amazon_reconciliation_csv',identifier=match_report.id) }}">Download full settlement review (CSV)</a> ·
+<a href="{{ url_for('.amazon_reconciliation_csv',identifier=match_report.id,part='unmatched_bank') }}">Bank transactions without source candidates (CSV)</a> ·
+<a href="{{ url_for('.amazon_reconciliation_csv',identifier=match_report.id,part='exclusions') }}">Excluded source rows (CSV)</a></p>
+<p>Matches reflect saved source data; review against current bank records before booking. Purchase amounts are positive and refunds negative. Bank cash movements have the opposite sign.</p>
+<table class="table table-condensed"><caption>Review outcomes</caption><thead><tr><th scope="col">Status</th><th scope="col">Records</th></tr></thead><tbody>
+{% for key,label in archive_review.statuses %}<tr><th scope="row"><a href="{{ url_for('.amazon',reconciliation_id=match_report.id,match_status=key) }}#amazon-settlement-review">{{ label }}</a></th><td>{{ match_body.summary.status_counts.get(key,0) }}</td></tr>{% endfor %}
+</tbody></table>
+{% if match_body.summary.exclusion_counts %}<details><summary>Source rows excluded from matching</summary><ul>{% for key,count in match_body.summary.exclusion_counts|dictsort %}<li>{{ key|replace('_',' ')|capitalize }}: {{ count }}</li>{% endfor %}</ul></details>{% endif %}
+{% if match_body.normalization_summary %}{% set coverage = match_body.normalization_summary %}
+<details><summary>Source coverage and interpretation</summary>
+<p>{{ coverage.input_rows }} source rows reviewed: {{ coverage.normalized_rows }} used to assemble {{ coverage.records }} purchase/refund records; {{ coverage.excluded_rows }} excluded from matching.
+{{ coverage.eligible_records }} records are eligible for bank matching and {{ coverage.blocked_records }} need further source evidence.</p>
+{% if coverage.by_kind %}<table class="table table-condensed"><caption>Purchase and refund records assembled from the source</caption><thead><tr><th scope="col">Record type</th><th scope="col">Records</th></tr></thead><tbody>
+{% for kind,counts in coverage.by_kind|dictsort %}<tr><th scope="row">{{ kind|replace('_',' ')|capitalize }}</th><td>{{ counts.records }}</td></tr>{% endfor %}
+</tbody></table>{% endif %}
+{% if coverage.blockers_by_reason %}<p>Reasons additional source evidence is needed (a record may have more than one):</p><ul>{% for reason,count in coverage.blockers_by_reason|dictsort %}<li>{{ reason|replace('_',' ')|capitalize }}: {{ count }}</li>{% endfor %}</ul>{% endif %}
+</details>{% endif %}
+<form method="get" action="{{ url_for('.amazon') }}#amazon-settlement-review">
+<input type="hidden" name="reconciliation_id" value="{{ match_report.id }}">
+<label for="amazon-match-status">Show</label> <select id="amazon-match-status" name="match_status"><option value="">All outcomes</option>
+{% for key,label in archive_review.statuses %}<option value="{{ key }}" {% if archive_review.selected_status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+</select> <button class="btn btn-default">Filter review</button></form>
+<p>{{ archive_review.total }} records · Page {{ archive_review.page }} of {{ archive_review.pages }}</p>
+{% for record in archive_review.rows %}
+<details class="well"><summary><strong>{{ status_labels.get(record.status,record.status|replace('_',' ')|capitalize) }}</strong> · {{ record.kind|replace('_',' ')|capitalize }} {{ record.amount }} {{ record.currency }} · {{ record.date or 'Date unavailable' }} · Order {{ record.order_id }}</summary>
+<p>{% if record.card_last4 %}Payment card ending {{ record.card_last4 }}.{% else %}Payment card unavailable in this source.{% endif %}</p>
+{% if record.reasons %}<ul>{% for reason in record.reasons %}<li>{{ reason }}</li>{% endfor %}</ul>{% endif %}
+{% if record.blockers %}<p><strong>Evidence needed before settlement review:</strong></p><ul>{% for blocker in record.blockers %}<li>{{ blocker|replace('_',' ')|capitalize }}</li>{% endfor %}</ul>{% endif %}
+{% if record.lines %}<div class="table-responsive"><table class="table table-condensed"><caption>Source item and adjustment lines</caption><thead><tr><th scope="col">Item / adjustment</th><th scope="col">Kind</th><th scope="col">Amount</th><th scope="col">Source rows</th></tr></thead><tbody>
+{% for line in record.lines %}<tr><td>{{ line.title }}</td><td>{{ line.kind|replace('_',' ')|capitalize }}</td><td>{{ line.amount }} {{ record.currency }}</td><td>{% for source in line.source_rows %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}
+</tbody></table></div>{% endif %}
+{% if record.candidates %}<div class="table-responsive"><table class="table table-condensed"><caption>Possible bank settlements</caption><thead><tr><th scope="col">Date / source transaction</th><th scope="col">Account</th><th scope="col">Signed bank amount</th><th scope="col">Current allocation</th></tr></thead><tbody>
+{% for candidate in record.candidates %}<tr><td>{{ candidate.date }}<br>{{ candidate.id }}</td><td>{{ candidate.account }}</td><td>{{ candidate.amount }} {{ record.currency }}</td><td>{{ candidate.category or 'No category recorded' }}{% if candidate.suspense %}<br>Pending in suspense{% endif %}{% if candidate.existing_bundle_id %}<br>Previously allocated to bundle {{ candidate.existing_bundle_id }}{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p>No bank settlement candidate recorded.</p>{% endif %}
+{% if record.source_rows %}<p>Original evidence: {% for source in record.source_rows %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>{% endif %}
+<p>Verify the settlement identity and item categories before using the item-allocation workflow below. Ambiguous or incomplete evidence stays unresolved.</p>
+</details>{% else %}<p>No records with this outcome.</p>{% endfor %}
+<nav aria-label="Amazon settlement review pages">
+{% if archive_review.page > 1 %}<a href="{{ url_for('.amazon',reconciliation_id=match_report.id,match_status=archive_review.selected_status,match_page=archive_review.page-1) }}#amazon-settlement-review">Previous page</a>{% endif %}
+{% if archive_review.page > 1 and archive_review.page < archive_review.pages %} · {% endif %}
+{% if archive_review.page < archive_review.pages %}<a href="{{ url_for('.amazon',reconciliation_id=match_report.id,match_status=archive_review.selected_status,match_page=archive_review.page+1) }}#amazon-settlement-review">Next page</a>{% endif %}
+</nav>
+{% else %}<p>No export settlement review has been saved yet.</p>{% endif %}
+</section>
+<hr>
+<h3>Collect from signed-in Firefox</h3>
+<p>Open Amazon’s Your Orders page, select the history range, and click the Pacioli Local Amazon Reader toolbar button. If its button is hidden, use Firefox menu → Extensions → Pacioli Local Amazon Reader; its badge should say ON. Collection saves encrypted receipts locally. Sign-in or unexpected pages pause for your attention. Review item and settlement evidence below before booking.</p>
+<details><summary>Reader missing from Firefox?</summary>
+<p>Temporary readers must be loaded again after Firefox restarts. Open <code>about:debugging#/runtime/this-firefox</code>, choose <strong>Load Temporary Add-on…</strong>, and select <code>manifest.json</code> in Pacioli’s <code>extensions/amazon-local</code> folder. In the file picker, Ctrl+L lets you enter the full path. Press Enter to locate the file, then choose <strong>Select</strong> to load it. Return to Amazon Your Orders and select the reader from Firefox’s Extensions menu.</p>
+</details>
+<form method="post">{{ csrf() }}<input type="hidden" name="action" value="collect"><button class="btn btn-primary">Collect Amazon receipts</button></form>
+<p id="amazon-progress" role="status">{% if runs %}{{ runs[0].state }}: {{ runs[0].progress }}{% else %}No collection started.{% endif %}</p>
+<script>(function(){let last=null;setInterval(function(){fetch({{ url_for('.amazon_status')|tojson }},{cache:'no-store'}).then(r=>r.json()).then(d=>{if(!d.run)return;document.getElementById('amazon-progress').textContent=d.run.state+': '+d.run.progress;if(last==='running' && d.run.state!=='running')location.reload();last=d.run.state;});},2000);})();</script>
+<details><summary>Captured receipts ({{ receipts|length }} most recent)</summary>
+{% for receipt in receipts %}<details><summary>Order {{ receipt.body.order_id }} · evidence {{ receipt.id }}</summary><pre style="white-space:pre-wrap">{{ receipt.body.text }}</pre>
+<p>Review one shipment charge or refund at a time. Use its stable shipment/refund identifier and preserve item identities, including repeated titles. Include tax, shipping and discounts as separate lines.</p>
+<form method="post">{{ csrf() }}<input type="hidden" name="action" value="receipt_items"><input type="hidden" name="receipt" value="{{ receipt.id }}">
+<label>Shipment/refund ID <input name="bundle_id" required></label><label>Charge/refund date <input type="date" name="date" required></label>
+<div class="receipt-lines"><div class="receipt-line"><label>Line ID <input name="line" required></label><label>Kind <select name="kind"><option>item</option><option>tax</option><option>shipping</option><option>discount</option><option>refund</option></select></label><label>Exact receipt title/label <input name="title" required></label><label>Signed amount <input name="line_amount" type="number" step="0.01" required></label></div></div>
+<button type="button" class="btn btn-default add-receipt-line">Add item line</button><label>Verification <input name="reason" required placeholder="Verified shipment amount and item totals"></label><button class="btn btn-default">Save verified items</button></form></details>{% endfor %}</details>
+<script>document.querySelectorAll('.add-receipt-line').forEach(function(button){button.addEventListener('click',function(){let rows=button.previousElementSibling;let row=rows.firstElementChild.cloneNode(true);row.querySelectorAll('input').forEach(i=>i.value='');rows.appendChild(row);});});</script>
+<hr>
+<p>Import shipment charges and refunds with stable line IDs. Repeated titles remain separate. Item totals, tax, shipping and discounts must equal the existing bank settlement exactly. This workflow replaces its suspense allocation and retains the audit history.</p>
+<details><summary>CSV format</summary><pre>bundle_id,line_id,order_id,date,kind,title,amount,currency
+shipment-1,item-1,order-1,2026-09-01,item,Book,20.00,USD
+shipment-1,tax-1,order-1,2026-09-01,tax,Sales tax,1.65,USD
+refund-1,refund-line-1,order-1,2026-09-10,refund,Book refund,-21.65,USD</pre><p>One bundle represents one shipment charge or refund. Preserve the provider's identifiers. Adapt the downloaded report to these columns; do not invent item details from bank descriptions. Allocation amounts are positive even for refunds, which reverse the chosen expense/asset.</p></details>
+<form method="post" enctype="multipart/form-data">{{ csrf() }}<input type="hidden" name="action" value="import"><label>Item evidence CSV <input type="file" name="csv" accept=".csv" required></label><button class="btn btn-default">Import items and refunds</button></form>
+{% if preview %}<div class="well"><h3>Review allocation</h3><p>{{ preview.source.description }} · {{ preview.source.amount }} · {{ preview.source.date }}</p><table class="table">{% for allocation in preview.allocations %}<tr><td>{{ allocation.category }}</td><td>{{ allocation.amount }}</td></tr>{% endfor %}</table><form method="post">{{ csrf() }}<input type="hidden" name="action" value="book"><input type="hidden" name="preview" value="{{ preview|tojson|forceescape }}"><label>Evidence and allocation reason <input name="reason" required maxlength="2000"></label> <button class="btn btn-primary">Book this allocation</button></form></div>{% endif %}
+{% for b in bundles %}<div class="well"><h3>{{ b.body.bundle_id }}</h3><table class="table">{% for l in b.body.lines %}<tr><td>{{ l.date }}</td><td>{{ l.kind }}</td><td>{{ l.title }}</td><td>{{ l.amount }}</td></tr>{% endfor %}</table>{% if b.transaction %}<p>Reconciled to bank transaction {{ b.transaction }}</p>{% else %}<form method="post">{{ csrf() }}<input type="hidden" name="action" value="preview"><input type="hidden" name="bundle" value="{{ b.id }}"><label>Bank settlement <select name="transaction" required>{% for c in b.candidates %}<option value="{{ c.id }}">{{ c.date }} · {{ c.account }} · {{ c.description }} · {{ c.amount }}</option>{% endfor %}</select></label><br><div class="allocation-rows"><div class="allocation-row"><label>Category <select name="category" required><option value="">Choose…</option>{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select></label> <label>All-in amount <input name="amount" type="number" min="0.01" step="0.01" required></label></div></div><button type="button" class="btn btn-default add-allocation">Add category split</button><br><button class="btn btn-default" {% if not b.candidates %}disabled{% endif %}>Preview allocation</button></form>{% if not b.candidates %}<p>No exact settlement candidate. Check partial shipments, refunds and export coverage.</p>{% endif %}{% endif %}</div>{% endfor %}
+
+<script>document.querySelectorAll('.add-allocation').forEach(function(button){button.addEventListener('click',function(){var rows=button.previousElementSibling;var row=rows.firstElementChild.cloneNode(true);row.querySelector('input').value='';row.querySelector('select').value='';rows.appendChild(row);});});</script>
+
+{% elif tab == 'reviews' %}
+<p>Review literal description rules and every journal they affect. Verified facts need an evidence source. Qwen makes suggestions locally; each posting requires an independent decision.</p>
+<table class="table"><tr><th>Exact descriptor</th><th>Entries / gross movement</th><th>Verified merchant fact</th></tr>{% for m in queue %}<tr><td>{{ m.keyword }}</td><td>{{ m.entries }} / {{ m.amount }}</td><td><form method="post" action="{{ url_for('.review_new') }}">{{ csrf() }}<input type="hidden" name="mapping" value="{{ m.id }}"><input name="fact" placeholder="Optional verified purpose" maxlength="4000"><input name="source" placeholder="Source of this fact" maxlength="1000"><button class="btn btn-default">Open review</button></form></td></tr>{% endfor %}</table>
+{% if page>1 %}<a href="{{ url_for('.reviews',page=page-1) }}">Previous</a> · {% endif %}<a href="{{ url_for('.reviews',page=page+1) }}">Next page</a>
+<h3>Recent reviews</h3><ul>{% for r in review_rows %}<li><a href="{{ url_for('.review',identifier=r.id) }}">Review {{ r.id }}</a> · {{ r.state }}</li>{% endfor %}</ul>
+
+{% elif tab == 'review' %}
+<h3>Review {{ row.id }} · <span id="review-state">{{ row.state }}</span></h3>
+<p><strong>Exact rule:</strong> {{ snapshot.mappings[0].keyword }}. Approval applies to all {{ snapshot.journals|length }} linked journals and future transactions with this exact descriptor. If purposes differ, leave this rule pending and use item allocations.</p>
+<p>Verified fact: {{ facts.text or 'None supplied' }} · Source: {{ facts.source }} · Verified by: {{ facts.verified_by }}</p>
+<details open><summary>Bank evidence ({{ snapshot.sources|length }} transactions)</summary><table class="table"><tr><th>Date</th><th>Account</th><th>Description</th><th>Amount</th></tr>{% for s in snapshot.sources %}<tr><td>{{ s.date[:10] }}</td><td>{{ s.account }}</td><td>{{ s.description }}</td><td>{{ s.amount }}</td></tr>{% endfor %}</table></details>
+{% if proposal %}<h4>Local Qwen proposal</h4><pre>{{ proposal.get('answer',proposal)|tojson(indent=2) }}</pre>{% if proposal.get('validation_errors') %}<div class="alert alert-danger">Rejected by validation: {{ proposal.validation_errors|join(', ') }}. Do not treat this as supported evidence.</div>{% endif %}{% endif %}
+{% if row.state != 'approved' %}<form method="post">{{ csrf() }}<input type="hidden" name="action" value="suggest"><button class="btn btn-default" {% if row.state in ('queued','running') %}disabled{% endif %}>Ask local Qwen</button></form><hr>
+<form method="post">{{ csrf() }}<input type="hidden" name="action" value="approve"><label>Independently verified category <select name="category" required><option value="">Choose…</option>{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select></label><br><label>Evidence supporting this decision <textarea name="reason" required maxlength="2000" class="form-control"></textarea></label><br><button class="btn btn-primary" {% if row.state in ('queued','running') %}disabled{% endif %}>Approve exact mapping and all linked journals</button></form>{% endif %}
+{% if row.state in ('queued','running') %}<script>(function(){var initial={{ row.state|tojson }};setInterval(function(){fetch({{ url_for('.review_status',identifier=row.id)|tojson }},{cache:'no-store'}).then(r=>r.json()).then(d=>{document.getElementById('review-state').textContent=d.state;if(d.state!==initial)location.reload();});},2000);})();</script>{% endif %}
+
+{% elif tab == 'evaluation' %}
+<p>Real transaction labels are frozen independently of Qwen. A merchant family belongs to only one partition. Holdout labels and evidence never enter inference prompts. Results distinguish wrong confident proposals, abstentions and validation failures.</p>
+<p>{{ cases|length }} labeled cases.</p><table class="table"><tr><th>Merchant family</th><th>Partition</th><th>Expected</th><th>Label reviewer</th></tr>{% for c in cases %}<tr><td>{{ c.merchant }}</td><td>{{ c.partition }}</td><td>{{ c.expected }}</td><td>{{ c.reviewer }}</td></tr>{% endfor %}</table>
+<details><summary>Add an independently labeled real transaction</summary><form method="post">{{ csrf() }}<label>Source ID <input name="source_id" required></label><label>Merchant family <input name="merchant" required></label><label>Partition <select name="partition"><option>development</option><option>holdout</option></select></label><label>Expected chart category <input name="expected" required></label><label>Independent evidence <textarea name="reason" required></textarea></label><button class="btn btn-default">Freeze label</button></form></details>
+<h3>Recent local evaluation runs</h3>{% for run in runs %}<p><strong>{{ 'Frozen regression cases passed; this sample does not authorize automatic posting.' if run.regression_passed else 'Regression gate failed. Qwen proposals require independent review.' }}</strong></p><pre>{{ run.summary|tojson(indent=2) }}</pre><p>Dataset {{ run.dataset_digest }} · Policy {{ run.policy_digest }}</p>{% else %}<p>No real-data evaluation run has been recorded yet.</p>{% endfor %}
+{% endif %}
+{% endblock %}

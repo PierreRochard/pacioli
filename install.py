@@ -1,77 +1,38 @@
-from __future__ import print_function
+"""Create a local Python environment for Pacioli."""
+
+import argparse
 import os
-import shutil
+from pathlib import Path
 import subprocess
 import sys
-import uuid
+import venv
 
 
-python = sys.executable
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--dev', action='store_true',
+                        help='include test dependencies')
+    parser.add_argument('--venv', type=Path, default=Path(__file__).parent / '.venv',
+                        help='virtual environment path (default: .venv)')
+    args = parser.parse_args()
 
+    if sys.version_info[:2] != (3, 11):
+        parser.error('Pacioli currently requires Python 3.11')
 
-def run_command(command, cwd=None):
-    print(subprocess.Popen(command, stdout=subprocess.PIPE,
-                           cwd=cwd).stdout.read())
+    repository = Path(__file__).resolve().parent
+    environment = args.venv.expanduser().resolve()
+    venv.EnvBuilder(with_pip=True, symlinks=os.name != 'nt').create(environment)
 
+    python = environment / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    requirements = repository / ('requirements-dev.txt' if args.dev else 'requirements.txt')
+    pip_environment = os.environ.copy()
+    if pip_environment.get('TMPDIR'):
+        pip_environment.setdefault('PIP_CACHE_DIR',
+                                   str(Path(pip_environment['TMPDIR']) / 'pacioli-pip-cache'))
+    subprocess.run([str(python), '-m', 'pip', 'install', '-r', str(requirements)],
+                   check=True, env=pip_environment)
+    print('Pacioli environment ready:', environment)
 
-def install_dependencies():
-    library_directory = os.path.join(os.path.dirname(__file__), 'libraries')
-    if not os.path.exists(library_directory):
-        os.mkdir(library_directory)
-
-    run_command(['git', 'pull'])
-    run_command(['pip', '--no-cache-dir', 'install', '--upgrade', '-r',
-                 'instance-requirements.txt'])
-
-    custom_repos = [{'package': 'ofxtools',
-                     'url': 'https://github.com/PierreRochard/ofxtools',
-                     'branch': None},
-                    ]
-    for repo in custom_repos:
-        directory = os.path.join(library_directory, repo['package'])
-        if not os.path.exists(directory):
-            run_command(['git', 'clone', repo['url'], directory])
-            if repo['branch']:
-                run_command(['git', 'checkout', repo['branch']],
-                            cwd=directory)
-        else:
-            if repo['branch']:
-                run_command(['git', 'checkout', repo['branch']],
-                            cwd=directory)
-            run_command(['git', 'pull'], cwd=directory)
-        run_command([python, 'setup.py', 'install'], cwd=directory)
-
-
-def setup_settings():
-    pacioli_directory = os.path.join(os.path.dirname(__file__), 'pacioli')
-    settings_file = os.path.join(pacioli_directory, 'settings.py')
-    example_settings_file = os.path.join(pacioli_directory, 'settings_example.py')
-    if not os.path.exists(settings_file):
-        shutil.copy(example_settings_file, settings_file)
-        print('Update pacioli/settings.py and then run this script again.')
-        sys.exit(0)
-
-
-def setup_database():
-    run_command([python, 'manage.py', 'createdb'])
-    run_command([python, 'manage.py', 'populate_chart_of_accounts'])
-    admin_password = str(uuid.uuid4()).replace('-', '')
-    run_command([python, 'manage.py', 'create_admin', '-e', 'admin@localhost',
-                 '-p', admin_password])
-    print('admin@localhost password: {0}'.format(admin_password))
-
-
-def setup_cron():
-    directory = os.path.dirname(os.path.abspath(__file__))
-    cron_job = '30 11,23 * * * cd {0} && python manage.py ' \
-               'update_ofx'.format(directory)
-    with open('mycron', 'w') as cron_file:
-        cron_file.write(cron_job)
-    run_command(['crontab', 'mycron'])
-    os.remove('mycron')
 
 if __name__ == '__main__':
-    install_dependencies()
-    # setup_settings()
-    # setup_database()
-    # setup_cron()
+    main()

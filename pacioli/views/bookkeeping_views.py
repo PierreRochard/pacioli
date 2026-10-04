@@ -7,12 +7,17 @@ from pacioli.extensions import admin
 from pacioli.models import (db, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, DetailedJournalEntries)
 from pacioli.views import PrivateModelView
+from pacioli.functions.accounting_functions import journal_period
 from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter, CKTextAreaField, \
     html_formatter
 
 
 class JournalEntriesView(PrivateModelView):
+    can_create = False
+    can_edit = False
+    can_delete = False
     column_list = ('id',
+                   'mapping_id',
                    'transaction_id',
                    'transaction_source',
                    'timestamp',
@@ -27,6 +32,7 @@ class JournalEntriesView(PrivateModelView):
     column_filters = column_list
 
     column_sortable_list = column_list
+    column_details_list = column_list + ('mapping_decision',)
 
     # column_default_sort = dict(field='timestamp', sort_desc=True, absolute_value=False)
     column_default_sort = ('timestamp', True)
@@ -37,12 +43,14 @@ class JournalEntriesView(PrivateModelView):
                              )
 
     column_labels = dict(id='JE',
+                         mapping_id='Mapping',
                          transaction_id='Tx',
                          transaction_source='Source',
                          timestamp='Date',
                          debit_subaccount='Debit',
                          credit_subaccount='Credit',
                          functional_amount='Amount',
+                         mapping_decision='Original mapping decision',
                          )
 
     def get_query(self):
@@ -52,12 +60,12 @@ class JournalEntriesView(PrivateModelView):
             return (self.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
-                    .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
+                    .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
         else:
             return (self.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
-                    .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
+                    .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
 
     def get_count_query(self):
         if 'subaccount' not in request.view_args:
@@ -66,12 +74,12 @@ class JournalEntriesView(PrivateModelView):
             return (self.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
-                    .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
+                    .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
         else:
             return (self.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
-                    .filter(db.func.to_char(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
+                    .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
 
     @expose('/')
     @expose('/<subaccount>/')
@@ -81,15 +89,16 @@ class JournalEntriesView(PrivateModelView):
     def index_view(self, subaccount=None, period_interval=None, period=None, cumulative=None):
         period_interval = request.view_args.get('period_interval', 'YYYY-MM')
         if not request.view_args.get('period', None):
-            most_recent_period, = (self.session.query(db.func.to_char(JournalEntries.timestamp, period_interval))
-                       .order_by(db.func.to_char(JournalEntries.timestamp, period_interval).desc()).first())
+            latest = (self.session.query(journal_period(JournalEntries.timestamp, period_interval))
+                      .order_by(journal_period(JournalEntries.timestamp, period_interval).desc()).first())
+            most_recent_period = latest[0] if latest else ''
             request.view_args['period'] = most_recent_period
 
         self._template_args['period_interval'] = period_interval
         self._template_args['period'] = request.view_args['period']
         self._template_args['period_intervals'] = [('YYYY', 'Annual'), ('YYYY-Q', 'Quarterly'), ('YYYY-MM', 'Monthly'), ('YYYY-MM-DD', 'Daily')]
-        self._template_args['periods'] = (self.session.query(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval']))
-                                          .order_by(db.func.to_char(JournalEntries.timestamp, self._template_args['period_interval'])
+        self._template_args['periods'] = (self.session.query(journal_period(JournalEntries.timestamp, self._template_args['period_interval']))
+                                          .order_by(journal_period(JournalEntries.timestamp, self._template_args['period_interval'])
                                                     .desc()).distinct().limit(30))
         self._template_args['periods'] = [p[0] for p in self._template_args['periods']]
         return super(JournalEntriesView, self).index_view()
@@ -115,7 +124,7 @@ class SubaccountsModelView(PrivateModelView):
 
 
 class AccountsModelView(PrivateModelView):
-    column_list = ('name', 'cash_source', 'parent', 'subaccounts')
+    column_list = ('name', 'cash_source', 'is_cash', 'parent', 'subaccounts')
     column_labels = dict(parent='Classification')
 
 
@@ -131,4 +140,3 @@ admin.add_view(SubaccountsModelView(Subaccounts, db.session, category='Bookkeepi
 admin.add_view(AccountsModelView(Accounts, db.session, category='Bookkeeping'))
 admin.add_view(ClassificationsModelView(Classifications, db.session, category='Bookkeeping'))
 admin.add_view(ElementsModelView(Elements, db.session, category='Bookkeeping'))
-

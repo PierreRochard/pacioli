@@ -1,4 +1,4 @@
-from flask import redirect, request, url_for
+from flask import flash, redirect, request, url_for
 from flask_admin import expose
 from flask_admin.contrib.sqla.ajax import QueryAjaxModelLoader
 from flask_admin.model.fields import AjaxSelectField
@@ -10,7 +10,7 @@ from pacioli.functions.ofx_functions import apply_all_mappings, apply_single_ofx
 from pacioli.models import (db, Subaccounts, Mappings, Transactions, AccountsFrom,
                             BankAccounts, CreditCardAccounts, InvestmentTransactions, CostBases, InvestmentAccounts,
                             InvestmentBalances, InvestmentPositions, Securities)
-from pacioli.views import PrivateModelView
+from pacioli.views import PrivateModelView, require_action_csrf
 from pacioli.views.utilities import (account_formatter, date_formatter, currency_formatter,
                                      id_formatter, string_formatter, percent_formatter, link_journal_entry_formatter)
 
@@ -70,10 +70,23 @@ class TransactionsModelView(OFXModelView):
     form_ajax_refs = dict(subaccounts=ajax_subaccount_loader,
                           )
 
+    def _apply_mapping_action(self, mapping_id=None):
+        try:
+            result = (apply_all_mappings() if mapping_id is None
+                      else apply_single_ofx_mapping(mapping_id))
+        except ValueError as error:
+            # The resolver has rolled back the entire financial batch. Flask
+            # escapes the message when rendering it, including provider IDs.
+            flash(str(error), 'error')
+            return
+        flash('{} transactions posted; {} already posted.'.format(
+            result['posted'], result['already_posted']), 'success')
+
     @expose('/', methods=('GET', 'POST'))
     def index_view(self):
 
         if request.method == 'POST':
+            require_action_csrf()
             form = request.form.copy().to_dict()
             new_mapping = Mappings(source='ofx',
                                    keyword=form['keyword'],
@@ -88,7 +101,7 @@ class TransactionsModelView(OFXModelView):
             mapping_id, = (db.session.query(Mappings.id)
                            .filter(Mappings.source == 'ofx')
                            .filter(Mappings.keyword == form['keyword']).one())
-            apply_single_ofx_mapping(mapping_id)
+            self._apply_mapping_action(mapping_id)
             return redirect(url_for('banking/transactions.index_view'))
 
         class NewOFXTransactionMapping(Form):
@@ -100,8 +113,9 @@ class TransactionsModelView(OFXModelView):
         self._template_args['new_mapping_form'] = new_mapping_form
         return super(TransactionsModelView, self).index_view()
 
-    @expose('/<expense_account>/<keyword>')
+    @expose('/<expense_account>/<keyword>', methods=('POST',))
     def favorite(self, expense_account, keyword):
+        require_action_csrf()
         new_mapping = Mappings()
         new_mapping.source = 'ofx'
         new_mapping.keyword = keyword
@@ -114,12 +128,13 @@ class TransactionsModelView(OFXModelView):
             db.session.rollback()
         mapping_id, = (db.session.query(Mappings.id).filter(Mappings.source == 'ofx')
                        .filter(Mappings.keyword == keyword).one())
-        apply_single_ofx_mapping(mapping_id)
+        self._apply_mapping_action(mapping_id)
         return redirect(url_for('banking/transactions.index_view'))
 
-    @expose('/apply-all-mappings/')
+    @expose('/apply-all-mappings/', methods=('POST',))
     def apply_all_mappings_view(self):
-        apply_all_mappings()
+        require_action_csrf()
+        self._apply_mapping_action()
         return redirect(url_for('banking/transactions.index_view'))
 
 

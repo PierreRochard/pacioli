@@ -1,0 +1,34 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<h2>Schwab connection</h2>
+<p>Pacioli signs in to Schwab with this login to download your transaction history, realized
+  gains and losses, and positions. It is stored encrypted in your local Pacioli database and is
+  never shown again. Schwab may still ask you to approve a sign-in or enter a security code.</p>
+{% if configured %}
+  <p class="text-success"><strong>A Schwab login is saved</strong>{% if updated_at %} (updated
+    {{ updated_at.astimezone().strftime('%b %-d, %Y at %-I:%M %p') }}){% endif %}.</p>
+{% else %}
+  <p class="text-muted">No Schwab login is saved yet.</p>
+{% endif %}
+<form method="post" autocomplete="off" style="max-width: 420px">
+  <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+  <div class="form-group">
+    <label for="schwab-username">Schwab login ID</label>
+    <input class="form-control" id="schwab-username" name="username" type="text" autocomplete="off"
+           maxlength="254" required>
+  </div>
+  <div class="form-group">
+    <label for="schwab-password">Schwab password</label>
+    <input class="form-control" id="schwab-password" name="password" type="password"
+           autocomplete="new-password" maxlength="512" required>
+  </div>
+  <button class="btn btn-primary" type="submit" name="action" value="save">
+    {{ 'Replace saved login' if configured else 'Save login' }}</button>
+</form>
+{% if configured %}
+<form method="post" style="margin-top: 16px">
+  <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+  <button class="btn btn-default" type="submit" name="action" value="forget">Forget Schwab login</button>
+</form>
+{% endif %}
+{% endblock %}

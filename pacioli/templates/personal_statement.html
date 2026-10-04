@@ -1,0 +1,65 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<h2>{{ period }} {{ dict(period_intervals)[period_interval] }} {{ admin_view.name }}</h2>
+{% if closed_period %}<p><strong>Closed month</strong> · {{ closed_period.closed_at }} · Journal SHA256 {{ closed_period.journal_digest }}</p>{% endif %}
+{% if closed_mismatch %}<div class="alert alert-danger">Closed statement no longer matches the current journal or chart. Run accounting_check and review the difference.</div>{% endif %}
+<p>
+  {% for interval, label in period_intervals %}
+    <a href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=interval) }}">{{ label }}</a>{% if not loop.last %} · {% endif %}
+  {% endfor %}
+</p>
+<p>Period:
+  {% for choice in periods[:30] %}
+    <a href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval, period=choice) }}">{{ choice }}</a>{% if not loop.last %} · {% endif %}
+  {% endfor %}
+</p>
+
+{% if report.unknown_accounts %}
+<div class="alert alert-danger">Unclassified journal accounts: {{ report.unknown_accounts | join(', ') }}. Statement totals are incomplete.</div>
+{% endif %}
+{% if report.suspense_entries %}
+<div class="alert alert-warning">Provisional statement: {{ report.suspense_entries }} entries remain in Bookkeeping Suspense or Transfer Clearing. Their net balance is {{ money(report.suspense_balance) }}. Income and expense classifications are incomplete. <a href="{{ url_for('mappings.index_view') }}">Review mappings</a>.</div>
+{% endif %}
+
+<table class="table table-striped">
+  <thead><tr><th>Subaccount</th><th class="text-right">USD amount</th></tr></thead>
+  <tbody>
+  {% if kind == 'income' %}
+    {% for name, amount in report.income_rows %}
+      <tr><td><a href="{{ url_for('journalentries.index_view', subaccount=name, period_interval=period_interval, period=period) }}">{{ name }}</a></td><td class="text-right">{{ money(amount) }}</td></tr>
+    {% endfor %}
+  {% else %}
+    {% for name, amount in report.balance_rows %}
+      <tr><td><a href="{{ url_for('journalentries.index_view', subaccount=name, period_interval=period_interval, period=period, cumulative='balance-sheet') }}">{{ name }}</a></td><td class="text-right">{{ money(amount) }}</td></tr>
+    {% endfor %}
+  {% endif %}
+  </tbody>
+</table>
+
+{% if kind == 'income' %}
+  <p class="statement-total"><strong>Net Income</strong>: {{ money(report.current_income) }}</p>
+  {% if report.oci_rows %}
+  <h4>Other comprehensive income</h4>
+  <table class="table table-striped">
+    <tbody>
+    {% for name, amount in report.oci_rows %}
+      <tr><td>{{ name }}</td><td class="text-right">{{ money(amount) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p><strong>Comprehensive Income</strong>: {{ money(report.comprehensive_income) }}
+    <span class="text-muted">(unrealized investment gains are excluded from net income)</span></p>
+  {% endif %}
+{% else %}
+  <p><strong>Assets</strong>: {{ money(report.assets) }} &nbsp;
+     <strong>Liabilities</strong>: {{ money(report.liabilities) }}</p>
+  <p><strong>Owner Contributions</strong>: {{ money(report.contributions) }} &nbsp;
+     <strong>Owner Distributions</strong>: {{ money(report.distributions) }}</p>
+  <p><strong>Cumulative Net Income</strong>: {{ money(report.cumulative_income) }}</p>
+  {% if report.accumulated_oci %}<p><strong>Accumulated Unrealized Gains (OCI)</strong>: {{ money(report.accumulated_oci) }}</p>{% endif %}
+  <p class="statement-total"><strong>Net Equity</strong>: {{ money(report.equity) }}</p>
+  <p><strong>Cash</strong>: {{ money(report.cash) }} &nbsp;
+     <strong>Accounting Equation Difference</strong>: {{ money(report.equation_difference) }}</p>
+{% endif %}
+{% endblock %}

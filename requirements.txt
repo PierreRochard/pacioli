@@ -1,0 +1,32 @@
+# Local compatibility set for the 2017 Flask application on Python 3.11.
+Flask==1.1.4
+Werkzeug==1.0.1
+Jinja2==2.11.3
+MarkupSafe==2.0.1
+itsdangerous==1.1.0
+click==7.1.2
+cryptography==50.0.1
+Flask-Admin==1.5.8
+Flask-Login==0.6.3
+Flask-Mail==0.9.1
+Flask-Migrate==2.7.0
+Flask-Security==3.0.0
+Flask-SQLAlchemy==2.5.1
+Flask-WTF==0.14.3
+gunicorn==25.3.0
+mechanize==0.4.10
+SQLAlchemy==1.4.54
+WTForms==2.3.3
+yfinance==1.7.0
+alembic==1.19.2
+email-validator==2.3.0
+passlib==1.7.4
+playwright==1.63.0
+websockets==17.1
+premailer==3.10.0
+psycopg2-binary==2.9.11
+python-dateutil==2.9.0.post0
+pytz==2025.2
+raven==6.10.0
+setuptools==80.9.0
+ofxtools @ git+https://github.com/PierreRochard/ofxtools.git@c284f620502da10101ef74edbe8657bb75adc838

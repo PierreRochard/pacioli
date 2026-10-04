@@ -8,7 +8,7 @@ from wtforms import Form, HiddenField
 
 from pacioli.extensions import admin
 from pacioli.models import (db, AmazonCategories, AmazonOrders, AmazonTransactions, Subaccounts, Mappings)
-from pacioli.views import PrivateModelView
+from pacioli.views import PrivateModelView, require_action_csrf
 
 
 class AmazonItemView(PrivateModelView):
@@ -39,13 +39,14 @@ class AmazonItemView(PrivateModelView):
     @expose('/', methods=('GET', 'POST'))
     def index_view(self):
         if request.method == 'POST':
+            require_action_csrf()
             form = request.form.copy().to_dict()
             new_mapping = Mappings()
             new_mapping.source = 'amazon'
             new_mapping.keyword = form['keyword']
             new_mapping.positive_debit_subaccount_id = form['subaccount']
-            new_mapping.positive_credit_subaccount_id = 'Amazon Suspense Account'
-            new_mapping.negative_debit_subaccount_id = 'Amazon Suspense Account'
+            new_mapping.positive_credit_subaccount_id = 'Amazon Payable'
+            new_mapping.negative_debit_subaccount_id = 'Amazon Payable'
             new_mapping.negative_credit_subaccount_id = form['subaccount']
 
             try:
@@ -67,8 +68,9 @@ class AmazonItemView(PrivateModelView):
         self._template_args['new_mapping_form'] = new_mapping_form
         return super(AmazonItemView, self).index_view()
 
-    @expose('/apply-all-mappings/')
+    @expose('/apply-all-mappings/', methods=('POST',))
     def apply_all_mappings_view(self):
+        require_action_csrf()
         apply_all_mappings()
         return redirect(url_for('amazonitems.index_view'))
 admin.add_view(AmazonItemView(AmazonTransactions, db.session, endpoint='amazonitems', name='Amazon Items', category='Amazon'))

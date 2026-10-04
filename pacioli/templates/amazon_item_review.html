@@ -1,0 +1,244 @@
+{% extends 'admin/master.html' %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">{% endmacro %}
+{% block body %}
+<style>
+.amazon-item-review { max-width: 1100px; }
+.amazon-item-review .item-card { overflow-wrap: anywhere; }
+.amazon-item-review .item-card h3 { margin-top: 0; font-size: 20px; }
+.amazon-item-review label { display: block; }
+.amazon-item-review select, .amazon-item-review textarea { max-width: 100%; }
+.amazon-item-review .item-review-form { max-width: 700px; }
+.amazon-item-review .item-details { margin: 12px 0; }
+.amazon-item-review .table td, .amazon-item-review .table th { vertical-align: top; }
+.amazon-item-review .run-controls form { display: inline-block; margin-right: 12px; }
+.amazon-item-review .review-summary { margin: 14px 0; }
+</style>
+<div class="amazon-item-review">
+<h2>Amazon item classification</h2>
+<nav aria-label="Accounting workbench">
+<a href="{{ url_for('.amazon_suspense') }}">Resolve Amazon suspense</a> ·
+<a href="{{ url_for('.amazon') }}">Amazon evidence and bank matches</a> ·
+<a href="{{ url_for('.index_view') }}">Statements and openings</a> ·
+<a href="{{ url_for('.reviews') }}">Merchant review queue</a>
+</nav>
+<hr>
+<p>Local Qwen proposes a category for each purchased item. Item tax, shipping and discounts stay attached to their source evidence. Review each decision before posting. Purchases with unclear products, purposes or accounting treatment stay in Bookkeeping Suspense.</p>
+<p>This first version classifies matched retail purchases. It does not classify digital orders or refunds. Starting or resuming classification saves suggestions only; posting is a separate action below.</p>
+
+<details {% if not run %}open{% endif %}>
+<summary>Start classification from a saved Amazon export</summary>
+{% if archives %}
+<form method="post" class="review-sensitive-form">
+{{ csrf() }}<input type="hidden" name="action" value="start">
+<label for="item-source-archive">Source export</label>
+<select id="item-source-archive" name="archive_id" required>
+{% for archive in archives %}<option value="{{ archive.id }}">{{ archive.filename }} · evidence {{ archive.id }}</option>{% endfor %}
+</select>
+<button class="btn btn-primary">Classify matched Amazon items</button>
+</form>
+{% else %}<p><a href="{{ url_for('.amazon') }}">Import an Amazon export</a> before starting item classification.</p>{% endif %}
+</details>
+
+{% if runs %}
+<form method="get" class="review-sensitive-form" style="margin-top: 14px">
+<label for="item-run-selector">Saved classification run</label>
+<select id="item-run-selector" name="run_id">
+{% for saved_run in runs %}<option value="{{ saved_run.id }}" {% if run and saved_run.id == run.id %}selected{% endif %}>Run {{ saved_run.id }} · {{ saved_run.state|replace('_',' ') }}</option>{% endfor %}
+</select>
+<button class="btn btn-default">Open run</button>
+</form>
+{% endif %}
+
+{% if run %}
+<section aria-labelledby="item-run-heading" class="review-summary">
+<h3 id="item-run-heading">Run {{ run.id }}</h3>
+<p>Source export {{ run.archive_id }} · <a href="{{ url_for('.amazon_source',identifier=run.archive_id) }}">Download original evidence</a></p>
+<p id="item-run-progress" role="status" aria-live="polite">{{ run.state|replace('_',' ')|capitalize }}: {{ run.progress }}</p>
+<p id="item-run-counts">{% for name,count in run.counts|dictsort %}{{ name|replace('_',' ')|capitalize }}: {{ count }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+<p>Accounting holds and technical failures are separate. A missing-purpose hold needs evidence; a failed or interrupted model request can be retried.</p>
+<div class="run-controls">
+<form method="post">{{ csrf() }}<input type="hidden" name="action" value="resume"><input type="hidden" name="run_id" value="{{ run.id }}"><input type="hidden" name="page" value="{{ page }}"><button class="btn btn-default">Resume classification</button></form>
+</div>
+<div id="item-results-ready" class="alert alert-info" hidden>
+Background work has finished. Your current review edits are preserved. Save them before loading the latest results.
+<a href="{{ url_for('.amazon_items',run_id=run.id,page=page) }}">Refresh results</a>
+</div>
+</section>
+
+<section aria-labelledby="item-review-heading">
+<h3 id="item-review-heading">Review item decisions</h3>
+<p>{{ total }} items · Page {{ page }} of {{ pages }}</p>
+{% for row in rows %}
+{% set item = row.item %}
+{% set proposal = row.proposal or {} %}
+{% set answer = proposal.get('answer', {}) %}
+{% set decision = row.decision or {} %}
+<article class="well item-card" id="item-{{ row.id }}" aria-labelledby="item-heading-{{ row.id }}">
+<h3 id="item-heading-{{ row.id }}">{{ item.title }}</h3>
+<p><strong>{{ item.amount }} USD including adjustments</strong> · Quantity {{ item.quantity }}{% if item.department %} · {{ item.department }}{% endif %}{% if item.condition %} · {{ item.condition }}{% endif %}</p>
+{% if row.settlement %}
+{% set settlement = row.settlement %}
+<p>Order {{ settlement.order_id }} · Shipment {{ settlement.date }} · Settlement total {{ settlement.amount }} {{ settlement.currency }}.</p>
+{% if settlement.source_record.candidates %}{% set bank = settlement.source_record.candidates[0] %}
+<p>Matched bank source: {{ bank.account }} · {{ bank.date }} · {{ bank.amount }} {{ settlement.currency }}{% if bank.description %} · {{ bank.description }}{% endif %}.</p>
+{% endif %}
+{% endif %}
+{% if row.posted %}<p class="text-success"><strong>An allocation has been posted.</strong>{% if row.bundle_id %} Evidence bundle {{ row.bundle_id }}.{% endif %} Changed item decisions take effect after posting the revised allocations below.</p>{% endif %}
+{% if item.blockers %}<div class="alert alert-warning"><strong>Source context needs review.</strong><ul>{% for blocker in item.blockers %}<li>{{ blocker|replace('_',' ')|capitalize }}</li>{% endfor %}</ul></div>{% endif %}
+<details class="item-details">
+<summary>Exact costs and source evidence</summary>
+<div class="table-responsive"><table class="table table-condensed">
+<caption>Original monetary components for this item</caption>
+<thead><tr><th scope="col">Component</th><th scope="col">Amount (USD)</th><th scope="col">Source fields</th></tr></thead>
+<tbody>{% for component in item.components %}<tr><td>{{ component.kind|replace('_',' ')|capitalize }}</td><td>{{ component.amount }}</td><td>{% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %}<br>{{ source.fields|join(', ') }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% else %}<tr><td colspan="3">No nonzero monetary components; this source item has zero cost.</td></tr>{% endfor %}</tbody>
+</table></div>
+<p>Unit price {{ item.unit_price }} USD · Unit tax {{ item.unit_tax }} USD. Quantity has already been applied to the amounts above.</p>
+<p>Original item: {% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+{% if item.asin %}<p>Product identifier: {{ item.asin }}{% if item.marketplace %} · {{ item.marketplace }}{% endif %}.</p>{% endif %}
+</details>
+
+{% if proposal.get('validation_errors') %}
+<div class="alert alert-danger"><strong>Technical validation failed.</strong> This output is not a supported classification.<ul>{% for error in proposal.validation_errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+{% elif row.state is defined and row.state in ('failed','invalid_output','interrupted') %}
+<div class="alert alert-danger"><strong>Technical request failure:</strong> {{ row.state|replace('_',' ') }}. This is not an accounting hold. Resume classification to retry the request.</div>
+{% elif answer %}
+{% if answer.get('decision') == 'suggest' %}
+<p><strong>{{ 'Remembered product suggestion:' if proposal.get('origin') == 'reviewed_exact_product_rule' else 'Qwen suggestion:' }}</strong> {{ answer.get('category',answer.get('category_ref','Category unavailable')) }}.</p>
+{% if proposal.get('origin') == 'reviewed_exact_product_rule' %}<p>This suggestion comes from a saved exact-product rule. It requires review and is not a new Qwen evaluation or posting approval.</p>{% endif %}
+{% else %}<p><strong>Qwen hold:</strong> {{ answer.get('decision','Needs evidence')|replace('_',' ')|capitalize }}. Qwen requested further review.</p>{% endif %}
+{% if answer.get('reason') %}<p>{{ answer.reason }}</p>{% endif %}
+{% if answer.get('missing_fact') %}<p><strong>Evidence requested by Qwen:</strong> {{ answer.missing_fact }}</p>{% endif %}
+{% elif decision.get('carry_forward') %}
+<p><strong>Preserved approved source decision.</strong> The previously reviewed and posted item allocation was retained from run {{ decision.carry_forward.source_run_id }}. This is not a new Qwen evaluation.</p>
+{% elif row.state is defined and row.state == 'held' and not decision %}
+<p><strong>Prepared for source review; Qwen has not evaluated this item under this policy.</strong> Review the original evidence or explicitly resume classification to request a suggestion.</p>
+{% elif decision and not proposal %}
+<p><strong>Source-reviewed decision.</strong> This saved decision has no model proposal for the current item review.</p>
+{% else %}
+<p><strong>No completed suggestion.</strong>{% if row.state is defined %} Job status: {{ row.state|replace('_',' ') }}.{% endif %} Resume classification if the model request was interrupted.</p>
+{% endif %}
+
+{% if decision %}
+<div class="alert alert-info"><strong>Reviewed decision:</strong> {{ decision.category or 'Keep in Bookkeeping Suspense' }}.<br>{{ decision.reason }}{% if decision.reviewer %}<br>Reviewed by {{ decision.reviewer }}.{% endif %}</div>
+{% endif %}
+<form method="post" class="item-review-form review-sensitive-form">
+{{ csrf() }}<input type="hidden" name="action" value="review"><input type="hidden" name="run_id" value="{{ run.id }}"><input type="hidden" name="job_id" value="{{ row.id }}"><input type="hidden" name="page" value="{{ page }}">
+<label for="item-category-{{ row.id }}">Reviewed category</label>
+<select name="category" id="item-category-{{ row.id }}" required class="form-control">
+<option value="__choose__" disabled {% if not decision %}selected{% endif %}>Choose a category or keep in suspense</option>
+<option value="__suspense__" {% if decision and not decision.category %}selected{% endif %}>Keep in suspense</option>
+{% for category in categories %}<option value="{{ category }}" {% if decision and decision.category == category %}selected{% endif %} {% if item.blockers %}disabled{% endif %}>{{ category }}</option>{% endfor %}
+</select>
+<label for="item-reason-{{ row.id }}">Evidence and reason for this decision</label>
+<textarea name="reason" id="item-reason-{{ row.id }}" rows="2" required maxlength="2000" class="form-control">{{ decision.reason if decision else '' }}</textarea>
+<p>A product title may identify the item without establishing its purpose. Keep it in suspense when purpose or an applicable accounting policy is missing.</p>
+<button class="btn btn-default" {% if (row.state is defined and row.state in ('queued','running')) or (posting_job and posting_job.state in ('queued','running')) %}disabled{% endif %}>{{ 'Save revised item decision' if row.posted else 'Save reviewed decision' }}</button>
+</form>
+</article>
+{% else %}<p>No item records in this run.</p>{% endfor %}
+<nav aria-label="Amazon item review pages">
+{% if page > 1 %}<a href="{{ url_for('.amazon_items',run_id=run.id,page=page-1) }}">Previous page</a>{% endif %}
+{% if page > 1 and page < pages %} · {% endif %}
+{% if page < pages %}<a href="{{ url_for('.amazon_items',run_id=run.id,page=page+1) }}">Next page</a>{% endif %}
+</nav>
+</section>
+
+<hr>
+<section aria-labelledby="post-items-heading">
+<h3 id="post-items-heading">Post reviewed allocations</h3>
+<p>This action applies saved, reviewed item decisions across this run, including other pages. Exact source amounts are allocated to the selected categories; unreviewed or unsupported portions remain in Bookkeeping Suspense. The existing bank amount is preserved. Starting classification or saving a decision does not perform this step.</p>
+<div class="well" aria-label="Background posting status">
+<p id="item-posting-progress" role="status" aria-live="polite">{% if posting_job %}Posting request {{ posting_job.id }} · {{ posting_job.state|replace('_',' ')|capitalize }}: {{ posting_job.progress }}{% else %}No background posting request has been made.{% endif %}</p>
+<p id="item-posting-result">{% if posting_job and posting_job.result %}{% for key,value in posting_job.result|dictsort %}{{ key|replace('_',' ')|capitalize }}: {{ value }}{% if key in ('classified_amount','suspense_amount') %} USD{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}</p>
+<p id="item-posting-error" class="text-danger">{% if posting_job and posting_job.error %}Posting needs attention: {{ posting_job.error|replace('_',' ') }}. Review the current evidence before retrying.{% endif %}</p>
+<p>Posting continues in the background. Keep this page open for live status or return later. While a request is queued or running, item decisions are held steady. Retrying the same saved request reuses its original approval and cannot book it twice.</p>
+</div>
+{% if run.posting_summary %}
+{% set posting = run.posting_summary %}
+<div class="well">
+<p><strong>Current posting preview:</strong> {{ posting.settlements }} selected settlements · {{ posting.classified_amount }} USD classified · {{ posting.suspense_amount }} USD retained in suspense within those settlements.</p>
+<p>{{ posting.held_settlements }} wholly held settlements are omitted from these amounts and remain unchanged.</p>
+<div class="table-responsive"><table class="table table-condensed"><caption>Exact allocation totals for the selected reviewed settlements</caption>
+<thead><tr><th scope="col">Destination</th><th scope="col">Amount (USD)</th></tr></thead>
+<tbody>{% for allocation in posting.categories %}<tr><td>{{ allocation.category }}</td><td>{{ allocation.amount }}</td></tr>{% else %}<tr><td colspan="2">No reviewed category amounts are ready to post.</td></tr>{% endfor %}</tbody>
+</table></div>
+</div>
+{% endif %}
+{% if run.review_digest %}
+<form method="post" class="post-review-form review-sensitive-form">
+{{ csrf() }}<input type="hidden" name="action" value="post"><input type="hidden" name="run_id" value="{{ run.id }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="review_digest" value="{{ run.review_digest }}">
+<label for="post-items-reason">Reason for posting these reviewed allocations</label>
+<textarea id="post-items-reason" name="reason" rows="2" required maxlength="2000" class="form-control"></textarea>
+<p>This saves a frozen posting request and returns immediately. If evidence or decisions changed since this page was loaded, posting will require a fresh review. Resubmit this form to retry a saved request whose worker did not start.</p>
+<button class="btn btn-primary" {% if run.state in ('queued','running') or (run.posting_summary and run.posting_summary.settlements == 0) or (posting_job and posting_job.state == 'running') %}disabled{% endif %}>Post reviewed allocations</button>
+</form>
+{% else %}<p>Save reviewed item decisions before posting.</p>{% endif %}
+</section>
+
+<script>
+(function () {
+  var dirty = false;
+  var active = ['queued', 'running'];
+  var wasActive = active.indexOf({{ run.state|tojson }}) !== -1;
+  function snapshot(state, counts, revision) {
+    return JSON.stringify([state, revision, Object.keys(counts || {}).sort().map(function (key) {
+      return [key, counts[key]];
+    })]);
+  }
+  var rendered = snapshot({{ run.state|tojson }}, {{ run.counts|tojson }}, {{ run.revision|tojson }});
+  function postingSnapshot(posting) {
+    return posting ? JSON.stringify([posting.id, posting.state, posting.revision,
+      Object.keys(posting.result || {}).sort().map(function (key) { return [key, posting.result[key]]; })]) : 'none';
+  }
+  var initialPosting = {{ posting_job|tojson }};
+  var renderedPosting = postingSnapshot(initialPosting);
+  var postingWasActive = initialPosting && active.indexOf(initialPosting.state) !== -1;
+  var terminalRefreshDone = false;
+  var timer = null;
+  document.querySelectorAll('.review-sensitive-form').forEach(function (form) {
+    form.addEventListener('input', function () { dirty = true; });
+    form.addEventListener('change', function () { dirty = true; });
+  });
+  function label(value) { return String(value).replace(/_/g, ' '); }
+  function poll() {
+    fetch({{ url_for('.amazon_item_status',run_id=run.id)|tojson }}, {cache: 'no-store', credentials: 'same-origin'})
+      .then(function (response) { if (!response.ok) throw new Error('status'); return response.json(); })
+      .then(function (status) {
+        document.getElementById('item-run-progress').textContent = label(status.state) + ': ' + status.progress;
+        document.getElementById('item-run-counts').textContent = Object.keys(status.counts || {}).sort().map(function (key) {
+          return label(key) + ': ' + status.counts[key];
+        }).join(' · ');
+        var isActive = active.indexOf(status.state) !== -1;
+        var posting = status.posting;
+        var postingIsActive = posting && active.indexOf(posting.state) !== -1;
+        document.getElementById('item-posting-progress').textContent = posting ?
+          'Posting request ' + posting.id + ' · ' + label(posting.state) + ': ' + posting.progress :
+          'No background posting request has been made.';
+        document.getElementById('item-posting-result').textContent = Object.keys(posting && posting.result || {}).sort().map(function (key) {
+          return label(key) + ': ' + posting.result[key] + (key === 'classified_amount' || key === 'suspense_amount' ? ' USD' : '');
+        }).join(' · ');
+        document.getElementById('item-posting-error').textContent = posting && posting.error ?
+          'Posting needs attention: ' + label(posting.error) + '. Review the current evidence before retrying.' : '';
+        var modelFinished = !isActive && (wasActive || snapshot(status.state, status.counts, status.revision) !== rendered);
+        var postingFinished = posting && !postingIsActive && (postingWasActive || postingSnapshot(posting) !== renderedPosting);
+        if ((modelFinished || postingFinished) && !terminalRefreshDone) {
+          terminalRefreshDone = true;
+          var editing = document.activeElement && document.activeElement.closest('.review-sensitive-form');
+          if (!dirty && !editing) { window.location.reload(); return; }
+          document.getElementById('item-results-ready').hidden = false;
+        }
+        wasActive = isActive;
+        postingWasActive = postingIsActive;
+      })
+      .catch(function () {
+        document.getElementById('item-run-progress').textContent = 'Live status is temporarily unavailable. Saved item decisions are retained.';
+      })
+      .finally(function () { timer = window.setTimeout(poll, 2000); });
+  }
+  timer = window.setTimeout(poll, 2000);
+  window.addEventListener('pagehide', function () { window.clearTimeout(timer); });
+}());
+</script>
+{% endif %}
+</div>
+{% endblock %}

@@ -1,27 +1,45 @@
-.PHONY: docs test
+.PHONY: help env deps test ci db-init db-start db-stop db-status db-backup
+
+PYTHON ?= python3.11
+VENV ?= .venv
 
 help:
-	@echo "  env         create a development environment using virtualenv"
-	@echo "  deps        install dependencies using pip"
-	@echo "  clean       remove unwanted files like .pyc's"
-	@echo "  lint        check style with flake8"
-	@echo "  test        run all your tests using py.test"
+	@echo "env   create a Python 3.11 development environment"
+	@echo "deps  refresh development dependencies"
+	@echo "test  run the PostgreSQL test suite"
+	@echo "ci    run all local checks with disposable PostgreSQL"
+	@echo "db-init   create or update the persistent local Pacioli database"
+	@echo "db-start  start the persistent local PostgreSQL cluster"
+	@echo "db-stop   stop the persistent local PostgreSQL cluster"
+	@echo "db-status show local PostgreSQL status"
+	@echo "db-backup save a private PostgreSQL dump under .local/backups"
 
 env:
-	sudo easy_install pip && \
-	pip install virtualenv && \
-	virtualenv env && \
-	. env/bin/activate && \
-	make deps
+	$(PYTHON) install.py --dev --venv $(VENV)
 
 deps:
-	pip install -r requirements.txt
-
-clean:
-	python manage.py clean
-
-lint:
-	flake8 --exclude=env .
+	$(VENV)/bin/python -m pip install -r requirements-dev.txt
 
 test:
-	py.test tests
+	$(VENV)/bin/python scripts/ci_local.py
+
+ci:
+	$(VENV)/bin/python scripts/ci_local.py
+
+db-init:
+	$(VENV)/bin/python scripts/local_db.py init
+	$(VENV)/bin/python manage.py createdb
+	$(VENV)/bin/python manage.py populate_chart_of_accounts
+	$(VENV)/bin/python manage.py accounting_check
+
+db-start:
+	$(VENV)/bin/python scripts/local_db.py start
+
+db-stop:
+	$(VENV)/bin/python scripts/local_db.py stop
+
+db-status:
+	$(VENV)/bin/python scripts/local_db.py status
+
+db-backup:
+	$(VENV)/bin/python scripts/local_db.py backup

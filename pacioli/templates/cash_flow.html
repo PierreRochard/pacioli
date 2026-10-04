@@ -1,0 +1,228 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+{{ super() }}
+<style>
+  .cash-flow-page { max-width: 1280px; }
+  .cash-flow-page h2 { margin-bottom: 6px; }
+  .cash-flow-page h3 { margin-top: 28px; }
+  .cash-flow-page .scope-note { color: #555; }
+  .cash-flow-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 20px 0; }
+  .cash-flow-filters label { display: block; }
+  .cash-flow-filters input { width: 170px; }
+  .cash-flow-summary { display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0; }
+  .cash-flow-summary > div { flex: 1 1 210px; border: 1px solid #ddd; border-radius: 4px; padding: 16px; }
+  .cash-flow-summary dt { font-size: 14px; font-weight: normal; color: #555; }
+  .cash-flow-summary dd { font-size: 25px; font-weight: 600; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+  .cash-flow-page .amount { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cash-flow-page .flow-total th, .cash-flow-page .flow-total td { border-top: 2px solid #777; }
+  .cash-flow-page .table th { vertical-align: bottom; }
+  .cash-flow-page .table td { vertical-align: top; }
+  .cash-flow-page .table-responsive { margin-bottom: 8px; }
+  .cash-flow-page .detail-description { min-width: 230px; overflow-wrap: anywhere; }
+  .cash-flow-page .reconciliation-table { max-width: 760px; }
+  .cash-flow-page .method-notes li { margin-bottom: 8px; }
+  .cash-flow-page .pagination-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 16px 0; }
+  @media print {
+    .navbar, .cash-flow-filters, .cash-flow-export, .pagination-actions { display: none !important; }
+    .cash-flow-page { max-width: none; }
+    .cash-flow-page a[href]:after { content: none; }
+    .cash-flow-page .table-responsive { overflow: visible; }
+    .cash-flow-page h3 { break-after: avoid; }
+    .cash-flow-page tr, .cash-flow-summary > div { break-inside: avoid; }
+    .cash-flow-page .alert { border: 1px solid #888; }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+{% set sections = report.get('sections', []) %}
+{% set issues = report.get('issues', []) %}
+{% set detail_direction = selected_direction | default('') %}
+{% set status = namespace(unclassified=false) %}
+{% for section in sections %}
+  {% if section.key == 'unclassified' and (section.receipts or section.payments) %}
+    {% set status.unclassified = true %}
+  {% endif %}
+{% endfor %}
+{% macro direction_table(section, direction, heading, rows, total) %}
+  <h4 id="cash-flow-{{ section.key }}-{{ direction }}">{{ heading }}</h4>
+  <div class="table-responsive">
+    <table class="table table-striped" aria-labelledby="cash-flow-{{ section.key }}-{{ direction }}">
+      <thead><tr><th scope="col">Category</th><th scope="col" class="amount">Amount USD</th><th scope="col" class="amount">Cash movements</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <th scope="row"><a href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=section.key, label=row.label, direction=direction) }}#cash-flow-details">{{ row.label }}</a></th>
+          <td class="amount">{{ money(row.amount) }}</td><td class="amount">{{ row.count }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No recorded {{ heading | lower }} in this section for the selected period.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr class="flow-total"><th scope="row"><a href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=section.key, direction=direction) }}#cash-flow-details">Total {{ heading | lower }}</a></th><td class="amount">{{ money(total) }}</td><td class="amount">{{ rows | sum(attribute='count') }}</td></tr></tfoot>
+    </table>
+  </div>
+{% endmacro %}
+<div class="cash-flow-page">
+  <h2>Consolidated statement of cash flows</h2>
+  <p><strong>Direct method</strong> · {{ report.start }} through {{ report.end }} · USD</p>
+  <p class="scope-note">Consolidates the cash accounts recorded in Pacioli. Accounts and activity that have not been imported are outside this statement.</p>
+
+  <form class="cash-flow-filters" method="get" action="{{ url_for('cash-flows.index_view') }}">
+    <div>
+      <label for="cash-flow-start">From (inclusive)</label>
+      <input id="cash-flow-start" class="form-control" type="date" name="start" value="{{ report.start }}" required>
+    </div>
+    <div>
+      <label for="cash-flow-end">Through (inclusive)</label>
+      <input id="cash-flow-end" class="form-control" type="date" name="end" value="{{ report.end }}" required>
+    </div>
+    <button class="btn btn-primary" type="submit">Update statement</button>
+    <a class="btn btn-default cash-flow-export" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, export='csv') }}">Download statement CSV</a>
+  </form>
+
+  {% if report.get('provisional') or issues or status.unclassified %}
+  <div class="alert alert-warning" role="status">
+    <strong>Provisional statement.</strong>
+    {% if status.unclassified %}Some cash receipts or payments still need classification. They are included in Unclassified cash flows so the statement retains those movements.{% endif %}
+    {% if issues %}
+    <ul>
+      {% for issue in issues %}<li>{{ issue }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <p>Reconciliation of the amounts below does not by itself establish that every account or transaction has been imported.</p>
+  </div>
+  {% endif %}
+
+  <dl class="cash-flow-summary">
+    <div><dt>Beginning recorded cash</dt><dd>{{ money(report.opening_cash) }}</dd></div>
+    <div><dt>Change in recorded cash</dt><dd>{{ money(report.net_cash_change) }}</dd></div>
+    <div><dt>Ending recorded cash</dt><dd>{{ money(report.closing_cash) }}</dd></div>
+  </dl>
+
+  <p>Inflows and outflows are shown separately, each ordered from largest to smallest within its section. Outflows are positive payment amounts; net cash flow is inflows less outflows. A category with both payments and refunds appears in both groups. Select a category to inspect its cash movements.</p>
+
+  {% for section in sections if section.key in ('operating', 'investing', 'financing', 'unclassified') %}
+  <section aria-labelledby="cash-flow-{{ section.key }}">
+    <h3 id="cash-flow-{{ section.key }}">{{ section.label }}{% if status.unclassified and section.key != 'unclassified' %} <small>Provisional classification</small>{% endif %}</h3>
+    {% if section.key == 'unclassified' %}
+    <p class="scope-note">These cash movements need more evidence or a supported classification before they can be assigned to operating, investing, or financing activities.</p>
+    {% endif %}
+    {{ direction_table(section, 'inflow', 'Inflows', section.inflows, section.receipts) }}
+    {{ direction_table(section, 'outflow', 'Outflows', section.outflows, section.payments) }}
+    <p><strong>Net {{ section.label | lower }}: <span class="amount">{{ money(section.net) }} USD</span></strong> · <a href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=section.key) }}#cash-flow-details">Review all {{ section.count }} cash movements</a></p>
+  </section>
+  {% endfor %}
+
+  <section aria-labelledby="cash-flow-reconciliation">
+    <h3 id="cash-flow-reconciliation">Cash reconciliation</h3>
+    <p class="scope-note">Timing and basis adjustments are shown separately from cash receipts and payments.</p>
+    <table class="table reconciliation-table">
+      <thead><tr><th scope="col">Reconciliation</th><th scope="col" class="amount">USD amount</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Beginning recorded cash</th><td class="amount">{{ money(report.opening_cash) }}</td></tr>
+        <tr><th scope="row">Net cash flows, including unclassified movements</th><td class="amount">{{ money(report.classified_cash_change) }}</td></tr>
+        {% for section in sections if section.key == 'adjustments' %}
+          {% for row in section.rows %}
+          <tr><th scope="row"><a href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section='adjustments', label=row.label) }}#cash-flow-details">{{ row.label }}</a></th><td class="amount">{{ money(row.net) }}</td></tr>
+          {% endfor %}
+        {% endfor %}
+        <tr><th scope="row">Total timing and basis adjustments</th><td class="amount">{{ money(report.adjustments) }}</td></tr>
+        <tr class="flow-total"><th scope="row">Ending recorded cash</th><td class="amount">{{ money(report.closing_cash) }}</td></tr>
+        <tr><th scope="row">Unreconciled difference</th><td class="amount">{{ money(report.difference) }}</td></tr>
+      </tbody>
+    </table>
+    {% if report.difference %}<div class="alert alert-danger"><strong>Cash does not reconcile.</strong> Review the difference before relying on this statement.</div>{% endif %}
+  </section>
+
+  {% for section in sections if section.key == 'internal' and section.count %}
+  <section aria-labelledby="cash-flow-internal">
+    <h3 id="cash-flow-internal">Internal transfers eliminated</h3>
+    <p>Movements between included cash accounts are excluded from operating, investing, and financing cash flows. Both sides remain visible below for reconciliation.</p>
+    {{ direction_table(section, 'inflow', 'Inflows eliminated', section.inflows, section.receipts) }}
+    {{ direction_table(section, 'outflow', 'Outflows eliminated', section.outflows, section.payments) }}
+    <p><strong>Net eliminated: <span class="amount">{{ money(section.net) }} USD</span></strong> · <a href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section='internal') }}#cash-flow-details">Review all {{ section.count }} internal cash movements</a></p>
+  </section>
+  {% endfor %}
+
+  <section aria-labelledby="cash-flow-accounts">
+    <h3 id="cash-flow-accounts">Included cash accounts</h3>
+    <p class="scope-note">Balances come from the recorded ledger. Imported statement coverage and unresolved opening balances are disclosed separately below.</p>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead><tr><th scope="col">Cash account</th><th scope="col" class="amount">Beginning balance</th><th scope="col" class="amount">Recorded movement</th><th scope="col" class="amount">Ending balance</th><th scope="col" class="amount">Cash movements</th></tr></thead>
+        <tbody>
+          {% for account in report.accounts %}<tr><th scope="row">{{ account.name }}</th><td class="amount">{{ money(account.opening) }}</td><td class="amount">{{ money(account.movement) }}</td><td class="amount">{{ money(account.closing) }}</td><td class="amount">{{ account.count }}</td></tr>
+          {% else %}<tr><td colspan="5">No cash accounts are recorded in the selected scope.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if report.get('coverage') %}
+    <h4>Source coverage</h4>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead><tr><th scope="col">Account</th><th scope="col">First available date</th><th scope="col">Last available date</th><th scope="col">Evidence and gaps</th></tr></thead>
+        <tbody>{% for account in report.coverage %}<tr><th scope="row">{{ account.name }}</th><td>{{ account.first_date or 'Not established' }}</td><td>{{ account.last_date or 'Not established' }}</td><td>{% if account.get('missing_opening') %}<strong>Opening balance needs evidence.</strong> {% endif %}{{ account.detail }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if report.get('source_checks') %}
+    <h4>Evidence checks</h4>
+    <table class="table table-striped">
+      <thead><tr><th scope="col">Check</th><th scope="col">Status</th><th scope="col">Detail</th></tr></thead>
+      <tbody>{% for check in report.source_checks %}<tr><th scope="row">{{ check.label }}</th><td>{{ check.status }}</td><td>{{ check.detail }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  {% if report.get('months') %}
+  <section aria-labelledby="cash-flow-months">
+    <h3 id="cash-flow-months">Cash flows by month</h3>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead><tr><th scope="col">Month</th><th scope="col" class="amount">Operating</th><th scope="col" class="amount">Investing</th><th scope="col" class="amount">Financing</th><th scope="col" class="amount">Unclassified</th><th scope="col" class="amount">Net cash flow</th></tr></thead>
+        <tbody>{% for month in report.months %}<tr><th scope="row">{{ month.label }}</th><td class="amount">{{ money(month.operating) }}</td><td class="amount">{{ money(month.investing) }}</td><td class="amount">{{ money(month.financing) }}</td><td class="amount">{{ money(month.unclassified) }}</td><td class="amount">{{ money(month.net) }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if details is defined and details %}
+  <section aria-labelledby="cash-flow-details">
+    <h3 id="cash-flow-details">Cash {% if detail_direction == 'inflow' %}inflow{% elif detail_direction == 'outflow' %}outflow{% else %}movement{% endif %} detail{% if selected_label %}: {{ selected_label }}{% endif %}</h3>
+    <p>{{ details.total }} matching cash movement{% if details.total != 1 %}s{% endif %}. {% if selected_section %}Section: {{ selected_section }}.{% endif %} <a href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end) }}">Clear detail selection</a></p>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead><tr><th scope="col">Date / journal</th><th scope="col">Cash account</th><th scope="col">Counterpart / classification</th><th scope="col" class="amount">Signed cash movement</th><th scope="col">Source evidence</th></tr></thead>
+        <tbody>
+          {% for row in details.rows %}
+          <tr><td>{{ row.timestamp }}<br><a href="{{ url_for('journalentries.details_view', id=row.journal_id) }}">Journal {{ row.journal_id }}</a></td><td>{{ row.cash_account }}</td><td class="detail-description">{{ row.source_description or row.counterpart }}<br><span class="scope-note">{{ row.label }} · {{ row.counterpart }}</span></td><td class="amount">{{ money(row.amount) }}</td><td>{{ row.transaction_source or 'Manual journal' }}{% if row.evidence_id %}<br>Reviewed classification evidence {{ row.evidence_id }}{% endif %}{% if row.match_id %}<br>Reviewed transfer {{ row.match_id }}{% endif %}</td></tr>
+          {% else %}<tr><td colspan="5">No matching cash movements.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if details.pages > 1 %}
+    <nav class="pagination-actions" aria-label="Cash movement pages">
+      {% if details.page > 1 %}<a class="btn btn-default" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=selected_section, label=selected_label, direction=detail_direction, page=details.page - 1) }}#cash-flow-details">Previous page</a>{% endif %}
+      <span>Page {{ details.page }} of {{ details.pages }} · Up to {{ details.page_size }} cash movements per page</span>
+      {% if details.page < details.pages %}<a class="btn btn-default" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=selected_section, label=selected_label, direction=detail_direction, page=details.page + 1) }}#cash-flow-details">Next page</a>{% endif %}
+    </nav>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section aria-labelledby="cash-flow-method">
+    <h3 id="cash-flow-method">Method and scope</h3>
+    <ul class="method-notes">
+      <li>The direct method reports recorded cash receipts and payments during the inclusive selected dates, grouped by their supported operating, investing, or financing purpose.</li>
+      <li>The consolidated scope is the cash accounts recorded in Pacioli. Transfers between included cash accounts are eliminated when supported; unresolved transfers remain visible for review.</li>
+      <li>Credit-card purchases do not move cash and are excluded at purchase. Payments from cash accounts to cards remain cash outflows; payments without a supported activity allocation remain unclassified.</li>
+      <li>Opening balances and other timing or basis adjustments are reconciled separately. Recorded opening or ending cash may be incomplete where source coverage or opening-balance evidence is missing.</li>
+      <li>Amounts with unresolved purpose stay in Unclassified cash flows. A zero reconciliation difference checks the arithmetic of the recorded scope; it does not certify completeness or the correctness of every classification.</li>
+      <li>Owner-confirmed purposes may support an aggregate report classification while the ledger awaits a detailed allocation. Household employee payments combine confirmed wages, taxes, and fees without asserting their individual amounts. Such rows retain references to the reviewed evidence.</li>
+      <li>Accounting dates use UTC, consistent with Pacioli's bank-feed ledger. The direct-method presentation separates gross cash receipts and payments; see <a href="https://www.ifrs.org/issued-standards/list-of-standards/ias-7-statement-of-cash-flows/" rel="noopener noreferrer">IAS 7's description of the method</a>. This personal report is not a claim of full standards compliance.</li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

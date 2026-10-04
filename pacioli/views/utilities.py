@@ -19,6 +19,8 @@ def account_formatter(view, context, model, name):
 
 def string_formatter(view, context, model, name):
     column_string = getattr(model, name)
+    if not column_string:
+        return ''
     column_string = column_string.lower()
     column_string = string.capwords(column_string, ' ')
     return column_string
@@ -93,7 +95,7 @@ def link_mapping_formatter(view, context, model, name):
     <a target="_blank" href="{1}">
          {0}
     </a>
-    '''.format(getattr(model, name), url_for('mappings.index_view', flt1_0=getattr(model, name)), getattr(model, name)))
+    ''').format(getattr(model, name), url_for('mappings.index_view', flt1_0=getattr(model, name)))
     return link
 
 
@@ -103,7 +105,7 @@ def link_journal_entry_formatter(view, context, model, name):
         <a target="_blank" href="{1}">
              {0}
         </a>
-        '''.format(getattr(model, name), url_for('journalentries.index_view', flt1_0=getattr(model, name)), getattr(model, name)))
+        ''').format(getattr(model, name), url_for('journalentries.index_view', flt1_0=getattr(model, name)))
         return link
     else:
         return ''
@@ -114,6 +116,7 @@ def link_transaction_search_formatter(view, context, model, name):
     <form class="icon" method="POST" action="/mappings/delete/">
       <input id="id" name="id" type="hidden" value="{2}">
       <input id="url" name="url" type="hidden" value="{3}">
+      <input name="csrf_token" type="hidden" value="{4}">
 
       <button onclick="return confirm('Are you sure you want to delete this record?');" title="Delete record">
         <span class="fa fa-trash glyphicon glyphicon-trash"></span>
@@ -122,8 +125,9 @@ def link_transaction_search_formatter(view, context, model, name):
         <a target="_blank" href="{1}">
              {0}
         </a>
-        '''.format(getattr(model, name), url_for('banking/transactions.index_view', search=getattr(model, name)),
-                   getattr(model, 'mapping_id_' + name[-1]), view.url))
+        ''').format(getattr(model, name), url_for('banking/transactions.index_view', search=getattr(model, name)),
+                   getattr(model, 'mapping_id_' + name[-1]), view.url,
+                   view.get_delete_form()().csrf_token._value())
     return link
 
 
@@ -140,4 +144,3 @@ class CKTextAreaField(fields.TextAreaField):
 
 def html_formatter(view, context, model, name):
     return Markup(getattr(model, name))
-

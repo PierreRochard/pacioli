@@ -2,9 +2,10 @@
 
 {% block model_menu_bar_before_filters %}
     <li>
-        <a href="{{ url_for('trialbalances.refresh_all_subaccounts') }}">
-        Refresh
-        </a>
+        <form action="{{ url_for('trialbalances.refresh_all_subaccounts') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+            <button type="submit">Refresh</button>
+        </form>
     </li>
 {% endblock %}
 

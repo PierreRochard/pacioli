@@ -1,0 +1,271 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<div class="container">
+  <h1>Chase connection</h1>
+  <form action="{{ url_for('connections.chase_local') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <button class="btn btn-primary" type="submit" name="action" value="update">Update Chase</button>
+    <a href="{{ url_for('connections.chase_local') }}">Progress and update settings</a>
+  </form>
+  {% if browser_engine == 'firefox' %}
+  <p>Pacioli uses your existing Firefox profile and its LastPass installation. Each run opens a separate Chase tab; other tabs stay open. Sign-in approvals happen directly in Firefox. The connection must be enabled by starting Firefox with the Pacioli Firefox launcher.</p>
+  <p>Exports use your normal Firefox download settings. If a Save As dialog appears, complete it in Firefox. Pacioli imports the QFX file from its own Chase tab; the original file remains in your download location. Firefox cookies, passkeys, and vault storage stay in Firefox.</p>
+  <p><a href="{{ url_for('connections.import_chase') }}">Manual QFX import</a> is also available.</p>
+  {% else %}
+  <p>Save your Chase login in Pacioli's encrypted database. A supervised session opens a visible Chromium window on this workstation. After your first successful export, you can start an on-demand local sync here. Pacioli reuses encrypted browser sign-in state when Chase accepts it and imports QFX without posting journal entries.</p>
+  <p>If Chase asks for verification, this page will show the request. You can enter a one-time code here when Pacioli recognizes a Chase code field; other challenges require the visible Chase browser. The <a href="{{ url_for('connections.import_chase') }}">manual QFX import</a> remains available.</p>
+  <p>Pacioli keeps a separate browser profile on this workstation to remember Chase sessions. Its files are private to your workstation user; the profile is stored on disk, outside the encrypted database. Forgetting the saved login removes this profile too.</p>
+  {% endif %}
+
+  {% if configured %}
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="browser_engine">
+    <label for="chase-browser-engine">Browser for Chase</label>
+    <select id="chase-browser-engine" name="browser_engine" class="form-control">
+      <option value="firefox" {% if browser_engine == 'firefox' %}selected{% endif %}>My existing Firefox</option>
+      <option value="chromium" {% if browser_engine == 'chromium' %}selected{% endif %}>Separate Chromium profile (legacy)</option>
+    </select>
+    <button class="btn btn-default" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>Save browser selection</button>
+  </form>
+  {% endif %}
+  <form id="chase-firefox-form" method="post" {% if browser_engine != 'firefox' %}hidden{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="test_firefox">
+    <button id="chase-firefox-button" class="btn btn-primary" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>Check Firefox connection</button>
+    <p>This opens Chase in your existing Firefox. It checks account access without downloading transactions or changing passkeys.</p>
+  </form>
+
+  <h2>Saved login</h2>
+  {% if browser_engine == 'firefox' %}<p>The saved Chase password is retained for the legacy connector. Firefox uses its own sign-in and LastPass. Forgetting this login does not erase your Firefox profile or sign you out of Firefox.</p>{% endif %}
+  <p id="credential-state">{{ 'A Chase login is saved.' if configured else 'No Chase login is saved.' }}</p>
+  <form method="post" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="save">
+    <div class="form-group">
+      <label for="chase-username">Chase username</label>
+      <input class="form-control" id="chase-username" name="username" type="text" autocomplete="off" maxlength="254" {% if not configured %}required{% endif %}>
+    </div>
+    <div class="form-group">
+      <label for="chase-password">Chase password</label>
+      <input class="form-control" id="chase-password" name="password" type="password" autocomplete="new-password" maxlength="512" {% if not configured %}required{% endif %}>
+    </div>
+    <p>{% if configured %}Leave either field empty to keep its saved value.{% else %}Both fields are required.{% endif %} The saved values are never shown here. One-time codes entered below are encrypted briefly, passed to Chase, and cleared.</p>
+    <button class="btn btn-primary" type="submit">{{ 'Update saved login' if configured else 'Save login' }}</button>
+  </form>
+  {% if configured %}
+  <form method="post" style="margin-top:1em">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="forget">
+    <button class="btn btn-default" id="chase-forget-button" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>{{ 'Forget saved Pacioli login' if browser_engine == 'firefox' else 'Forget saved login and browser session' }}</button>
+  </form>
+  {% endif %}
+
+  <h2>Export QFX</h2>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="start">
+    <div class="checkbox"><label><input type="checkbox" name="reviewed_usd" value="yes" required> I confirm these are my Chase accounts and their statement currency is USD.</label></div>
+    <button class="btn btn-primary" id="chase-start-button" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>{{ 'Resume with a visible browser' if run and run.status == 'needs_attention' else 'Open Chase and export QFX' }}</button>
+  </form>
+
+  <h2>On-demand local sync</h2>
+  <p>Click Sync now when you want an export. {% if browser_engine == 'firefox' %}Pacioli uses a separate tab in your open Firefox.{% else %}The browser runs headlessly.{% endif %} It uses the accounts you approved in your last successful supervised export. This page updates as it works and asks for your help if Chase needs verification. No Plaid account is involved.</p>
+  <p id="chase-account-state">{{ saved_account_count }} approved account(s).</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="sync_now">
+    <button class="btn btn-default" id="chase-sync-button" type="submit" {% if not configured or not saved_account_count or (run and run.status in active_statuses) %}disabled{% endif %}>Sync now</button>
+    {% if configured and not saved_account_count %}<p>Complete one supervised export to choose accounts first.</p>{% endif %}
+  </form>
+
+  <div id="chase-chromium-tools" {% if browser_engine == 'firefox' %}hidden{% endif %}>
+  <h2>Use an existing passkey in Chromium</h2>
+  <p>Test the Chase passkey you already use with Apple or another provider. A fresh browser window opens on this workstation. Choose passkey sign-in in Chase, then use your provider or the phone/QR option and approve on your device. This test downloads no transactions and creates no new passkey. Keep the window open until you confirm the result here.</p>
+  <p id="chase-provider-state">{{ 'You confirmed an existing passkey sign-in; its browser session is saved.' if provider_verified else 'Existing passkey sign-in has not been confirmed on this workstation.' }}</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="test_provider">
+    <button class="btn btn-primary" id="chase-provider-button" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>Test my existing passkey</button>
+  </form>
+  <form method="post" style="margin-top:1em">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="test_lastpass">
+    <button class="btn btn-default" id="chase-lastpass-button" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>Test my LastPass passkey</button>
+    <p>This opens LastPass's official Chrome Web Store listing alongside Chase in the separate test browser. Install and unlock LastPass there, then return to the Chase tab and reload it before choosing passkey sign-in. Enter your LastPass master password only in LastPass. After a confirmed sign-in, this browser profile is retained for future syncs.</p>
+  </form>
+
+  <details style="margin-top:1em"><summary>Earlier software passkey experiment</summary>
+  <p>Chase rejected both supervised software-passkey enrollment methods on this Linux workstation. No key was saved, and enrollment is disabled here. Chase lists Windows and macOS in its <a href="https://www.chase.com/digital/resources/privacy-security/security/system-requirements">system requirements</a>. Use the visible Chase browser for on-demand QFX export and any required verification.</p>
+  <p id="chase-passkey-state">{{ 'A local passkey signed in successfully in a fresh browser.' if passkey_verified else 'A local passkey is saved; fresh sign-in is untested.' if passkey_saved else 'No local passkey is saved.' }}</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="enroll_passkey">
+    <button class="btn btn-default" id="chase-enroll-button" type="submit" {% if not passkey_enrollment_enabled or not configured or passkey_saved or (run and run.status in active_statuses) %}disabled{% endif %}>Open Chase to add a local passkey</button>
+  </form>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="test_passkey">
+    <button class="btn btn-default" id="chase-test-passkey-button" type="submit" {% if not passkey_saved or (run and run.status in active_statuses) %}disabled{% endif %}>Test local passkey sign-in</button>
+  </form>
+  <form id="chase-forget-passkey-form" method="post" {% if not passkey_saved %}hidden{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <input type="hidden" name="action" value="forget_passkey">
+    <button class="btn btn-default" id="chase-forget-passkey-button" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>Remove local passkey copy</button>
+  </form>
+  </details>
+  </div>
+
+  <div id="chase-run" {% if not run %}hidden{% endif %}>
+    <h2>Session</h2>
+    <p id="chase-run-message" role="status" aria-live="polite">{{ run_message or '' }}</p>
+    <p id="chase-poll-error" role="alert" hidden>Live status is unavailable. Refresh this page before starting another session.</p>
+    <form id="chase-browser-form" method="post" {% if not run or run.status != 'waiting_for_mfa' or run.mfa_prompt != 'open_browser' %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="open_browser">
+      <input id="chase-browser-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <button class="btn btn-primary" type="submit">Open verification window</button>
+      <p>The window opens on the Pacioli workstation. Complete verification there; this sync keeps the same approved accounts.</p>
+    </form>
+    <form id="chase-provider-confirm-form" method="post" {% if not run or run.status != 'waiting_for_mfa' or run.mode not in ('provider_test', 'lastpass_test') or run.mfa_prompt != 'provider_review' %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="confirm_provider">
+      <input id="chase-provider-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <button class="btn btn-primary" type="submit">I signed in using my existing passkey</button>
+      <p>If you used a password instead, cancel this test.</p>
+    </form>
+    {% if run and run.mode == 'passkey_enroll' %}
+    <p><a href="{{ url_for('connections.chase_browser_diagnostics', run_id=run.id) }}">View passkey diagnostic report</a>. The encrypted report contains browser events and selected error codes, without request bodies, cookies, credentials, or account data.</p>
+    {% endif %}
+    <form id="chase-code-form" method="post" {% if not run or run.status != 'waiting_for_mfa' or run.mfa_prompt != 'code' %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="mfa_code">
+      <input id="chase-code-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <div class="form-group"><label for="chase-code">Chase one-time code</label>
+        <input class="form-control" id="chase-code" name="code" type="password" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 -]{4,20}" maxlength="20" required>
+      </div>
+      <button class="btn btn-primary" type="submit">Send code to Chase</button>
+    </form>
+    <form id="chase-passkey-confirm-form" method="post" {% if not run or run.mode != 'passkey_enroll' or run.mfa_prompt != 'passkey_review' %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="confirm_passkey">
+      <input id="chase-passkey-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <button class="btn btn-primary" type="submit">Chase says the passkey was added</button>
+    </form>
+    <form id="chase-passkey-reject-form" method="post" {% if not run or run.mode != 'passkey_enroll' or run.status != 'waiting_for_mfa' %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="reject_passkey">
+      <input id="chase-passkey-reject-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <button class="btn btn-default" type="submit">Chase rejected the passkey</button>
+    </form>
+    <p id="chase-run-counts" {% if not run or run.mode in ('passkey_enroll', 'passkey_test', 'provider_test', 'lastpass_test', 'firefox_test') or run.status not in ('completed', 'partial') %}hidden{% endif %}>Imported: {{ run.imported_count if run else 0 }}. Already present: {{ run.duplicate_count if run else 0 }}.</p>
+    <form id="chase-select-form" method="post" {% if not run or run.status != 'choosing_accounts' %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="select">
+      <input id="chase-select-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <p>Select the accounts to import. Only the last four digits, when available, appear here.</p>
+      <div id="chase-account-choices">
+        {% if run and run.status == 'choosing_accounts' %}
+          {% for choice in run.account_choices or [] %}
+            <div class="checkbox"><label><input type="checkbox" name="account_index" value="{{ choice.index }}"> {{ choice.label }}</label></div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <button class="btn btn-primary" type="submit">Export selected accounts</button>
+    </form>
+    <form id="chase-cancel-form" method="post" {% if not run or run.status not in active_statuses %}hidden{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+      <input type="hidden" name="action" value="cancel">
+      <input id="chase-cancel-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
+      <button class="btn btn-default" type="submit">Cancel session</button>
+    </form>
+  </div>
+  <p><a href="{{ url_for('connections.index_view') }}">Back to connections</a></p>
+</div>
+<script>
+(function () {
+  var url = {{ url_for('connections.chase_browser_status')|tojson }};
+  var runBox = document.getElementById('chase-run');
+  var message = document.getElementById('chase-run-message');
+  var counts = document.getElementById('chase-run-counts');
+  var selectForm = document.getElementById('chase-select-form');
+  var codeForm = document.getElementById('chase-code-form');
+  var browserForm = document.getElementById('chase-browser-form');
+  var providerForm = document.getElementById('chase-provider-confirm-form');
+  var pollError = document.getElementById('chase-poll-error');
+  var passkeyConfirmForm = document.getElementById('chase-passkey-confirm-form');
+  var passkeyRejectForm = document.getElementById('chase-passkey-reject-form');
+  var cancelForm = document.getElementById('chase-cancel-form');
+  var choices = document.getElementById('chase-account-choices');
+  function refresh() {
+    fetch(url, {credentials: 'same-origin', cache: 'no-store'}).then(function (response) {
+      if (!response.ok) { throw new Error('Status unavailable'); }
+      return response.json();
+    }).then(function (data) {
+      if (!data) { return; }
+      pollError.hidden = true;
+      document.getElementById('credential-state').textContent = data.configured ? 'A Chase login is saved.' : 'No Chase login is saved.';
+      document.getElementById('chase-account-state').textContent = data.saved_account_count + ' approved account(s).';
+      document.getElementById('chase-passkey-state').textContent = data.passkey_verified ?
+        'A local passkey signed in successfully in a fresh browser.' :
+        data.passkey_saved ? 'A local passkey is saved; fresh sign-in is untested.' : 'No local passkey is saved.';
+      document.getElementById('chase-forget-passkey-form').hidden = !data.passkey_saved;
+      document.getElementById('chase-provider-state').textContent = data.provider_verified ?
+        'You confirmed an existing passkey sign-in; its browser session is saved.' :
+        'Existing passkey sign-in has not been confirmed on this workstation.';
+      var run = data.run;
+      runBox.hidden = !run;
+      var active = run && ['queued', 'signing_in', 'waiting_for_mfa', 'choosing_accounts', 'exporting', 'importing'].indexOf(run.status) >= 0;
+      document.getElementById('chase-firefox-form').hidden = data.browser_engine !== 'firefox';
+      document.getElementById('chase-chromium-tools').hidden = data.browser_engine === 'firefox';
+      document.getElementById('chase-firefox-button').disabled = !data.configured || active;
+      document.getElementById('chase-start-button').disabled = !data.configured || active;
+      document.getElementById('chase-provider-button').disabled = !data.configured || active;
+      document.getElementById('chase-lastpass-button').disabled = !data.configured || active;
+      document.getElementById('chase-sync-button').disabled = !data.configured || !data.saved_account_count || active;
+      document.getElementById('chase-enroll-button').disabled = !data.passkey_enrollment_enabled || !data.configured || data.passkey_saved || active;
+      document.getElementById('chase-test-passkey-button').disabled = !data.passkey_saved || active;
+      document.getElementById('chase-forget-passkey-button').disabled = active;
+      var forget = document.getElementById('chase-forget-button');
+      if (forget) { forget.disabled = active; }
+      if (!run) { return; }
+      message.textContent = run.message;
+      browserForm.hidden = run.status !== 'waiting_for_mfa' || run.mfa_prompt !== 'open_browser';
+      providerForm.hidden = run.status !== 'waiting_for_mfa' || ['provider_test', 'lastpass_test'].indexOf(run.mode) < 0 || run.mfa_prompt !== 'provider_review';
+      document.getElementById('chase-browser-run-id').value = run.id;
+      document.getElementById('chase-provider-run-id').value = run.id;
+      document.getElementById('chase-start-button').textContent = run.status === 'needs_attention' ?
+        'Resume with a visible browser' : 'Open Chase and export QFX';
+      codeForm.hidden = run.status !== 'waiting_for_mfa' || run.mfa_prompt !== 'code';
+      passkeyConfirmForm.hidden = run.status !== 'waiting_for_mfa' || run.mode !== 'passkey_enroll' || run.mfa_prompt !== 'passkey_review';
+      passkeyRejectForm.hidden = run.status !== 'waiting_for_mfa' || run.mode !== 'passkey_enroll';
+      document.getElementById('chase-passkey-run-id').value = run.id;
+      document.getElementById('chase-passkey-reject-run-id').value = run.id;
+      document.getElementById('chase-code-run-id').value = run.id;
+      var finished = ['passkey_enroll', 'passkey_test', 'provider_test', 'lastpass_test', 'firefox_test'].indexOf(run.mode) < 0 && (run.status === 'completed' || run.status === 'partial');
+      counts.hidden = !finished;
+      if (finished) { counts.textContent = 'Imported: ' + run.imported_count + '. Already present: ' + run.duplicate_count + '.'; }
+      var choosing = run.status === 'choosing_accounts';
+      if (choosing && selectForm.hidden) {
+        choices.replaceChildren();
+        run.account_choices.forEach(function (choice) {
+          var row = document.createElement('div');
+          row.className = 'checkbox';
+          var label = document.createElement('label');
+          var input = document.createElement('input');
+          input.type = 'checkbox'; input.name = 'account_index'; input.value = choice.index;
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(' ' + choice.label));
+          row.appendChild(label); choices.appendChild(row);
+        });
+      }
+      selectForm.hidden = !choosing;
+      document.getElementById('chase-select-run-id').value = run.id;
+      document.getElementById('chase-cancel-run-id').value = run.id;
+      cancelForm.hidden = !active;
+    }).catch(function () { pollError.hidden = false; });
+  }
+  window.setInterval(refresh, 3000);
+}());
+</script>
+{% endblock %}

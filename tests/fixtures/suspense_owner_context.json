@@ -1,0 +1,108 @@
+[
+  {
+    "id": "household_wages_only",
+    "input": {
+      "examples": [
+        {
+          "description": "DOMESTIC PAYROLL",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ],
+      "verified_merchant_facts": [
+        {
+          "text": "Household employee payment; net wages only. Employer taxes, employee withholding and provider fees are separate.",
+          "source": "Synthetic owner confirmation",
+          "verified_by": "Fixture owner"
+        }
+      ]
+    },
+    "expected": "Household Services"
+  },
+  {
+    "id": "household_combined",
+    "input": {
+      "examples": [
+        {
+          "description": "DOMESTIC PAYROLL",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ],
+      "verified_merchant_facts": [
+        {
+          "text": "Household employee payment combining wages, taxes and/or fees. Component breakdown unavailable.",
+          "source": "Synthetic owner confirmation",
+          "verified_by": "Fixture owner"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "household_unknown_split",
+    "input": {
+      "examples": [
+        {
+          "description": "DOMESTIC PAYROLL",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ],
+      "verified_merchant_facts": [
+        {
+          "text": "Household employees; payment composition is unknown.",
+          "source": "Synthetic owner confirmation",
+          "verified_by": "Fixture owner"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "household_taxes",
+    "input": {
+      "examples": [
+        {
+          "description": "DOMESTIC PAYROLL TAX",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ],
+      "verified_merchant_facts": [
+        {
+          "text": "Household employees. Amount combines employer taxes and employee withholding; components unknown.",
+          "source": "Synthetic owner confirmation",
+          "verified_by": "Fixture owner"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "unidentified_payroll",
+    "input": {
+      "examples": [
+        {
+          "description": "PAYROLL PROVIDER PAYMENT",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  },
+  {
+    "id": "purchase_with_cash",
+    "input": {
+      "examples": [
+        {
+          "description": "SUPERMARKET PURCHASE $84.21 CASH BACK $40.00",
+          "sign": "debit",
+          "currency": "USD"
+        }
+      ]
+    },
+    "expected": "Bookkeeping Suspense"
+  }
+]

@@ -1,0 +1,163 @@
+{% extends 'admin/master.html' %}
+{% macro fields(action) %}
+<input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+<input type="hidden" name="action" value="{{ action }}">
+<input type="hidden" name="plan_id" value="{{ plan.id }}">
+<input type="hidden" name="token" value="{{ token }}">
+<input type="hidden" name="page" value="{{ page }}">
+<input type="hidden" name="filter_group" value="{{ selected_group }}">
+<input type="hidden" name="filter_category" value="{{ selected_category }}">
+{% endmacro %}
+{% block body %}
+<style>
+.amazon-suspense { max-width: 1150px; }
+.amazon-suspense .review-card { overflow-wrap: anywhere; }
+.amazon-suspense .review-card h3 { font-size: 20px; margin-top: 0; }
+.amazon-suspense .table td, .amazon-suspense .table th { vertical-align: top; }
+.amazon-suspense .money { white-space: nowrap; text-align: right; }
+.amazon-suspense .filters label { display: inline-block; margin-right: 12px; }
+.amazon-suspense select, .amazon-suspense textarea { max-width: 100%; }
+.amazon-suspense .form-control { margin-bottom: 10px; }
+.amazon-suspense details { margin: 12px 0; }
+.amazon-suspense .fact-note { border-left: 3px solid #aaa; padding-left: 12px; }
+</style>
+<div class="amazon-suspense">
+<h2>Resolve Amazon suspense</h2>
+<nav aria-label="Accounting workbench">
+<a href="{{ url_for('.amazon_policy_questions',plan_id=plan.id if plan else none) }}">Review Amazon classifications</a> ·
+<a href="{{ url_for('.amazon') }}">Amazon evidence and bank matches</a> ·
+<a href="{{ url_for('.amazon_items') }}">Item classification and posting</a> ·
+<a href="{{ url_for('.index_view') }}">Statements and openings</a>
+</nav>
+<hr>
+<p>Work through the purchases identified in the Amazon suspense review, starting with the largest amounts. Suggestions, your saved decisions, and ledger allocations are shown separately. Tax, shipping and discounts remain attached to the exact purchased item.</p>
+{% if not plan %}
+<p>No Amazon suspense review is available yet. <a href="{{ url_for('.amazon_items') }}">Review imported item evidence</a> to see the current classification runs.</p>
+{% else %}
+{% set review_ready = plan.review_run_id and plan.current_policy and not plan.posting_active %}
+<section aria-labelledby="suspense-summary-heading">
+<h3 id="suspense-summary-heading">Confirmed still in suspense in this review</h3>
+<p><strong>{{ totals.remaining_count }} items · {{ totals.remaining_amount }} USD</strong></p>
+<p>Verified posted outside suspense: {{ totals.resolved_count }} items · {{ totals.resolved_amount }} USD.</p>
+{% if totals.reviewed_unposted_count %}<p>Saved classifications waiting for posting: {{ totals.reviewed_unposted_count }} items · {{ totals.reviewed_unposted_amount }} USD.
+{% if plan.review_run_id %}<a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Review the posting preview</a>.{% endif %}</p>{% endif %}
+{% if totals.unverified_count %}<div class="alert alert-warning">The current ledger allocation could not be verified for {{ totals.unverified_count }} items · {{ totals.unverified_amount }} USD. These amounts are excluded from the confirmed suspense and posted totals above. Review their original evidence and ledger allocations before posting.</div>{% endif %}
+<p>The original review covered <strong>{{ totals.count }} items · {{ totals.amount }} USD</strong>.
+{% if totals.fact_count %}{{ totals.fact_count }} items were flagged for purchase context.{% endif %}
+{% if totals.property_count %}{{ totals.property_count }} items need equipment/property or category-policy treatment.{% endif %}</p>
+<p>The grouped tables below retain the original review amounts, including purchases later resolved; they are not the current ledger suspense balance. Each item shows its saved decision and any verified posted allocation.</p>
+<p>Amounts below are ordered from largest to smallest. The category suggestions come from an evidence review; they are not approvals or new Qwen results.</p>
+<div class="table-responsive"><table class="table table-striped">
+<caption>Original reasons for review, including purchases later resolved</caption>
+<thead><tr><th scope="col">Next step</th><th scope="col">Items</th><th scope="col" class="money">Amount (USD)</th></tr></thead>
+<tbody>{% for entry in groups %}<tr><th scope="row"><a href="{{ url_for('.amazon_suspense',plan_id=plan.id,group=entry.key) }}">{{ entry.label }}</a></th><td>{{ entry.count }}</td><td class="money">{{ entry.amount }}</td></tr>{% endfor %}</tbody>
+</table></div>
+<details>
+<summary>Suggested categories, largest amount first</summary>
+<div class="table-responsive"><table class="table table-condensed"><thead><tr><th scope="col">Suggested category</th><th scope="col">Items</th><th scope="col" class="money">Amount (USD)</th></tr></thead>
+<tbody>{% for entry in categories %}<tr><th scope="row"><a href="{{ url_for('.amazon_suspense',plan_id=plan.id,category=entry.key) }}">{{ entry.label }}</a></th><td>{{ entry.count }}</td><td class="money">{{ entry.amount }}</td></tr>{% endfor %}</tbody></table></div>
+</details>
+</section>
+
+<section class="well" aria-labelledby="prepare-review-heading">
+<h3 id="prepare-review-heading">Prepare a review under the current policy</h3>
+<p>This prepares item decisions for the current category policy and retains approved items from partially posted purchases. It runs no model and makes no journal entries. Missing property policy keeps the affected purchases in suspense; no capitalization threshold is assumed.</p>
+<form method="post">{{ fields('prepare') }}<button class="btn btn-default" {% if plan.posting_active %}disabled{% endif %}>Prepare current-policy review</button></form>
+{% if plan.posting_active %}<p>Posting is in progress. Wait before preparing or changing classifications and purchase context.
+{% if plan.review_run_id %}<a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Follow background posting status</a>.{% endif %}</p>
+{% elif review_ready %}<p style="margin-top: 12px">Review run {{ plan.review_run_id }} is ready for saved decisions.
+<a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Open posting preview and background status</a>.</p>
+{% else %}<p>Prepare the review before saving item classifications. You can add purchase context now.</p>{% endif %}
+</section>
+
+<form method="get" class="filters">
+<input type="hidden" name="plan_id" value="{{ plan.id }}">
+<label for="suspense-group">Next step<br><select name="group" id="suspense-group">
+<option value="">All next steps</option>{% for entry in groups %}<option value="{{ entry.key }}" {% if selected_group == entry.key %}selected{% endif %}>{{ entry.label }}</option>{% endfor %}
+</select></label>
+<label for="suspense-category">Suggested category<br><select name="category" id="suspense-category">
+<option value="">All suggested categories</option>{% for entry in categories %}<option value="{{ entry.key }}" {% if selected_category == entry.key %}selected{% endif %}>{{ entry.label }}</option>{% endfor %}
+</select></label>
+<button class="btn btn-default">Filter purchases</button>
+<a href="{{ url_for('.amazon_suspense',plan_id=plan.id) }}">Clear filters</a>
+</form>
+<p>{{ total }} matching items · Page {{ page }} of {{ pages }} · Largest amounts first</p>
+
+<form method="post" id="amazon-suspense-review" class="well">
+{{ fields('review') }}
+<h3>Save the selected classifications</h3>
+<p>Choose specific items below, then apply one reviewed category and reason to those items. Nothing is selected automatically.</p>
+<label for="suspense-reviewed-category">Reviewed category</label>
+<select name="category" id="suspense-reviewed-category" class="form-control" required>
+<option value="__choose__" selected disabled>Choose a reviewed category</option>
+<option value="__suspense__">Keep in suspense</option>
+{% for category in available_categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}
+</select>
+<label for="suspense-review-reason">Evidence and reason for this classification</label>
+<textarea name="reason" id="suspense-review-reason" class="form-control" rows="2" required maxlength="2000"></textarea>
+<label><input type="checkbox" name="remember_product" value="1"> Remember these exact products for future suggestions</label>
+<p>A remembered product rule suggests a category for the same product. It does not approve future purchases or post entries, and it does not create a blanket Amazon merchant rule.</p>
+<p id="suspense-selected-count" role="status" aria-live="polite">0 items selected</p>
+<button class="btn btn-primary" {% if not review_ready %}disabled{% endif %}>Save reviewed classifications</button>
+<p style="margin-top: 10px">Saving classifications leaves the ledger unchanged.
+{% if plan.review_run_id %}<a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Review totals and post allocations separately</a>.{% endif %}</p>
+</form>
+
+{% for row in items %}
+{% set item = row.item %}
+<article class="well review-card" id="suspense-item-{{ row.item_id }}" aria-labelledby="suspense-heading-{{ loop.index }}">
+<h3 id="suspense-heading-{{ loop.index }}">{{ item.title }}</h3>
+<p><strong>{{ item.amount }} USD including adjustments</strong> · Quantity {{ item.quantity }}{% if item.department %} · {{ item.department }}{% endif %}</p>
+<p><strong>Original review: {{ row.group_label }}</strong> · {{ row.reason }}</p>
+<p><strong>Source-review guidance:</strong> {{ row.action_needed }}</p>
+{% if row.policy_gate == 'ordinary' %}<p>The current policy supports review as an ordinary purchase. Confirm the source evidence and choose its category.</p>
+{% elif row.policy_gate == 'needs_fact' %}<p>Add the missing purchase context, then review this item individually.</p>
+{% elif row.policy_gate == 'needs_property' %}<p>An approved accounting-policy treatment is still required before this review can move the purchase out of suspense. The guidance above identifies the equipment, property, or category boundary to resolve.</p>{% endif %}
+{% if row.hold_reason %}<div class="alert alert-warning">{{ row.hold_reason }}</div>{% endif %}
+<dl>
+<dt>Evidence-review suggestion</dt><dd>{{ row.proposed_category or 'Treatment still to be established' }}</dd>
+<dt>Saved item decision</dt><dd>{% if row.current_decision %}{{ row.current_decision.category or 'Keep in Bookkeeping Suspense' }}<br>{{ row.current_decision.reason }}{% else %}No reviewed decision in the current review.{% endif %}</dd>
+<dt>Ledger allocation</dt><dd>{% if row.posted %}{{ row.posted.category }} · {{ row.posted.amount }} USD{% else %}No item allocation is confirmed by this review.{% endif %}</dd>
+</dl>
+<label><input type="checkbox" name="item_id" value="{{ row.item_id }}" form="amazon-suspense-review" class="suspense-selection" {% if not review_ready or not row.can_review %}disabled{% endif %}> Select this item for the reviewed classification</label>
+{% if not row.can_review %}<p>This item cannot be reclassified from this review until the condition above is resolved.</p>{% endif %}
+{% if row.needs_fact %}<p>Review an item needing purchase context individually after saving its supporting note.</p>{% endif %}
+
+<details>
+<summary>Exact costs and original source evidence</summary>
+<div class="table-responsive"><table class="table table-condensed"><caption>Item amounts include quantity; do not multiply them again.</caption><thead><tr><th scope="col">Component</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Source</th></tr></thead>
+<tbody>{% for component in item.components %}<tr><td>{{ component.kind|replace('_',' ')|capitalize }}</td><td class="money">{{ component.amount }}</td><td>{% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %}<br>{{ source.fields|join(', ') }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table></div>
+<p>Original item: {% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+</details>
+
+<details {% if row.needs_fact %}open{% endif %}>
+<summary>Purchase context and saved notes</summary>
+<p>Add the fact needed to classify this purchase, such as what it was used for or whether a part replaced an existing fitting. Notes are retained as evidence; a new note does not overwrite an earlier one or approve a classification.</p>
+{% for fact in row.facts %}<div class="fact-note"><p>{{ fact.note }}</p><p><small>{{ fact.reviewer }}{% if fact.created_at %} · {{ fact.created_at }}{% endif %}</small></p></div>{% else %}<p>No purchase-context notes saved.</p>{% endfor %}
+<form method="post">{{ fields('fact') }}<input type="hidden" name="item_id" value="{{ row.item_id }}">
+<label for="suspense-fact-{{ loop.index }}">Purchase context for this item</label>
+<textarea id="suspense-fact-{{ loop.index }}" name="note" class="form-control" rows="2" required maxlength="2000"></textarea>
+<button class="btn btn-default" {% if plan.posting_active %}disabled{% endif %}>Save purchase context</button>
+</form>
+</details>
+</article>
+{% else %}<p>No purchases match these filters.</p>{% endfor %}
+
+<nav aria-label="Amazon suspense pages">
+{% if page > 1 %}<a href="{{ url_for('.amazon_suspense',plan_id=plan.id,group=selected_group,category=selected_category,page=page-1) }}">Previous page</a>{% endif %}
+{% if page > 1 and page < pages %} · {% endif %}
+{% if page < pages %}<a href="{{ url_for('.amazon_suspense',plan_id=plan.id,group=selected_group,category=selected_category,page=page+1) }}">Next page</a>{% endif %}
+</nav>
+<script>
+(function () {
+  var boxes = document.querySelectorAll('.suspense-selection');
+  var counter = document.getElementById('suspense-selected-count');
+  function updateCount() {
+    counter.textContent = document.querySelectorAll('.suspense-selection:checked').length + ' items selected';
+  }
+  boxes.forEach(function (box) { box.addEventListener('change', updateCount); });
+}());
+</script>
+{% endif %}
+</div>
+{% endblock %}

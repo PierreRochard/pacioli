@@ -1,0 +1,175 @@
+{% extends 'admin/master.html' %}
+{% macro saved_answer(answer) %}
+<p><strong>{{ answer.choice_label }}</strong> · Original receipt: {% if answer.status == 'deferred' %}deferred.{% elif answer.status == 'saved_context_pending_review' %}saved for individual review.{% else %}saved for accounting implementation.{% endif %}</p>
+{% if answer.stale %}<p class="text-warning">This answer predates changes to the source, chart or accounting policy. Review it again before relying on it.</p>{% endif %}
+{% if answer.custom_text %}<p style="white-space: pre-wrap">{{ answer.custom_text }}</p>{% endif %}
+{% if answer.parameters %}<p>Threshold: {{ answer.parameters.threshold_amount }} USD · {% if answer.parameters.threshold_basis == 'separate_item' %}Each independent item{% else %}Complete assembly or project{% endif %}.</p>{% endif %}
+<p>Scope: {% if answer.scope == 'this_item' %}This purchase only{% elif answer.scope == 'future' %}Selected purchases and future review guidance{% else %}Selected purchases only{% endif %}.</p>
+<p><small>{{ answer.reviewer }} · {{ answer.created_at }}</small></p>
+{% if answer.preview_id %}<p><a href="{{ url_for('.amazon_policy_history',preview_id=answer.preview_id) }}">Open saved answer receipt</a></p>{% endif %}
+{% endmacro %}
+{% block body %}
+<style>
+.amazon-policy { max-width: 1120px; overflow-wrap: anywhere; }
+.amazon-policy h3 { font-size: 22px; }
+.amazon-policy fieldset { min-width: 0; margin: 22px 0; }
+.amazon-policy legend { font-size: 20px; }
+.amazon-policy .answer-option { display: block; border: 1px solid #bbb; padding: 14px; margin: 10px 0; border-radius: 5px; cursor: pointer; }
+.amazon-policy .answer-option:focus-within { outline: 2px solid #286090; outline-offset: 2px; }
+.amazon-policy .answer-option small { display: block; margin: 7px 0 0 22px; font-weight: normal; font-size: 14px; }
+.amazon-policy .recommendation { display: inline-block; color: #285327; margin-left: 6px; }
+.amazon-policy textarea, .amazon-policy input[type=text], .amazon-policy select { max-width: 100%; }
+.amazon-policy .money { white-space: nowrap; text-align: right; }
+.amazon-policy .table td, .amazon-policy .table th { vertical-align: top; }
+.amazon-policy .selected-summary { position: sticky; bottom: 0; padding: 12px; border: 1px solid #aaa; background: #fff; z-index: 1; }
+.amazon-policy .selected-summary p { margin: 0 0 8px; }
+.amazon-policy details { margin: 12px 0; }
+.amazon-policy .item-evidence { padding: 12px; border-left: 3px solid #ddd; }
+.amazon-policy .purchase-list { table-layout: fixed; width: 100%; }
+.amazon-policy .purchase-list .amount-column { width: 120px; }
+.amazon-policy .purchase-list label { font-weight: normal; margin: 0; }
+.amazon-policy .btn { white-space: normal; }
+</style>
+<main class="amazon-policy">
+<h2>Saved Amazon answers and revisions</h2>
+<nav aria-label="Amazon accounting"><a href="{{ url_for('.amazon_policy_questions',plan_id=plan.id if plan else none) }}">Review current classifications</a> · <a href="{{ url_for('.amazon_suspense') }}">Detailed suspense evidence</a> · <a href="{{ url_for('.amazon_items') }}">Item review and posting</a></nav>
+<p style="margin-top: 16px">This page preserves your original answers and lets you revise them. Receipt statuses describe what was saved at the time; the <a href="{{ url_for('.amazon_policy_questions',plan_id=plan.id if plan else none) }}">current classification review</a> shows their accounting treatment.</p>
+<p style="margin-top: 16px">Answer one question for a group of purchases, then preview the exact items covered. Recommendations explain a possible direction; you choose the answer and its scope.</p>
+<p><strong>Saving an answer changes no journals.</strong> Policy directions need accounting implementation and review. Purchase context needs individual review. Purchases stay in suspense until that work and a separate posting approval are complete.</p>
+{% if not plan %}
+{% if invalid_request %}<div class="alert alert-warning">This answer could not be saved. <a href="{{ url_for('.amazon_policy_history') }}">Reload the current questions</a> and review the message above.</div>
+{% else %}<p>No suspense review is available for policy questions yet.</p>{% endif %}
+{% else %}
+<section class="well" aria-labelledby="policy-progress-heading">
+<h3 id="policy-progress-heading">Decisions to work through</h3>
+<p><strong>{{ totals.remaining_count }} purchases · {{ totals.remaining_amount }} USD still in suspense</strong></p>
+<p>{{ totals.answered_count }} purchases have saved answers. {{ totals.deferred_count }} purchases have been deferred.</p>
+{% if totals.unverified_count %}<p class="text-warning">{{ totals.unverified_count }} purchases need their ledger allocation verified before a policy answer can be collected.</p>{% endif %}
+<p>Equipment and category policies come first, ordered by affected dollars. Purchase-specific context follows.</p>
+{% if questions %}<details><summary>Choose a question or revisit an earlier answer</summary>
+<ol>{% for entry in questions %}<li><a href="{{ url_for('.amazon_policy_history',plan_id=plan.id,question_key=entry.key) }}" {% if question and entry.key == question.key %}aria-current="step"{% endif %}>{{ entry.title }}</a> — {{ entry.count }} purchases · {{ entry.amount }} USD</li>{% endfor %}</ol>
+</details>{% endif %}
+</section>
+{% if plan.posting_active %}<div class="alert alert-warning">A posting is queued or running. Wait for it to finish, then reload before saving an answer.</div>{% endif %}
+{% if not plan.current_policy %}<div class="alert alert-warning">This review uses an older accounting policy. <a href="{{ url_for('.amazon_suspense',plan_id=plan.id) }}">Prepare a current-policy review in the suspense workbench</a> before collecting new answers.</div>{% endif %}
+{% if not question %}<p>No unanswered policy questions are available in this review.</p>
+{% else %}
+<section aria-labelledby="policy-question-heading">
+<h3 id="policy-question-heading">{{ question.title }}</h3>
+<p>{{ question.prompt }}</p>
+<p><strong>{{ question.count }} affected purchases · {{ question.amount }} USD</strong> including recorded tax, shipping, discounts and other adjustments.</p>
+{% if question.examples %}<p>Examples: {% for item in question.examples %}{{ item.title }} ({{ item.amount }} USD){% if not loop.last %}; {% endif %}{% endfor %}.</p>{% endif %}
+
+<form method="post" id="amazon-policy-answer">
+<input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+<input type="hidden" name="action" value="preview">
+<input type="hidden" name="plan_id" value="{{ plan.id }}">
+<input type="hidden" name="question_key" value="{{ question.key }}">
+<input type="hidden" name="token" value="{{ token }}">
+<fieldset><legend>1. Choose your answer</legend>
+{% for choice in question.choices %}
+<label class="answer-option" for="policy-choice-{{ loop.index }}">
+<input id="policy-choice-{{ loop.index }}" type="radio" name="choice" value="{{ choice.key }}" required {% if form_values.choice == choice.key %}checked{% endif %}>
+<strong>{{ choice.label }}</strong>{% if choice.recommended %}<span class="recommendation">Recommended for review</span>{% endif %}
+<small>{{ choice.explanation }}</small>
+</label>
+{% endfor %}
+</fieldset>
+{% if question.needs_threshold_parameters %}
+<fieldset id="policy-threshold-parameters"><legend>Threshold details, if you choose a threshold</legend>
+<p>Enter your amount and what it applies to. No dollar threshold, useful life or tax treatment is assumed.</p>
+<label for="policy-threshold-amount">Threshold (USD, exact amount)</label>
+<input type="text" inputmode="decimal" pattern="[0-9]+(\.[0-9]{1,2})?" name="threshold_amount" id="policy-threshold-amount" class="form-control" maxlength="24" placeholder="Enter an amount" value="{{ form_values.threshold_amount }}">
+<label for="policy-threshold-basis">Apply the threshold to</label>
+<select name="threshold_basis" id="policy-threshold-basis" class="form-control"><option value="">Choose the accounting unit</option>
+<option value="separate_item" {% if form_values.threshold_basis == 'separate_item' %}selected{% endif %}>Each independent item</option>
+<option value="complete_assembly" {% if form_values.threshold_basis == 'complete_assembly' %}selected{% endif %}>The complete assembly or project</option>
+</select>
+</fieldset>
+{% endif %}
+<label for="policy-custom-text">Your explanation or your own answer</label>
+<textarea id="policy-custom-text" name="custom_text" rows="3" maxlength="2000" class="form-control" aria-describedby="policy-custom-help">{{ form_values.custom_text }}</textarea>
+<p id="policy-custom-help">Required when you choose your own answer; otherwise optional. Include any limits, assumptions or purchase context. This text is retained with your answer.</p>
+
+<fieldset><legend>2. Set the scope</legend>
+<label class="answer-option" for="policy-scope-one"><input id="policy-scope-one" type="radio" name="scope" value="this_item" required {% if form_values.scope == 'this_item' %}checked{% endif %}> <strong>This purchase only</strong><small>Select exactly one purchase below.</small></label>
+<label class="answer-option" for="policy-scope-selected"><input id="policy-scope-selected" type="radio" name="scope" value="selected" required {% if form_values.scope == 'selected' %}checked{% endif %}> <strong>Selected purchases</strong><small>Apply this answer to only the exact purchases you select below.</small></label>
+{% if question.allow_future %}<label class="answer-option" for="policy-scope-future"><input id="policy-scope-future" type="radio" name="scope" value="future" required {% if form_values.scope == 'future' %}checked{% endif %}> <strong>Selected purchases and future review guidance</strong><small>Save this policy direction for future reviews. This does not classify future purchases or post automatically.</small></label>
+{% else %}<p>Purchase-specific facts apply only to the selected purchases; they cannot become a policy for future purchases.</p>{% endif %}
+</fieldset>
+<fieldset><legend>3. Select the affected purchases</legend>
+<p>Nothing is selected automatically. Saving a revised answer preserves the earlier evidence.</p>
+<p><button type="button" class="btn btn-default" id="policy-select-all" hidden>Select every purchase in this question</button> <button type="button" class="btn btn-default" id="policy-select-none" hidden>Clear selection</button></p>
+<p id="policy-selection-count-top" role="status" aria-live="polite">{{ form_values.item_ids|length }} purchases selected</p>
+<p><button type="submit" class="btn btn-primary" {% if plan.posting_active or not plan.current_policy %}disabled{% endif %}>Preview answer and affected purchases</button></p>
+<div class="table-responsive"><table class="table table-striped purchase-list"><thead><tr><th scope="col">Purchase and evidence</th><th scope="col" class="money amount-column">Amount (USD)</th></tr></thead><tbody>
+{% for item in question['items'] %}
+<tr><td>
+<label for="policy-select-{{ loop.index }}" id="policy-item-{{ loop.index }}"><input type="checkbox" name="item_id" value="{{ item.item_id }}" id="policy-select-{{ loop.index }}" class="policy-item-selection" data-amount="{{ item.amount }}" {% if item.item_id in form_values.item_ids %}checked{% endif %}> {{ item.title }}</label>
+{% if item.answer %}<details><summary>Saved answer{% if item.answer.stale %} — needs fresh review{% endif %}</summary>{{ saved_answer(item.answer) }}</details>{% endif %}
+<details class="item-evidence"><summary>Exact costs and source evidence</summary>
+<p>Quantity {{ item.quantity }} · {{ item.amount }} USD including adjustments</p>
+<div class="table-responsive"><table class="table table-condensed"><caption>Component amounts already include quantity.</caption><thead><tr><th scope="col">Component</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Evidence</th></tr></thead><tbody>
+{% for component in item.components %}<tr><td>{{ component.kind|replace('_',' ')|capitalize }}</td><td class="money">{{ component.amount }}</td><td>{% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %}<br>{{ source.fields|join(', ') }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}
+</tbody></table></div>
+<p>Original item: {% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>
+</details>
+</td><td class="money">{{ item.amount }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+</fieldset>
+<div class="selected-summary"><p id="policy-selection-count" role="status" aria-live="polite">{{ form_values.item_ids|length }} purchases selected</p>
+<button type="submit" class="btn btn-primary" {% if plan.posting_active or not plan.current_policy %}disabled{% endif %}>Preview answer and affected purchases</button>
+<p style="margin-top: 8px">The next screen shows the exact scope before you save. Journal impact: <strong>0.00 USD</strong>.</p></div>
+</form>
+</section>
+{% endif %}
+{% if saved_answers %}<section aria-labelledby="saved-answer-history-heading">
+<h3 id="saved-answer-history-heading">Saved answer history</h3>
+<p>Earlier answers stay available when a later answer revises some or all of their purchases. These receipts record decisions, not journal postings.</p>
+{% for answer in saved_answers|reverse %}<details><summary>Answer {{ answer.id }} · {{ answer.choice_label }} · {{ answer.item_ids|length }} purchases · {{ answer.amount }} USD</summary>{{ saved_answer(answer) }}</details>{% endfor %}
+</section>{% endif %}
+{% endif %}
+</main>
+<script>
+(function () {
+  var form = document.getElementById('amazon-policy-answer');
+  if (!form) return;
+  var boxes = form.querySelectorAll('.policy-item-selection');
+  var counter = document.getElementById('policy-selection-count');
+  var threshold = document.getElementById('policy-threshold-parameters');
+  function count() {
+    var selected = form.querySelectorAll('.policy-item-selection:checked');
+    var cents = 0;
+    selected.forEach(function (box) { cents += Math.round(Number(box.dataset.amount) * 100); });
+    counter.textContent = selected.length + ' purchases selected · ' + (cents / 100).toFixed(2) + ' USD';
+    document.getElementById('policy-selection-count-top').textContent = counter.textContent;
+  }
+  function controls() {
+    var chosen = form.querySelector('input[name="choice"]:checked');
+    document.getElementById('policy-custom-text').required = Boolean(chosen && chosen.value === 'custom');
+    var future = document.getElementById('policy-scope-future');
+    if (future) {
+      future.disabled = Boolean(chosen && chosen.value === 'defer');
+      if (future.disabled) future.checked = false;
+    }
+    if (!threshold) return;
+    var enabled = chosen && chosen.value === 'threshold';
+    threshold.hidden = !enabled;
+    threshold.querySelectorAll('input, select').forEach(function (input) {
+      input.disabled = !enabled;
+      input.required = Boolean(enabled);
+    });
+  }
+  boxes.forEach(function (box) { box.addEventListener('change', count); });
+  form.querySelectorAll('input[name="choice"]').forEach(function (choice) { choice.addEventListener('change', controls); });
+  [['policy-select-all', true], ['policy-select-none', false]].forEach(function (setting) {
+    var button = document.getElementById(setting[0]);
+    button.hidden = false;
+    button.addEventListener('click', function () { boxes.forEach(function (box) { box.checked = setting[1]; }); count(); });
+  });
+  controls();
+  count();
+}());
+</script>
+{% endblock %}

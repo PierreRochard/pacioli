@@ -11,3 +11,38 @@
         </a>
     {% endif %}
 {% endblock %}
+
+{% block messages %}
+    {{ super() }}
+    {% if current_user.is_authenticated and current_user.has_role('administrator') %}
+      <div id="chase-attention-banner" class="alert alert-warning" role="alert" hidden>
+        <strong>Chase sync needs your attention.</strong>
+        <a id="chase-attention-link" href="{{ url_for('connections.chase_browser') }}">Open Chase sync</a>.
+      </div>
+    {% endif %}
+{% endblock %}
+
+{% block tail %}
+    {{ super() }}
+    {% if current_user.is_authenticated and current_user.has_role('administrator') %}
+    <script>
+    (function () {
+      var banner = document.getElementById('chase-attention-banner');
+      function check() {
+        fetch({{ url_for('connections.chase_browser_status')|tojson }},
+              {credentials: 'same-origin', cache: 'no-store'}).then(function (response) {
+          return response.ok ? response.json() : null;
+        }).then(function (data) {
+          if (!data || !data.run) { banner.hidden = true; return; }
+          document.getElementById('chase-attention-link').href =
+            ['local_ai', 'local_preview'].indexOf(data.run.mode) >= 0 ?
+              {{ url_for('connections.chase_local')|tojson }} : {{ url_for('connections.chase_browser')|tojson }};
+          banner.hidden = !(['waiting_for_mfa', 'choosing_accounts', 'needs_attention'].indexOf(data.run.status) >= 0);
+        }).catch(function () {});
+      }
+      check();
+      window.setInterval(check, 30000);
+    }());
+    </script>
+    {% endif %}
+{% endblock %}

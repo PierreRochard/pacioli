@@ -1,7 +1,10 @@
 {% extends 'admin/model/list.html' %}
 {% block model_menu_bar_before_filters %}
     <li>
-    <a href="{{ get_url('amazonitems.apply_all_mappings_view') }}" title="Apply All Mappings">Apply All Mappings</a>
+    <form action="{{ get_url('amazonitems.apply_all_mappings_view') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+        <button type="submit" title="Apply All Mappings">Apply All Mappings</button>
+    </form>
     </li>
 {% endblock %}
 
@@ -10,6 +13,7 @@
     {% if search %}
         <li>
         <form  action="{{ url_for('amazonitems.index_view')}}" method="POST"  class="form-inline">
+        <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
         <div class="form-group">
             {{ new_mapping_form.subaccount() }}
         </div>

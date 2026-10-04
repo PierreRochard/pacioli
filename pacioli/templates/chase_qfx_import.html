@@ -1,0 +1,52 @@
+{% extends 'admin/master.html' %}
+{% block body %}
+<div class="container">
+  <h1>Import Chase QFX</h1>
+  <p>On Chase's desktop site, open <strong>Accounts</strong>, choose the account, then choose <strong>Download account activity</strong>. Select <strong>Quicken Web Connect (QFX)</strong> and <strong>All transactions</strong>, then choose <strong>Download</strong>. Upload that file here to see the available transaction dates. This does not post transactions to your ledger.</p>
+  <p>The original file is retained encrypted in Pacioli. The account number is shown only by its last four characters in the account label.</p>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  {% if result %}
+    <div class="alert alert-success" role="status">
+      {% if result.duplicate %}This file was already imported.{% else %}File imported.{% endif %}
+      Account: {{ result.summary.account_name }}. File SHA-256: {{ result.sha256 }}.
+    </div>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+    <div class="form-group">
+      <label for="statement">Chase .qfx file (up to 10 MiB)</label>
+      <input type="file" id="statement" name="statement" accept=".qfx,.ofx" required>
+    </div>
+    <div class="checkbox"><label>
+      <input type="checkbox" name="reviewed_usd" value="yes" required>
+      I confirmed this is my Chase account and its statement currency is USD.
+    </label></div>
+    <button type="submit" class="btn btn-primary">Import file</button>
+  </form>
+  <h2>Imported account coverage</h2>
+  {% if summaries %}
+    <table class="table table-striped">
+      <thead><tr><th>Account</th><th>Transactions</th><th>Coverage starts</th><th>Coverage ends</th><th>Oldest transaction</th><th>Newest transaction</th><th>Latest reported balance</th><th>As of</th><th>Opening candidate</th></tr></thead>
+      <tbody>
+      {% for item in summaries %}
+        <tr>
+          <td>{{ item.account_name }}</td>
+          <td>{{ item.transaction_count }}</td>
+          <td>{{ item.coverage_start.date() if item.coverage_start else '—' }}</td>
+          <td>{{ item.coverage_end.date() if item.coverage_end else '—' }}</td>
+          <td>{{ item.oldest.date() if item.oldest else '—' }}</td>
+          <td>{{ item.newest.date() if item.newest else '—' }}</td>
+          <td>{{ item.balance if item.balance is not none else '—' }}</td>
+          <td>{{ item.balance_asof.date() if item.balance_asof else '—' }}</td>
+          <td>{{ item.opening_candidate if item.opening_candidate is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p>The opening candidate is the balance immediately before coverage starts. It appears when QFX ranges and verified browser export ranges connect through the latest posted balance date. It equals that balance minus signed transactions in that interval. Confirm coverage and reconcile to a Chase statement before posting an opening entry. Pending transactions are excluded. <a href="{{ url_for('connections.chase_local') }}">Update Chase and inspect missing intervals and balance dates</a>.</p>
+  {% else %}
+    <p>No Chase files imported yet.</p>
+  {% endif %}
+  <p><a href="{{ url_for('connections.index_view') }}">Back to connections</a></p>
+</div>
+{% endblock %}

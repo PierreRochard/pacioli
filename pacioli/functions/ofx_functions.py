@@ -1,19 +1,15 @@
 from __future__ import print_function
 
-from datetime import datetime, date
+from datetime import date, timezone
 
-from dateutil.tz import tzlocal
-from flask import current_app
 from sqlalchemy import func
-from sqlalchemy.orm.exc import NoResultFound
 
-from ofxtools import OFXClient
-from ofxtools.Client import CcAcct, BankAcct
-from ofxtools.ofxalchemy import OFXParser, get_session
+from ofxtools.legacyclient import OFXClient, CcAcct, BankAcct
 from pacioli import db
-from pacioli.functions.email_reports import send_error_message
+from pacioli.functions.ofx_file_import import MAX_OFX_BYTES, import_ofx_statement
+from pacioli.functions.journal_posting import post_pair
 from pacioli.models import (Subaccounts, Mappings, JournalEntries,
-                            Connections, ConnectionResponses, Transactions,
+                            Connections, Transactions,
                             AccountsFrom, CreditCardAccounts, BankAccounts)
 
 
@@ -55,46 +51,33 @@ def sync_ofx():
 
 
 def sync_ofx_connection(connection):
+    if connection.currency not in ('USD', 'EUR', 'BTC'):
+        raise ValueError('Set the OFX connection currency before syncing')
     if connection.type in ['Checking', 'Savings']:
-        filter_boolean = BankAccounts.acctid == connection.account_number
+        account_model = BankAccounts
         account = BankAcct(connection.routing_number,
                            connection.account_number,
                            connection.type)
     elif connection.type == 'Credit Card':
-        filter_boolean = CreditCardAccounts.acctid == connection.account_number
+        account_model = CreditCardAccounts
         account = CcAcct(connection.account_number)
     else:
         raise Exception('Unrecognized account/'
                         'connection type: {0}'.format(connection.type))
 
-    start, = (db.session.query(Transactions.date)
-              .filter(filter_boolean)
-              .order_by(Transactions.date.desc())
-              .first())
+    latest_query = (db.session.query(Transactions.date)
+                   .join(account_model, Transactions.account_id == account_model.id)
+                   .filter(account_model.acctid == connection.account_number))
+    if connection.type in ['Checking', 'Savings']:
+        latest_query = latest_query.filter(BankAccounts.bankid == connection.routing_number)
+    latest = latest_query.order_by(Transactions.date.desc()).first()
+    start = latest[0] if latest else None
     if start:
         start = start.date()
         end = date.today()
     else:
         start = None
         end = None
-
-
-    # start = start.join(AccountsFrom,
-    #                    Transactions.account_id == AccountsFrom.id)
-
-    # elif connection.type == 'Credit Card':
-    #     start = db.session.query(Transactions.date)
-    #     start = start.join(AccountsFrom, Transactions.account_id == AccountsFrom.id)
-    #     start = start.filter(CreditCardAccounts.acctid == connection.account_number)
-    #     start = start.order_by(Transactions.date.desc())
-    #     start, = start.first()
-    #     if start:
-    #         start = start.date()
-    #         end = date.today()
-    #     else:
-    #         start = None
-    #         end = None
-
     ofx_client = OFXClient(connection.url, connection.org, connection.fid,
                            version=220, appid='QWIN', appver='2500')
 
@@ -108,81 +91,92 @@ def sync_ofx_connection(connection):
     else:
         statement_request = ofx_client.statement_request(connection.user,
                                                          connection.password,
-                                                         connection.clientuid,
-                                                         [account])
+                                                         [account],
+                                                         clientuid=connection.clientuid)
     response = ofx_client.download(statement_request)
 
-    new_response = ConnectionResponses()
-    new_response.connection_id = connection.id
-    new_response.connected_at = datetime.now(tzlocal())
-    new_response.response = response.read()
-    db.session.add(new_response)
-    db.session.commit()
-
-    if '<SEVERITY>ERROR' in new_response.response:
-        status = new_response.response.lower().title()
-        send_error_message(status)
-        return False
-
-    response.seek(0)
-    ofx_session = get_session(current_app.config['SQLALCHEMY_DATABASE_URI'], 'ofx')
-    parser = OFXParser()
-    parser.parse(response)
-    parser.instantiate()
-    ofx_session.commit()
-    connection.synced_at = datetime.now(tzlocal())
-    db.session.commit()
+    # Both direct downloads and QFX uploads use the same acceptance boundary.
+    # Retain bounded encrypted response evidence; account/currency/status and
+    # repeated FITID contents are proved before any financial commit.
+    try:
+        content = response.read(MAX_OFX_BYTES + 1)
+    finally:
+        response.close()
+    import_ofx_statement(content, currency=connection.currency, connection_id=connection.id,
+        expected_account={'type': ('CREDITCARD' if connection.type == 'Credit Card'
+                                  else connection.type.upper()),
+                          'account_number': connection.account_number,
+                          'routing_number': (None if connection.type == 'Credit Card'
+                                             else connection.routing_number)})
 
     return True
 
 
 def apply_all_mappings():
-    for mapping_id, in (db.session.query(Mappings.id)
-                        .filter(Mappings.source == 'ofx')
-                        .all()):
-        apply_single_ofx_mapping(mapping_id)
+    """Resolve every source against the same locked rules, then commit once."""
+    return _apply_ofx_mappings()
 
 
 def apply_single_ofx_mapping(mapping_id):
-    mapping = db.session.query(Mappings).filter(Mappings.id == mapping_id).one()
-    matched_transactions = (db.session.query(Transactions)
-                            .outerjoin(JournalEntries, JournalEntries.transaction_id == Transactions.id)
-                            .filter(JournalEntries.transaction_id.is_(None))
-                            .filter(func.lower(Transactions.description).like('%' + '%'.join(mapping.keyword.lower().split()) + '%'))
-                            .order_by(Transactions.date.desc()).all())
-    for transaction in matched_transactions:
-        new_journal_entry = JournalEntries()
-        new_journal_entry.transaction_id = transaction.id
-        new_journal_entry.transaction_source = 'ofx'
-        new_journal_entry.timestamp = transaction.date
-        if transaction.amount > 0:
-            new_journal_entry.debit_subaccount = transaction.account
-            try:
-                db.session.query(Subaccounts).filter(Subaccounts.name == mapping.positive_credit_subaccount_id).one()
-            except NoResultFound:
-                new_subaccount = Subaccounts()
-                new_subaccount.name = mapping.positive_credit_subaccount_id
-                new_subaccount.parent = 'Discretionary Costs'
-                db.session.add(new_subaccount)
-                db.session.commit()
-            new_journal_entry.credit_subaccount = mapping.positive_credit_subaccount_id
-        elif transaction.amount < 0:
-            new_journal_entry.credit_subaccount = transaction.account
-            try:
-                db.session.query(Subaccounts).filter(Subaccounts.name == mapping.negative_debit_subaccount_id).one()
-            except NoResultFound:
-                new_subaccount = Subaccounts()
-                new_subaccount.name = mapping.negative_debit_subaccount_id
-                new_subaccount.parent = 'Discretionary Costs'
-                db.session.add(new_subaccount)
-                db.session.commit()
-            new_journal_entry.debit_subaccount = mapping.negative_debit_subaccount_id
+    """Scope by this rule, but resolve against all rules before any posting."""
+    return _apply_ofx_mappings(mapping_id)
 
-        else:
-            raise Exception()
-        new_journal_entry.functional_amount = abs(transaction.amount)
-        new_journal_entry.functional_currency = 'USD'
-        new_journal_entry.source_amount = abs(transaction.amount)
-        new_journal_entry.source_currency = 'USD'
-        db.session.add(new_journal_entry)
+
+def _apply_ofx_mappings(mapping_id=None):
+    from collections import defaultdict
+    from sqlalchemy import text
+    from pacioli.functions.mapping_resolution import (
+        MappingResolver, source_matches, verify_replay,
+    )
+
+    try:
+        db.session.execute(text("SET LOCAL lock_timeout = '10s'"))
+        db.session.execute(text("SET LOCAL statement_timeout = '120s'"))
+        # Match the reviewed-batch/close lock order. Concurrent rule edits and
+        # financial imports cannot change eligibility midway through this batch.
+        db.session.execute(text("SELECT pg_advisory_xact_lock(hashtext('pacioli.trial_balances'))"))
+        db.session.execute(text('LOCK TABLE bookkeeping.journal_entries IN SHARE ROW EXCLUSIVE MODE'))
+        db.session.execute(text('''LOCK TABLE ofx.stmttrn, ofx.acctfrom,
+            bookkeeping.bank_feed_accounts, bookkeeping.subaccounts IN SHARE MODE'''))
+        db.session.execute(text('LOCK TABLE admin.mappings IN SHARE ROW EXCLUSIVE MODE'))
+        mappings = db.session.query(Mappings).filter_by(source='ofx').populate_existing().all()
+        requested = next((rule for rule in mappings if rule.id == mapping_id), None)
+        if mapping_id is not None and (requested is None or not (requested.keyword or '').strip()):
+            raise ValueError('An OFX mapping with a keyword is required')
+        resolver = MappingResolver(mappings)
+        existing = defaultdict(list)
+        for entry in db.session.query(JournalEntries).filter_by(transaction_source='ofx').all():
+            existing[entry.transaction_id].append(entry)
+        chart = {name for name, in db.session.query(Subaccounts.name)}
+        planned = []
+        already_posted = 0
+        for transaction in db.session.query(Transactions).order_by(Transactions.date.asc(), Transactions.id).all():
+            if requested is not None and not source_matches(requested, transaction):
+                continue
+            candidates = resolver.candidates(transaction)
+            if not candidates:
+                continue
+            if existing.get(transaction.id):
+                verify_replay(transaction, existing[transaction.id])
+                already_posted += 1
+                continue
+            mapping, decision = resolver.resolve(transaction, candidates)
+            if any(decision['posting'][side] not in chart for side in ('debit', 'credit')):
+                raise ValueError('OFX transaction and mapping require existing chart accounts')
+            planned.append((transaction, mapping, decision))
+        for transaction, mapping, decision in planned:
+            posting_time = transaction.date
+            if posting_time.tzinfo is None:
+                posting_time = posting_time.replace(tzinfo=timezone.utc)
+            post_pair(transaction_id=transaction.id, transaction_source='ofx',
+                      timestamp=posting_time, debit=decision['posting']['debit'],
+                      credit=decision['posting']['credit'], functional_amount=abs(transaction.amount),
+                      mapping_id=mapping.id, mapping_decision=decision,
+                      memo=('Provisional classification; review required. ' if mapping.review_required else '')
+                           + (mapping.review_note or 'Applied saved OFX mapping'))
+            db.session.flush()
         db.session.commit()
+        return {'posted': len(planned), 'already_posted': already_posted}
+    except Exception:
+        db.session.rollback()
+        raise
