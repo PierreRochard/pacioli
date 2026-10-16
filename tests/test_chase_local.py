@@ -22,10 +22,9 @@ from pacioli.functions.chase_local_model import LocalModel
 from pacioli.functions.ofx_file_import import import_chase_qfx
 from pacioli.models import ChaseBrowserRuns, Connections, OFXFileImports
 from scripts.chase_native_host import read_message, write_message
-from tests.test_chase_browser import clean_chase_connector, _csrf
+from tests.test_chase_browser import clean_chase_connector, clean_chase_feed, _csrf
 from tests.test_chase_firefox import firefox, attach
 from tests.test_chase_qfx import _qfx
-from tests.test_chase_native import clean_native_feed
 
 ROOT = Path(__file__).resolve().parents[1]
 PATH = '/connections/chase/local/'
@@ -377,7 +376,7 @@ def test_local_run_route_csrf_encrypted_checkpoint_resume(clean_chase_connector,
     finally:app.config['WTF_CSRF_ENABLED']=prior
 
 
-def test_real_import_resume_is_idempotent(clean_native_feed,tmp_path,monkeypatch):
+def test_real_import_resume_is_idempotent(clean_chase_feed,tmp_path,monkeypatch):
     number=uuid4().hex[:12]+'1234'; content=_qfx(number)
     initial=import_chase_qfx(content,reviewed_usd=True)
     new=content.replace(b'deposit-1',b'deposit-2').replace(b'expense-1',b'expense-2')

@@ -206,10 +206,10 @@ audited allocation rows; no second cash movement or separate Amazon payable is
 created. Replay verifies all posted allocations. Existing legacy Amazon item
 journals for the order block this workflow to prevent duplicate booking.
 
-The older item/title CSV importer and mechanize/Gmail report automation remain
-legacy interfaces. Use the workbench for new reconciled evidence. Live DOM and
-provider export layouts can change; an unrecognized page must remain a visible
-failure rather than an invented item extraction or successful collection claim.
+The older item/title CSV importer remains a legacy interface. Use the workbench
+for new reconciled evidence. Live DOM and provider export layouts can change;
+an unrecognized page must remain a visible failure rather than an invented item
+extraction or successful collection claim.
 
 ## Merchant review and local Qwen
 

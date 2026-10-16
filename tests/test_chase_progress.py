@@ -19,8 +19,7 @@ from pacioli.functions.chase_local_bridge import LocalChaseError
 from pacioli.functions.chase_local_model import LocalModel
 from pacioli.functions.ofx_file_import import import_chase_qfx
 from pacioli.models import Users, ChaseLocalEvents
-from tests.test_chase_browser import clean_chase_connector, _csrf
-from tests.test_chase_native import clean_native_feed
+from tests.test_chase_browser import clean_chase_connector, clean_chase_feed, _csrf
 from tests.test_chase_qfx import _qfx
 from tests.test_chase_local import observation, PATH
 from tests.test_chase_firefox import firefox, attach
@@ -194,7 +193,7 @@ def test_failed_progress_record_still_releases_gpu():
     assert calls == [('generate', {'model':'qwen3-vl:8b-instruct', 'keep_alive':0})]
 
 
-def test_import_timeline_replay_and_rollback(clean_native_feed, tmp_path):
+def test_import_timeline_replay_and_rollback(clean_chase_feed, tmp_path):
     number = uuid4().hex[:12]+'1234'; content = _qfx(number)
     initial = import_chase_qfx(content, reviewed_usd=True)
     path = tmp_path/'fixture.qfx'; path.write_bytes(content)

@@ -13,8 +13,6 @@ SQLAlchemy
 argon2-cffi
 cryptography
 gunicorn
-mechanize
-playwright
 premailer
 psycopg2-binary
 python-dateutil

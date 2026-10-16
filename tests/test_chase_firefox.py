@@ -22,8 +22,8 @@ from pacioli.functions import chase_browser as connector
 from pacioli.functions import firefox_bidi as bidi
 from pacioli.models import ChaseBrowserRuns
 from pacioli.functions.ofx_file_import import import_chase_qfx
-from tests.test_chase_browser import PATH, _csrf, clean_chase_connector
-from tests.test_chase_native import native_run, clean_native_feed, _reload
+from tests.test_chase_browser import (PATH, _csrf, _reload, chase_run,
+                                      clean_chase_connector, clean_chase_feed)
 from tests.test_chase_qfx import _qfx
 
 
@@ -39,7 +39,8 @@ def firefox(tmp_path):
     available = next(int(line.split()[1]) for line in Path('/proc/meminfo').read_text().splitlines()
                      if line.startswith('MemAvailable:'))
     assert available >= 10 * 1024 * 1024, 'Not enough memory for a browser test'
-    bank = SimpleNamespace(downloads=0, auth='passkey', content=_qfx(uuid4().hex[:12] + '4321'))
+    bank = SimpleNamespace(downloads=0, auth='passkey', content=_qfx(uuid4().hex[:12] + '4321'),
+                           pages={})
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -47,6 +48,12 @@ def firefox(tmp_path):
 
         def do_GET(self):
             self.send_response(200)
+            if self.path in bank.pages:
+                content_type, body = bank.pages[self.path]
+                self.send_header('Content-Type', content_type)
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if self.path == '/statement':
                 bank.downloads += 1
                 self.send_header('Content-Type', 'application/x-ofx')
@@ -280,10 +287,8 @@ except ChaseBrowserCancelled:
 
 
 @pytest.fixture
-def firefox_run(native_run, firefox, app, monkeypatch):
-    run, credentials = native_run
-    credentials.browser_engine = 'firefox'
-    db.session.commit()
+def firefox_run(chase_run, firefox, app, monkeypatch):
+    run, credentials = chase_run
     original_connection = bidi.FirefoxConnection
     def connection(port, **kwargs):
         kwargs.setdefault('allowed_origins', {firefox.origin})
@@ -315,14 +320,12 @@ def test_firefox_session_check_and_export_reuse(firefox_run, client):
     run, credentials = _reload(run, credentials)
     assert run.status == 'completed', run.error_code
     assert firefox.bank.downloads == 0
-    assert credentials.session_state is None
-    assert credentials.provider_verified_at is None
     report = json.loads(run.diagnostics)
     assert report['kind'] == 'chase_firefox'
     assert any(event.get('name') == 'accounts_reached' for event in report['events'])
     assert report['events'][-1]['attached'] is False
     from pacioli.views.admin_views import _chase_status_message
-    assert 'not which sign-in method' in _chase_status_message(run, 'firefox')
+    assert 'not which sign-in method' in _chase_status_message(run)
 
     export = connector.start_run(credentials.connection_id, run.requested_by_id, True)
     connector.run_worker(export.id)
@@ -335,8 +338,6 @@ def test_firefox_session_check_and_export_reuse(firefox_run, client):
     repeat, credentials = _reload(repeat, credentials)
     assert repeat.status == 'completed', repeat.error_code
     assert repeat.duplicate_count == 1 and repeat.imported_count == 0
-    assert credentials.session_state is None
-    assert credentials.browser_profile_key is None
     assert firefox.process.poll() is None
 
 
@@ -469,26 +470,59 @@ def test_firefox_download_event_matches_tab_and_download_id():
     assert event.value._path == '/fixture.qfx'
 
 
-def test_firefox_selection_csrf_and_legacy_test_rejection(native_run, client, app):
-    run, credentials = native_run
+def test_firefox_check_requires_csrf_and_retired_modes_are_refused(chase_run, client, app):
+    run, credentials = chase_run
     connector._set_run(run.id, 'completed')
+    for mode in ('passkey_enroll', 'passkey_test', 'provider_test', 'lastpass_test'):
+        with pytest.raises(connector.ChaseBrowserError) as error:
+            connector.start_run(credentials.connection_id, run.requested_by_id, False, mode)
+        assert error.value.code == 'invalid_run_mode'
     prior = app.config['WTF_CSRF_ENABLED']
     app.config['WTF_CSRF_ENABLED'] = True
     try:
-        assert client.post(PATH, data={'action': 'browser_engine', 'browser_engine': 'firefox'}).status_code == 400
-        response = client.get(PATH)
-        client.post(PATH, data={'action': 'browser_engine', 'browser_engine': 'firefox',
-                                'csrf_token': _csrf(response.data)})
-        db.session.refresh(credentials)
-        assert credentials.browser_engine == 'firefox'
-        with pytest.raises(connector.ChaseBrowserError) as error:
-            connector.start_run(credentials.connection_id, run.requested_by_id, False, 'lastpass_test')
-        assert error.value.code == 'browser_mode_mismatch'
         assert client.post(PATH, data={'action': 'test_firefox'}).status_code == 400
         page = client.get(PATH)
-        assert b'My existing Firefox' in page.data
+        assert b'Check Firefox connection' in page.data
         client.post(PATH, data={'action': 'test_firefox', 'csrf_token': _csrf(page.data)})
         latest = connector.latest_run(credentials.connection_id)
         assert latest.mode == 'firefox_test' and not latest.reviewed_usd
     finally:
         app.config['WTF_CSRF_ENABLED'] = prior
+
+
+def test_frontend_polling_shows_handoff_and_completion(chase_run, firefox, client):
+    run, credentials = chase_run
+    run.mode = 'automatic'
+    connector._set_run(run.id, 'signing_in')
+    status_path = '/connections/chase/status/'
+
+    def publish_status():
+        firefox.bank.pages[status_path] = ('application/json', client.get(status_path).data)
+
+    def wait_until(check):
+        deadline = time.monotonic() + 10
+        while not check():
+            assert time.monotonic() < deadline, 'the page did not update'
+            time.sleep(.2)
+
+    firefox.bank.pages[PATH] = ('text/html', client.get(PATH).data)
+    publish_status()
+    with attach(firefox) as connection:
+        page = connection.page
+        page.goto(firefox.origin + PATH)
+        disabled = lambda selector: page.locator(selector).get_attribute('disabled') is not None
+        assert page.locator('#chase-firefox-form').is_visible()
+        assert disabled('#chase-firefox-button')
+        assert not page.locator('#chase-browser-form').is_visible()
+        connector._set_run(run.id, 'waiting_for_mfa', mfa_prompt='open_browser')
+        publish_status()
+        wait_until(lambda: page.locator('#chase-browser-form').is_visible())
+        assert connection.script(page.context, "return document.getElementById("
+                                 "'chase-browser-run-id').value;") == str(run.id)
+        assert disabled('#chase-start-button')
+        connector._set_run(run.id, 'completed', duplicate_count=1)
+        publish_status()
+        wait_until(lambda: not page.locator('#chase-browser-form').is_visible())
+        assert not page.locator('#chase-cancel-form').is_visible()
+        assert 'Already present: 1' in page.locator('#chase-run-counts').inner_text()
+        assert not disabled('#chase-firefox-button')

@@ -1,4 +1,4 @@
-.PHONY: help env deps lock upgrade-deps audit test ci db-init db-start db-stop db-status db-backup
+.PHONY: help env deps lock upgrade-deps audit test ci deploy db-init db-start db-stop db-status db-backup
 
 PYTHON ?= python3.14
 VENV ?= .venv
@@ -11,6 +11,7 @@ help:
 	@echo "audit check the installed environment for known vulnerabilities"
 	@echo "test  run the PostgreSQL test suite"
 	@echo "ci    run all local checks with disposable PostgreSQL"
+	@echo "deploy  back up, sync .venv, migrate and restart pacioli-web"
 	@echo "db-init   create or update the persistent local Pacioli database"
 	@echo "db-start  start the persistent local PostgreSQL cluster"
 	@echo "db-stop   stop the persistent local PostgreSQL cluster"
@@ -41,6 +42,9 @@ test:
 
 ci:
 	$(VENV)/bin/python scripts/ci_local.py
+
+deploy:
+	$(VENV)/bin/python scripts/deploy.py
 
 db-init:
 	$(VENV)/bin/python scripts/local_db.py init

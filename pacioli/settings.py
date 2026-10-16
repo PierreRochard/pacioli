@@ -52,13 +52,8 @@ def database_url():
 
 
 class Config(object):
-    CHASE_BROWSER_DEFAULT = 'firefox'
     CHASE_FIREFOX_PORT = 9222
     SECRET_KEY = setting('SECRET_KEY', required=True)
-    # Live enrollment failed on this Linux workstation. Permit an explicitly
-    # supervised diagnostic window through the private local configuration.
-    CHASE_PASSKEY_ENROLLMENT_ENABLED = str(setting(
-        'CHASE_PASSKEY_ENROLLMENT_ENABLED', 'false')).lower() == 'true'
     # Amazon's native archive includes delivery photos; allow a bounded 64 MiB
     # archive plus multipart overhead. Individual importers retain their limits.
     MAX_CONTENT_LENGTH = 66 * 1024 * 1024

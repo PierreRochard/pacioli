@@ -68,12 +68,6 @@ def migrate_chase_browser():
         ChaseLocalPreferences.__table__, ChaseExportCoverage.__table__,
         ChaseLocalEvents.__table__])
     for clause in (
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS session_state text',
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS browser_profile_key varchar(32)',
-        "ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS browser_engine varchar(16) NOT NULL DEFAULT 'chromium'",
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS provider_verified_at timestamptz',
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS passkey_credential text',
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS passkey_verified_at timestamptz',
         'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS selected_account_labels json',
         'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS selected_ofx_account_ids json',
         "ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS mode varchar(16) NOT NULL DEFAULT 'interactive'",
@@ -81,14 +75,18 @@ def migrate_chase_browser():
         'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS mfa_code text',
         'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS browser_requested boolean NOT NULL DEFAULT false',
         'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS browser_visible boolean NOT NULL DEFAULT false',
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS provider_confirmed boolean NOT NULL DEFAULT false',
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS passkey_confirmed boolean NOT NULL DEFAULT false',
         'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS diagnostics text',
     ):
         run_sql(clause)
     run_sql("UPDATE admin.chase_browser_runs SET mode = 'automatic' WHERE mode = 'scheduled'")
-    for column in ('auto_sync_enabled', 'scheduled_by_id', 'last_scheduled_at'):
+    # Retired columns, including the removed Chromium engine's session snapshot,
+    # profile key and passkey material.
+    for column in ('auto_sync_enabled', 'scheduled_by_id', 'last_scheduled_at',
+                   'session_state', 'browser_profile_key', 'browser_engine',
+                   'provider_verified_at', 'passkey_credential', 'passkey_verified_at'):
         run_sql('ALTER TABLE admin.chase_browser_credentials DROP COLUMN IF EXISTS {}'.format(column))
+    for column in ('provider_confirmed', 'passkey_confirmed'):
+        run_sql('ALTER TABLE admin.chase_browser_runs DROP COLUMN IF EXISTS {}'.format(column))
 
 
 @app.cli.command('dropdb')
@@ -233,18 +231,6 @@ def backup_db():
 def encrypt_existing_data():
     """Encrypt pre-existing plaintext connection passwords and OFX responses."""
     click.echo('Encrypted {} existing values'.format(migrate_encrypted_data(db.engine)))
-
-
-@app.cli.command('submit_amazon_report_request')
-def submit_amazon_report_request():
-    from pacioli.functions.amazon_functions import request_amazon_report
-    request_amazon_report()
-
-
-@app.cli.command('import_amazon_report')
-def import_amazon_report():
-    from pacioli.functions.amazon_functions import fetch_amazon_email_download
-    fetch_amazon_email_download()
 
 
 @app.cli.command('import_amazon_csv')

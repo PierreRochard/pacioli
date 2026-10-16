@@ -64,7 +64,6 @@ def app(database_url):
     from pacioli.settings import DevConfig
 
     class TestConfig(DevConfig):
-        CHASE_BROWSER_DEFAULT = 'chromium'
         TESTING = True
         DEBUG = False
         WTF_CSRF_ENABLED = False

@@ -1,28 +1,19 @@
 """Import Amazon order-history CSV reports and apply bookkeeping mappings."""
 
 import csv
-import email
-from html import unescape
-import imaplib
 import io
 import json
-import re
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, time, timezone
 from decimal import Decimal
-from urllib.parse import urlparse
 
-import mechanize
 from dateutil.parser import parse as parse_date
 from sqlalchemy import and_, func, or_
 from sqlalchemy.types import Date, Integer, Numeric
 
 from pacioli.models import (db, AmazonItems, Mappings, JournalEntries,
-                            Connections, AmazonCategories, AmazonOrders)
+                            AmazonCategories, AmazonOrders)
 from pacioli.functions.journal_posting import post_pair
 from pacioli.functions.accounting_report import chart_accounts
-
-
-REPORTS_URL = 'https://www.amazon.com/gp/b2b/reports'
 
 
 def apply_all_mappings():
@@ -93,95 +84,6 @@ def apply_single_amazon_mapping(mapping_id):
     except Exception:
         db.session.rollback()
         raise
-
-
-def _amazon_credentials():
-    connection = (db.session.query(Connections)
-                  .filter(Connections.source == 'amazon').one())
-    return connection.user, connection.password
-
-
-def _browser():
-    browser = mechanize.Browser()
-    browser.set_handle_robots(False)
-    return browser
-
-
-def _sign_in(browser):
-    browser.select_form(name='signIn')
-    browser['email'], browser['password'] = _amazon_credentials()
-    response = browser.submit()
-    content = response.read()
-    if b'The e-mail address and password you entered do not match' in content:
-        raise RuntimeError('Amazon rejected the configured credentials')
-    return content
-
-
-def request_amazon_report():
-    browser = _browser()
-    browser.open(REPORTS_URL)
-    _sign_in(browser)
-    browser.open(REPORTS_URL)
-    browser.select_form(nr=2)
-    browser.form['type'] = ('ITEMS',)
-
-    latest = (db.session.query(AmazonOrders.order_date)
-              .order_by(AmazonOrders.order_date.desc()).first())
-    latest_order_date = latest[0] if latest else None
-    start_date = (latest_order_date - timedelta(days=5)
-                  if latest_order_date else date(2007, 1, 1))
-    end_date = date.today()
-    for label, value in [('monthstart', start_date.month),
-                         ('daystart', start_date.day),
-                         ('yearstart', start_date.year),
-                         ('monthend', end_date.month),
-                         ('dayend', end_date.day),
-                         ('yearend', end_date.year)]:
-        browser.form[label] = (str(value),)
-    browser.submit()
-
-
-def _report_url(raw_email):
-    message = email.message_from_bytes(raw_email)
-    for part in message.walk():
-        if part.is_multipart():
-            continue
-        payload = part.get_payload(decode=True) or b''
-        body = unescape(payload.decode(part.get_content_charset() or 'utf-8',
-                                       errors='replace'))
-        for candidate in re.findall(r"https?://[^\s<>\"']+", body):
-            candidate = candidate.rstrip(').,')
-            parsed = urlparse(candidate)
-            if (parsed.hostname in ('amazon.com', 'www.amazon.com')
-                    and parsed.path.startswith('/gp/b2b/reports/')):
-                return parsed._replace(scheme='https').geturl()
-    raise ValueError('No Amazon order-history report URL was found in the email')
-
-
-def fetch_amazon_email_download():
-    gmail = (db.session.query(Connections)
-             .filter(Connections.source == 'gmail').one())
-    imap_session = imaplib.IMAP4_SSL(gmail.url)
-    try:
-        imap_session.login(gmail.user, gmail.password)
-        status, _ = imap_session.select('"[Gmail]/All Mail"')
-        if status != 'OK':
-            raise RuntimeError('Cannot open Gmail All Mail')
-        status, data = imap_session.search(None,
-                                           '(SUBJECT "Your order history report for")')
-        if status != 'OK' or not data or not data[0].split():
-            raise LookupError('No Amazon report email was found')
-        status, data = imap_session.fetch(data[0].split()[-1], '(RFC822)')
-        if status != 'OK':
-            raise RuntimeError('Cannot fetch Amazon report email')
-        report_url = _report_url(data[0][1])
-    finally:
-        imap_session.logout()
-
-    browser = _browser()
-    browser.open(report_url)
-    content = _sign_in(browser)
-    return import_amazon_csv(content.decode('utf-8-sig'))
 
 
 def _normalized_row(row):

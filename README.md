@@ -47,6 +47,10 @@ This checkout can also be served on the LAN at `https://pacioli.lan`. Host-speci
 service, proxy, and certificate files stay in the untracked `deploy/` directory. Run
 `.venv/bin/python manage.py create_admin_link` to generate a two-hour,
 one-use browser link for creating the first administrator without email.
+The `pacioli-web` user service runs straight from this checkout. After pulling
+changes, run `make deploy`: it saves a database backup, syncs `.venv` with the
+hashed development lock, runs `manage.py createdb`, restarts the service and
+waits for its login page.
 
 For an existing or externally managed PostgreSQL database, use `.env.example`
 as a guide and supply settings through environment variables, or set
@@ -244,9 +248,7 @@ workstation, **Admin → Connections → Supervised Chase connection** can save 
 Chase username and password encrypted in the local PostgreSQL database. Start
 an export while you can see the workstation desktop.
 
-The default browser for new connections is **your existing Firefox**. Select
-**My existing Firefox** on the Chase page for an older connection. The selected
-browser is stored in the app database. Firefox keeps its existing LastPass
+Pacioli drives **your existing Firefox**. Firefox keeps its existing LastPass
 installation, passkeys, cookies, and other tabs. Pacioli creates and closes only
 its own Chase tab; it neither copies your profile nor exports Firefox's vault or
 cookies into the app. A session check proves account access, not which login
@@ -288,7 +290,7 @@ Click **Check Firefox connection** for a sign-in-only test, then **Open Chase an
 export QFX** to approve USD accounts and import. Later **Sync now** runs use a
 background tab in the open Firefox. If Chase needs sign-in, Pacioli offers to
 bring that same tab forward for LastPass or MFA approval. It does not autofill
-the saved legacy password in Firefox or alter WebAuthn. Downloads follow your
+the saved Chase password in Firefox or alter WebAuthn. Downloads follow your
 normal Firefox settings; complete any Save As dialog in Firefox. Pacioli matches
 the browser's download ID to its own tab, imports that exact QFX, and leaves the
 original in your normal download location. It never scans your Downloads folder
@@ -296,157 +298,44 @@ or changes browser-wide download settings. Cancelling stops further processing;
 Firefox and its other tabs remain open. Forgetting the Pacioli connection does
 not erase your Firefox profile or sign you out there.
 
-The following profile/session details describe the **legacy Chromium** option.
-Its short-lived Chromium session enters the saved login into Chase's own sign-in
-form; complete any Chase MFA there. The connector then asks which visible
-accounts to export, downloads up to the last 24 months of QFX for each selected
-account, imports the files, and closes the browser. It does not post journal entries. One
-session runs at a time; session progress and cancellation are available on the
-same page. A stopped worker becomes restartable after five minutes.
+A supervised export asks which visible accounts to export, downloads up to the
+last 24 months of QFX for each selected account, and imports the files. It does
+not post journal entries. One session runs at a time; session progress and
+cancellation are available on the same page. A stopped worker becomes
+restartable after five minutes.
 
-After one successful supervised export, an administrator may click **Sync now**
-to start a headless, clearly labeled browser on demand. It tries the previously
-selected accounts and checks every downloaded QFX against their approved OFX
-account IDs before importing it. Repeated files and transactions are deduplicated.
-There is no schedule or remote CI workflow.
-
-Normal exports now use a dedicated persistent Chromium profile under
-`.local/chase-browser/<random-id>/`. The directory is private (0700), and a
-process lock prevents overlapping workers from using or removing it, including
-when a stale database job is replaced. This profile contains cookies and site
-storage on disk; it is **not encrypted with Pacioli's database field key**.
-Pacioli also keeps an encrypted Chase cookie/localStorage snapshot in PostgreSQL
-for session-cookie restoration and initial profile recovery. Native snapshots read only Chase frames and request
-only Chase cookies; provider vault/extension storage is not exported. IndexedDB
-and provider state stay in the private Chromium profile. Changing the saved username or password, or forgetting the
-login, removes the dedicated profile and its saved authentication snapshot.
-The worker never opens the user's everyday browser profile. Profiles left by an
-interrupted passkey test are removed on the next run or when forgetting the
-login. Chromium's application-profile browsing/download history is discarded
-before launch; cookies, site storage, and provider settings remain. This works
-around a locally reproduced Chromium 153 crash on a second download after
-profile reuse (similar to [Playwright issue 42506](https://github.com/microsoft/playwright/issues/42506)).
-Normal runs also omit Playwright's mock-keychain/basic-password-store flags so
-Chromium can use the workstation's native credential store.
+After one successful supervised export, an administrator may click **Sync now**.
+It tries the previously selected accounts and checks every downloaded QFX
+against their approved OFX account IDs before importing it. Repeated files and
+transactions are deduplicated. There is no schedule or remote CI workflow.
 
 If Chase presents one unambiguous one-time-code field, an administrator can
 relay the code through Pacioli; it is encrypted briefly and cleared after use
-or when the run ends. For an unrecognized headless challenge, Pacioli closes
-the headless browser and waits up to ten minutes for **Open verification window**.
-That action reopens the same profile visibly on the workstation in the same run.
-Complete verification in Chase; export resumes with the same approved accounts.
-The visible attempt does not automatically resubmit the password. There is at
-most one headless-to-visible handoff per run. Cancellation, timeouts, sign-out,
-and changed account choices stop the run without broadening account approval.
-Chase can expire a session at any time, so unattended completion is best effort.
+or when the run ends. If Chase needs other verification during **Sync now**,
+Pacioli waits up to ten minutes for **Open verification window**, which brings
+its Chase tab forward in Firefox. Complete verification there; export resumes
+with the same approved accounts. Cancellation, timeouts, sign-out, and changed
+account choices stop the run without broadening account approval. Chase can
+expire a session at any time, so unattended completion is best effort.
 
-**Test my existing passkey** starts a separate, fresh profile with no cached
-Chase state and no password autofill. Choose Chase's passkey sign-in and use an
-existing provider, such as the Apple phone/QR flow. Pacioli leaves native
-WebAuthn enabled: no virtual authenticator, credential API replacement, or
-copied provider signing key participates in this path. Once accounts appear,
-confirm in Pacioli that you used your existing passkey. Only then does Pacioli
-adopt the test profile and save its session; cancellation discards the test
-profile and retains the old one. This is an observed accounts-page success plus
-user confirmation, not independent evidence of which provider authenticated.
-The test neither enrolls a new key nor downloads or imports transactions.
-Device approval must still be completed through the provider when requested.
-An accepted confirmation survives a temporary Chase page refresh. Pacioli still
-waits for authenticated account controls to return before saving the session;
-confirmation alone cannot complete the test.
-
-For a passkey already saved in LastPass in another browser, choose **Test my
-LastPass passkey**. It opens the official LastPass Chrome Web Store listing in a
-second tab of the fresh test browser. Install the extension and unlock it directly
-in LastPass, return to the Chase tab, reload it, and choose passkey sign-in. Pacioli
-does not enter a LastPass master password. Confirmation after reaching accounts
-retains that browser profile (including the provider installation) for later
-on-demand syncs. An unsuccessful or cancelled fresh test discards its profile;
-it does not revoke the Chase passkey stored in LastPass. Repeating the fresh test
-requires setting up the provider again. Routine exports and Sync now reuse the
-retained profile.
-Chase session cookies are restored from the encrypted bank-only snapshot when
-reopening that profile. Chromium does not retain those cookies across clean
-shutdowns. Restoration adds only Chase session cookies; it does not reset
-LastPass storage or overwrite the profile's persistent cookies. A visible
-verification handoff carries forward the current attempt's session cookies.
-
-The optional **local software passkey** experiment is disabled in production.
-Chase rejected supervised enrollment with the same generic error using both
-Playwright's JavaScript WebAuthn shim and Chromium's native virtual
-authenticator. Pacioli saved no signing key, and Chase listed no new passkey
-after either failure. The native authenticator passed a localhost registration
-and signed assertion test, so the live rejection is specific to Chase or this
-workstation. Chase's published system requirements list Windows and macOS,
-while this workstation runs Linux. The exact reason for Chase's rejection is
-unknown. Keep enrollment disabled until a supported, Chase-accepted method is
-demonstrated. The existing on-demand supervised browser and manual QFX import
-remain available without Plaid.
-
-For a deliberately supervised investigation after enrollment is re-enabled,
-Pacioli records a bounded diagnostic report on the Chase run. It records
-relative timing, browser navigation fingerprints, native WebAuthn credential
-events, failed network requests, Chase HTTP status codes, and narrowly
-validated machine-readable error codes from small JSON responses. It does not
-record request bodies, full headers, cookies, URL queries, raw console
-messages, passkey identifiers, or signing keys. Selected server request IDs
-are retained to help correlate errors. The report is encrypted in
-`admin.chase_browser_runs.diagnostics` and available only through the
-administrator's **View passkey diagnostic report** link. The report can show
-which step rejected registration; Chase may still return only a generic error
-without disclosing its internal reason. The **Chase rejected the passkey**
-button ends the run without saving a candidate credential and records that
-observed outcome.
-
-If a future supported enrollment succeeds, Pacioli encrypts the signing key in
-PostgreSQL. **Test local passkey sign-in** uses a fresh headless browser without
-cached Chase cookies and downloads no QFX. Only a successful WebAuthn assertion
-and account sign-in mark the key verified. Removing the local copy in Pacioli
-does not revoke the credential at Chase.
-Run `.venv/bin/python scripts/passkey_smoke.py` to verify registration,
-restoration, and a signed assertion against a local test site without
-contacting Chase. Run `.venv/bin/python scripts/passkey_cdp_smoke.py` to
-profile the native Chromium authenticator used by the connector. The probe
-uses only `localhost`, prints no credential IDs or keys, and compares the
-current options with isolated CTAP 2.1, backup-eligible, and simulated
-already-backed-up variants. It checks CBOR attestation against Chromium's
-own authenticator-data API, RP and origin,
-presence and verification bits, backup bits, AAGUID, ES256 public key,
-resident-key extension, and signature after importing the credential into a
-fresh browser context. On this workstation, the current profile creates a
-single-device credential (`BE=0`, `BS=0`) with Chromium's virtual-authenticator
-AAGUID; the backup-eligible variant creates `BE=1`, `BS=0`. The simulated
-backed-up variant is diagnostic only: claiming `BS=1` for a key that is not
-yet durably backed up would be inaccurate in production. The probe also checks
-that Pacioli's stored credential retains Chromium's backup fields and that a
-backup-eligible key keeps its signed BE flag even if imported into an
-authenticator with the old defaults. The probe checks two successive fresh
-browser assertions; Pacioli now stores the updated signature counter after a
-successful Chase sign-in so it does not restart each run from the enrollment
-counter. These local results do not reveal
-which field caused Chase's HTTP 400. The production authenticator settings
-and enrollment gate remain unchanged.
-
-The browser worker needs Playwright's Python package, `/snap/bin/chromium`, and
-the systemd user manager. Supervised runs also need a visible desktop. The web service
-starts a transient user service for each session because its own
-`NoNewPrivileges=yes` setting prevents snap Chromium from launching. The worker
-has a 3 GB memory limit and a 40-minute runtime limit (including handoff waits). Only a numeric run ID
-is passed to the worker; it reads encrypted credentials from the database using
-Pacioli's private key. Raw QFX files are held in a private directory under
-`$TMPDIR` and removed when the worker exits. The source retained in Pacioli is
-encrypted. If Chase changes its login, MFA, or download controls, the connector
-stops with a generic error instead of guessing or bypassing a control.
+The browser worker needs the systemd user manager and a Firefox started with
+the Pacioli launcher. The web service starts each session as a transient user
+service outside its own `NoNewPrivileges=yes` sandbox. The worker has a 3 GB
+memory limit and a 40-minute runtime limit (including handoff waits). Only a
+numeric run ID is passed to the worker. If Chase changes its login, MFA, or
+download controls, the connector stops with a generic error instead of guessing
+or bypassing a control.
 Fresh databases created with `manage.py createdb` include the connector tables.
 For an existing database, run `.venv/bin/python manage.py migrate_chase_browser`
-after updating dependencies, then restart `pacioli-web.service`. Run `make ci`
-for the local disposable-PostgreSQL test suite. The native-connector tests also
-launch real Chromium sequentially with all page requests intercepted by a fake
-bank: MFA relay, persistent reuse, session expiry, same-run GUI handoff, account
-allowlist rejection, duplicate QFX, balance/opening-balance calculations, and
-provider-confirmation/cancellation are exercised. They require the workstation's
-Chromium installation. Human provider approvals are simulated in these tests;
-a supervised live sign-in is still required to establish Chase acceptance.
+after updating dependencies, then restart `pacioli-web.service`. The command
+also drops the columns of the removed Chromium connector: its encrypted Chase
+session snapshot, profile key and passkey fields. Run `make ci` for the local
+disposable-PostgreSQL test suite. The Firefox connector tests launch a real
+headless Firefox against a local fixture bank: MFA relay, session reuse and
+expiry, the verification handoff, account allowlist rejection, duplicate QFX,
+and the page's live status updates are exercised. Human approvals are simulated
+in these tests; a supervised live sign-in is still required to establish Chase
+acceptance.
 
 The **Admin → Connections → Import Chase QFX** page remains the manual path:
 download a Quicken Web
@@ -486,11 +375,12 @@ actual available history must be determined from your exported files:
 https://www.chase.com/personal/banking/education/budgeting-saving/what-is-chase-spending-planner
 
 A supervised export on 2026-09-24 succeeded in a clearly labeled Chromium
-agent session using browser UI clicks. Earlier experiments that opened
-DevTools and invoked DOM `click()` ended at Chase's `/logout` page. Those
-experiments also took longer, so the exact logout trigger remains unknown.
-Keep the browser interaction supervised, use UI clicks, and treat Chase session
-termination as a stop rather than trying to bypass it.
+agent session (the since-removed Chromium connector) using browser UI clicks.
+Earlier experiments that opened DevTools and invoked DOM `click()` ended at
+Chase's `/logout` page. Those experiments also took longer, so the exact logout
+trigger remains unknown. Keep the browser interaction supervised, use UI
+clicks, and treat Chase session termination as a stop rather than trying to
+bypass it.
 
 The new [accounting workbench](docs/accounting_workbench.md) provides statement
 openings, transfer reconciliation, a separate local Firefox Amazon receipt
@@ -514,10 +404,7 @@ The legacy Amazon path is to download an item-order CSV and run
 `.venv/bin/python manage.py import_amazon_csv /path/to/report.csv`. Reimporting
 the same order and title leaves existing items intact. Amazon mappings book
 shipped USD items to journal entries; refunds use the mapping's negative
-accounts. The legacy `submit_amazon_report_request` and
-`import_amazon_report` commands still depend on Amazon's report page and a
-Gmail IMAP mailbox. Their parsing is covered by local tests, but login and
-download have **not** been verified against live services.
+accounts.
 
 `runs_at_7am_and_7pm` syncs OFX accounts, applies OFX mappings, emails a
 transaction report, and updates security prices through `yfinance`. Local tests

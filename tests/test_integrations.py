@@ -1,6 +1,5 @@
 from datetime import date
 from decimal import Decimal
-from email.message import EmailMessage
 from uuid import uuid4
 
 import pandas as pd
@@ -68,44 +67,6 @@ def test_amazon_mapping_does_not_partially_book_unsupported_currency(clean_ledge
         amazon_functions.apply_single_amazon_mapping(mapping.id)
     assert db.session.query(JournalEntries).filter_by(mapping_id=mapping.id).count() == 0
     assert db.session.query(TrialBalances).count() == 0
-
-
-def test_amazon_report_link_parses_byte_email_without_trusting_other_hosts():
-    message = EmailMessage()
-    message.set_content('Download: https://www.amazon.com/gp/b2b/reports/?ie=UTF8&x=1')
-    assert amazon_functions._report_url(message.as_bytes()).endswith('x=1')
-    message.set_content('Download: http://www.amazon.com/gp/b2b/reports/?x=1')
-    assert amazon_functions._report_url(message.as_bytes()).startswith('https://')
-    message.set_content('Download: https://example.com/gp/b2b/reports/?x=1')
-    with pytest.raises(ValueError):
-        amazon_functions._report_url(message.as_bytes())
-
-
-def test_amazon_report_request_uses_existing_order_date(clean_amazon_orders, monkeypatch):
-    db.session.add(AmazonOrders(id='REPORT-' + uuid4().hex[:8],
-                                order_date=date(2026, 9, 10)))
-    db.session.commit()
-
-    class Browser:
-        def __init__(self):
-            self.form = {}
-
-        def open(self, url):
-            return None
-
-        def select_form(self, nr):
-            return None
-
-        def submit(self):
-            return None
-
-    browser = Browser()
-    monkeypatch.setattr(amazon_functions, '_browser', lambda: browser)
-    monkeypatch.setattr(amazon_functions, '_sign_in', lambda browser: b'')
-    amazon_functions.request_amazon_report()
-    assert browser.form['yearstart'] == ('2026',)
-    assert browser.form['monthstart'] == ('9',)
-    assert browser.form['daystart'] == ('5',)
 
 
 def test_ofx_sync_uses_the_selected_bank_account_history(app_context, monkeypatch):

@@ -16,8 +16,7 @@ from pacioli.functions import chase_local as local, chase_local_controller as co
 from pacioli.functions.chase_local_bridge import LocalChaseError
 from pacioli.functions.ofx_file_import import import_chase_qfx
 from pacioli.models import ChaseBrowserRuns, ChaseLocalPreferences, Users, ChaseExportCoverage, OFXFileImports
-from tests.test_chase_browser import clean_chase_connector, _csrf
-from tests.test_chase_native import clean_native_feed
+from tests.test_chase_browser import clean_chase_connector, clean_chase_feed, _csrf
 from tests.test_chase_qfx import _qfx
 from tests.test_chase_local import observation, PATH
 from scripts.chase_native_host import read_message, write_message
@@ -34,7 +33,7 @@ def test_native_bridge_sends_large_messages_when_socket_writes_are_partial():
     assert read_message(stream)==expected
 
 
-def test_transaction_bounds_require_verified_request_and_remain_in_source(clean_native_feed):
+def test_transaction_bounds_require_verified_request_and_remain_in_source(clean_chase_feed):
     number=uuid4().hex[:12]+'1234';content=_qfx(number)
     job={'account_number':number,'start':'2026-08-31','end':'2026-09-04'}
     with pytest.raises(LocalChaseError,match='qfx_coverage_unverified'):
@@ -59,7 +58,7 @@ def test_transaction_bounds_require_verified_request_and_remain_in_source(clean_
     assert db.session.query(ChaseExportCoverage).filter_by(file_import_id=source.id).count()==1
 
 
-def test_import_and_verified_interval_roll_back_together(clean_native_feed):
+def test_import_and_verified_interval_roll_back_together(clean_chase_feed):
     number=uuid4().hex[:12]+'1234';initial=import_chase_qfx(_qfx(number),reviewed_usd=True)
     content=_qfx(number).replace(b'expense-1',b'expense-2')
     with pytest.raises(ValueError,match='outside'):
@@ -95,7 +94,7 @@ def test_unknown_coverage_never_becomes_silent_success(intervals):
 
 
 def test_one_button_persists_settings_reuses_and_resumes_job(
-        clean_chase_connector,clean_native_feed,client,admin_user,app,monkeypatch):
+        clean_chase_connector,clean_chase_feed,client,admin_user,app,monkeypatch):
     initial=import_chase_qfx(_qfx(uuid4().hex[:12]+'1234'),reviewed_usd=True)
     aid=initial['account_id']
     client.post('/login/',data=admin_user)
@@ -131,7 +130,7 @@ def test_one_button_persists_settings_reuses_and_resumes_job(
 
 
 def test_concurrent_update_clicks_launch_one_worker(
-        clean_chase_connector,clean_native_feed,client,admin_user,app,monkeypatch):
+        clean_chase_connector,clean_chase_feed,client,admin_user,app,monkeypatch):
     initial=import_chase_qfx(_qfx(uuid4().hex[:12]+'1234'),reviewed_usd=True)
     client.post('/login/',data=admin_user)
     user_id=db.session.query(Users).filter_by(email=admin_user['email']).one().id
@@ -150,7 +149,7 @@ def test_concurrent_update_clicks_launch_one_worker(
 
 
 def test_outdated_extension_pauses_before_model_or_download(
-        clean_chase_connector,clean_native_feed,client,admin_user,monkeypatch):
+        clean_chase_connector,clean_chase_feed,client,admin_user,monkeypatch):
     initial=import_chase_qfx(_qfx(uuid4().hex[:12]+'1234'),reviewed_usd=True)
     client.post('/login/',data=admin_user)
     user_id=db.session.query(Users).filter_by(email=admin_user['email']).one().id
@@ -170,7 +169,7 @@ def test_outdated_extension_pauses_before_model_or_download(
 
 
 def test_import_commit_then_checkpoint_crash_replays_without_duplicate_transactions(
-        clean_native_feed,tmp_path):
+        clean_chase_feed,tmp_path):
     number=uuid4().hex[:12]+'1234';initial=import_chase_qfx(_qfx(number),reviewed_usd=True)
     new=_qfx(number).replace(b'expense-1',b'expense-2')
     path=tmp_path/'fixture.qfx';path.write_bytes(new)
@@ -187,7 +186,7 @@ def test_import_commit_then_checkpoint_crash_replays_without_duplicate_transacti
     assert db.session.execute(text('SELECT COUNT(*) FROM ofx.stmttrn WHERE acctfrom_id=:id'),{'id':initial['account_id']}).scalar()==3
 
 
-def test_concurrent_overlapping_files_keep_each_fitid_once(clean_native_feed,app):
+def test_concurrent_overlapping_files_keep_each_fitid_once(clean_chase_feed,app):
     number=uuid4().hex[:12]+'1234';initial=import_chase_qfx(_qfx(number),reviewed_usd=True)
     new=_qfx(number).replace(b'expense-1',b'expense-2')
     barrier=Barrier(2)
@@ -203,7 +202,7 @@ def test_concurrent_overlapping_files_keep_each_fitid_once(clean_native_feed,app
 
 
 def test_resume_on_later_day_refreshes_completed_accounts_and_retains_original_choices(
-        clean_chase_connector, clean_native_feed, client, admin_user, monkeypatch):
+        clean_chase_connector, clean_chase_feed, client, admin_user, monkeypatch):
     first = import_chase_qfx(_qfx(uuid4().hex[:12]+'1234'), reviewed_usd=True)['account_id']
     second = import_chase_qfx(_qfx(uuid4().hex[:12]+'5678'), reviewed_usd=True)['account_id']
     client.post('/login/', data=admin_user)
@@ -229,7 +228,7 @@ def test_resume_on_later_day_refreshes_completed_accounts_and_retains_original_c
     assert len(state['done']) == 1
 
 
-def test_planner_uses_verified_bounds_when_source_dates_are_missing(clean_native_feed):
+def test_planner_uses_verified_bounds_when_source_dates_are_missing(clean_chase_feed):
     result = import_chase_qfx(_qfx(uuid4().hex[:12]+'1234'), reviewed_usd=True)
     aid = result['account_id']
     source = db.session.query(OFXFileImports).filter_by(sha256=result['sha256']).one()
@@ -241,7 +240,7 @@ def test_planner_uses_verified_bounds_when_source_dates_are_missing(clean_native
     assert [(job['start'],job['end']) for job in jobs] == [('2026-09-03','2026-09-06')]
 
 
-def test_quiet_account_refresh_retains_gaps_and_deduplicates_known_activity(clean_native_feed):
+def test_quiet_account_refresh_retains_gaps_and_deduplicates_known_activity(clean_chase_feed):
     content = _qfx(uuid4().hex[:12]+'1234')
     initial = import_chase_qfx(content, reviewed_usd=True)
     aid = initial['account_id']
@@ -262,7 +261,7 @@ def test_quiet_account_refresh_retains_gaps_and_deduplicates_known_activity(clea
 
 
 def test_resume_repairs_saved_quiet_interval_without_repeating_completed_work(
-        clean_chase_connector, clean_native_feed, client, admin_user, monkeypatch):
+        clean_chase_connector, clean_chase_feed, client, admin_user, monkeypatch):
     aid = import_chase_qfx(_qfx(uuid4().hex[:12]+'1234'), reviewed_usd=True)['account_id']
     client.post('/login/', data=admin_user)
     user = db.session.query(Users).filter_by(email=admin_user['email']).one()

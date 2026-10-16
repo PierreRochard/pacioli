@@ -101,7 +101,7 @@ class ConnectionResponses(db.Model):
 
 
 class ChaseBrowserCredentials(db.Model):
-    """Local Chase credentials, encrypted browser state, and approved accounts."""
+    """Saved Chase login and the accounts approved for on-demand sync."""
     __tablename__ = 'chase_browser_credentials'
     __table_args__ = {'schema': 'admin'}
 
@@ -110,13 +110,6 @@ class ChaseBrowserCredentials(db.Model):
                               nullable=False, unique=True)
     username = db.Column(EncryptedText, nullable=False)
     password = db.Column(EncryptedText, nullable=False)
-    session_state = db.Column(EncryptedText)
-    browser_profile_key = db.Column(db.String(32))
-    browser_engine = db.Column(db.String(16), nullable=False, default='chromium',
-                               server_default='chromium')
-    provider_verified_at = db.Column(db.DateTime(timezone=True))
-    passkey_credential = db.Column(EncryptedText)
-    passkey_verified_at = db.Column(db.DateTime(timezone=True))
     selected_account_labels = db.Column(db.JSON)
     selected_ofx_account_ids = db.Column(db.JSON)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
@@ -182,10 +175,6 @@ class ChaseBrowserRuns(db.Model):
                                  server_default=db.text('false'))
     browser_visible = db.Column(db.Boolean, nullable=False, default=False,
                                server_default=db.text('false'))
-    provider_confirmed = db.Column(db.Boolean, nullable=False, default=False,
-                                  server_default=db.text('false'))
-    passkey_confirmed = db.Column(db.Boolean, nullable=False, default=False,
-                                  server_default=db.text('false'))
     imported_count = db.Column(db.Integer, nullable=False, default=0)
     duplicate_count = db.Column(db.Integer, nullable=False, default=0)
     error_code = db.Column(db.String(48))
