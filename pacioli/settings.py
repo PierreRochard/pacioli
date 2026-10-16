@@ -53,6 +53,8 @@ def database_url():
 
 class Config(object):
     CHASE_FIREFOX_PORT = 9222
+    # Set in the web container, which queues Chase runs for the host launcher.
+    CHASE_LAUNCH_QUEUE = setting('PACIOLI_CHASE_LAUNCH_QUEUE')
     SECRET_KEY = setting('SECRET_KEY', required=True)
     # Amazon's native archive includes delivery photos; allow a bounded 64 MiB
     # archive plus multipart overhead. Individual importers retain their limits.

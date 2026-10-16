@@ -11,7 +11,7 @@ help:
 	@echo "audit check the installed environment for known vulnerabilities"
 	@echo "test  run the PostgreSQL test suite"
 	@echo "ci    run all local checks with disposable PostgreSQL"
-	@echo "deploy  back up, sync .venv, migrate and restart pacioli-web"
+	@echo "deploy  back up, sync .venv, build the web image, migrate and restart pacioli-web"
 	@echo "db-init   create or update the persistent local Pacioli database"
 	@echo "db-start  start the persistent local PostgreSQL cluster"
 	@echo "db-stop   stop the persistent local PostgreSQL cluster"

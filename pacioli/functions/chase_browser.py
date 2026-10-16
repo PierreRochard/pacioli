@@ -13,7 +13,8 @@ from flask import current_app
 from sqlalchemy.exc import IntegrityError
 
 from pacioli.extensions import db
-from pacioli.functions.chase_profile import ProfileBusy, ProfileUnavailable, browser_lock
+from pacioli.functions.chase_profile import (ProfileBusy, ProfileUnavailable, _private_directory,
+                                             browser_lock)
 from pacioli.functions.ofx_file_import import (AccountNotApproved, MAX_OFX_BYTES,
                                                 import_chase_qfx)
 from pacioli.models import ChaseBrowserCredentials, ChaseBrowserRuns
@@ -109,7 +110,23 @@ def latest_run(connection_id):
 
 
 def _launch_systemd(run_id):
-    """Start outside the web service's NoNewPrivileges sandbox."""
+    """Start outside the web service's NoNewPrivileges sandbox.
+
+    A containerized web service has no systemd user manager. It sets
+    CHASE_LAUNCH_QUEUE instead and leaves an empty file named after the run;
+    scripts/chase_launcher.py, run by a host path unit, starts the worker.
+    """
+    queue = current_app.config.get('CHASE_LAUNCH_QUEUE')
+    if queue:
+        descriptor = os.open(_private_directory(Path(queue)) / str(int(run_id)),
+                             os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        os.close(descriptor)
+        return
+    systemd_run(run_id)
+
+
+def systemd_run(run_id):
+    """Start the worker for one run as a transient systemd user service."""
     runtime = os.environ.get('XDG_RUNTIME_DIR') or '/run/user/{}'.format(os.getuid())
     environment = os.environ.copy()
     environment['XDG_RUNTIME_DIR'] = runtime

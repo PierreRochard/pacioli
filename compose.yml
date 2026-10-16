@@ -1,0 +1,42 @@
+# Pacioli's web service in a container. PostgreSQL, backups, CI and the Chase
+# browser worker stay on the host. The pacioli-web user service runs
+# `docker compose up web`; `make deploy` builds the image.
+name: pacioli
+services:
+  web:
+    image: pacioli-web:current
+    pull_policy: never
+    # Host networking keeps every endpoint on loopback, as before: gunicorn on
+    # 127.0.0.1:8001 behind the LAN proxy, Ollama on 127.0.0.1:11434.
+    network_mode: host
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 4g
+    stop_grace_period: 30s
+    environment:
+      PACIOLI_CHASE_LAUNCH_QUEUE: /app/.local/chase-launch
+      XDG_CACHE_HOME: /tmp/cache
+      HOME: /tmp
+    tmpfs:
+      - /tmp:mode=1777
+      # Amazon job leases; a private runtime directory, not the desktop's.
+      - /run/user/1000:uid=1000,gid=1000,mode=0700
+    volumes:
+      # Local time as on the host: reports and defaults use today's date.
+      - /etc/localtime:/etc/localtime:ro
+      - ./.local/config.json:/app/.local/config.json:ro
+      - ./.local/decoy_tickers.txt:/app/.local/decoy_tickers.txt:ro
+      - ./.local/lan-backup/last-success:/app/.local/lan-backup/last-success:ro
+      - ./.local/chase-browser:/app/.local/chase-browser
+      - ./.local/chase-launch:/app/.local/chase-launch
+      - ./.local/schwab:/app/.local/schwab
+      # DATABASE_URL names the PostgreSQL socket directory by its host path.
+      - ./.local/run:${PACIOLI_ROOT:?set PACIOLI_ROOT to this checkout}/.local/run
+    # nvidia-smi only, for the local model's GPU memory checks.
+    gpus:
+      - driver: nvidia
+        count: all
+        capabilities: [utility]

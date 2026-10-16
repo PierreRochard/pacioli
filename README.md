@@ -78,10 +78,49 @@ This checkout can also be served on the LAN at `https://pacioli.lan`. Host-speci
 service, proxy, and certificate files stay in the untracked `deploy/` directory. Run
 `.venv/bin/python manage.py create_admin_link` to generate a two-hour,
 one-use browser link for creating the first administrator without email.
-The `pacioli-web` user service runs straight from this checkout. After pulling
-changes, run `make deploy`: it saves a database backup, syncs `.venv` with the
-hashed development lock, applies pending schema migrations, restarts the service and
-waits for its login page.
+### Web service container
+
+The `pacioli-web` user service runs the web application in a Docker container
+(`Dockerfile`, `compose.yml`). PostgreSQL, the LAN backups, local CI and the
+Chase browser worker stay on the host and keep using `.venv`.
+
+After pulling or committing changes, run `make deploy`:
+1. It refuses uncommitted changes to tracked files, because the image is built
+   from `HEAD`.
+2. It saves a database backup and syncs `.venv` with the hashed development
+   lock.
+3. It builds the image from a `git archive` of `HEAD` plus the locked wheels in
+   `.local/wheels`. Nothing else from `.local` enters the image.
+4. It applies pending schema migrations, restarts the service, waits for the
+   login page, and keeps the last three builds.
+
+The image contains the private ofxtools and Flask-Admin builds. Never push it
+to a registry. Install `docker-buildx` to build with BuildKit; without it, the
+deploy falls back to Docker's deprecated classic builder.
+
+The container:
+- runs Python 3.14.8 from a digest-pinned image, as your user ID;
+- has a read-only root filesystem, no capabilities and no new privileges;
+- shares the host network, so it listens only on `127.0.0.1:8001` behind the
+  LAN proxy and reaches Ollama on loopback;
+- reads `config.json`, the decoy ticker list and the LAN backup status from
+  read-only mounts, and the host's `/etc/localtime`;
+- mounts read-write only the PostgreSQL socket directory, the Chase profile
+  (for its lock), the Chase launch queue and the Schwab downloads;
+- gets `nvidia-smi` for the local model's GPU checks, and nothing else of the
+  GPU.
+
+It has no access to your desktop session. To start a Chase sync, it leaves an
+empty file named after the run ID in `.local/chase-launch`. The host
+`pacioli-chase-launcher.path` unit then runs `scripts/chase_launcher.py`, which
+starts the worker as a transient user service, as before.
+
+Install the units from `deploy/` (`pacioli-web.service`,
+`pacioli-chase-launcher.path` and `.service`) in `~/.config/systemd/user`,
+then run `systemctl --user daemon-reload` and
+`systemctl --user enable --now pacioli-chase-launcher.path`. To roll back to a
+previous build, retag it with `docker tag pacioli-web:<revision>
+pacioli-web:current` and restart the service.
 
 For an existing or externally managed PostgreSQL database, use `.env.example`
 as a guide and supply settings through environment variables, or set
@@ -391,8 +430,9 @@ account choices stop the run without broadening account approval. Chase can
 expire a session at any time, so unattended completion is best effort.
 
 The browser worker needs the systemd user manager and a Firefox started with
-the Pacioli launcher. The web service starts each session as a transient user
-service outside its own `NoNewPrivileges=yes` sandbox. The worker has a 3 GB
+the Pacioli launcher. The web container queues each session, and the host's
+`pacioli-chase-launcher` path unit starts it as a transient user service
+outside the web service's sandbox. The worker has a 3 GB
 memory limit and a 40-minute runtime limit (including handoff waits). Only a
 numeric run ID is passed to the worker. If Chase changes its login, MFA, or
 download controls, the connector stops with a generic error instead of guessing

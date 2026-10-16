@@ -1,0 +1,13 @@
+# Send only what the image needs. .local holds the database, backups, browser
+# profiles and secrets; only its wheels may reach the Docker daemon.
+*
+!Dockerfile
+!requirements.txt
+!.local/wheels/*.whl
+!manage.py
+!Generic Chart of Accounts.csv
+!pacioli/
+!migrations/
+!scripts/
+!extensions/
+**/__pycache__
