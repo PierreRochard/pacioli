@@ -29,9 +29,38 @@ Use `make db-start`, `make db-stop`, and `make db-status` to manage the server.
 `make db-backup` writes a custom-format dump to `.local/backups` and checks
 that PostgreSQL can read its archive index. Restore a backup periodically to
 verify the data, not just the archive index.
-Because that directory is in the same checkout as the database, copy important
-backups and the private config to secure, separate storage. Once initialized,
-create an administrator and start the application:
+Those dumps share a disk with the database. For an encrypted copy on another
+machine on the LAN, install restic and run once:
+
+```sh
+.venv/bin/python scripts/lan_backup.py init sftp:HOST:backups/pacioli
+```
+
+`make lan-backup`, or a daily systemd timer, then dumps the database and stores
+the dump, `.local/` and `deploy/` as an encrypted, deduplicated restic snapshot
+on that host. Live PostgreSQL files, browser profiles, CI scratch and old
+virtual environments are left out. It keeps 14 daily, 8 weekly and 24 monthly
+snapshots and verifies a tenth of the stored data after each run. The home page
+warns when no backup has succeeded for 36 hours. `init` generates the
+repository password in `.local/lan-backup/password`. Keep a copy in a password
+manager: the backups cannot be decrypted without it, and the keys from
+`.local/config.json` are only inside them.
+
+To restore on a new machine, install Python 3.14, PostgreSQL and restic, clone
+this repository, and recreate `.local/lan-backup/` (mode 0700) with the
+`repository` address and the `password` (mode 0600). Then run:
+
+```sh
+python3.14 scripts/lan_backup.py restore
+make env
+.venv/bin/python manage.py accounting_check
+```
+
+`restore` puts `.local/` and `deploy/` back from the latest snapshot, then
+rebuilds the database from its dump with the original keys. It refuses to run
+in a checkout that already has a config or cluster.
+
+Once initialized, create an administrator and start the application:
 
 ```sh
 .venv/bin/python manage.py create_admin --email you@example.com

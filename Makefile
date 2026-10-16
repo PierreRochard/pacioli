@@ -1,4 +1,4 @@
-.PHONY: help env deps lock upgrade-deps audit test ci deploy db-init db-start db-stop db-status db-backup
+.PHONY: help env deps lock upgrade-deps audit test ci deploy db-init db-start db-stop db-status db-backup lan-backup
 
 PYTHON ?= python3.14
 VENV ?= .venv
@@ -17,6 +17,7 @@ help:
 	@echo "db-stop   stop the persistent local PostgreSQL cluster"
 	@echo "db-status show local PostgreSQL status"
 	@echo "db-backup save a private PostgreSQL dump under .local/backups"
+	@echo "lan-backup  store an encrypted restic snapshot on the LAN backup host"
 
 env:
 	$(PYTHON) install.py --dev --venv $(VENV)
@@ -63,3 +64,6 @@ db-status:
 
 db-backup:
 	$(VENV)/bin/python scripts/local_db.py backup
+
+lan-backup:
+	$(VENV)/bin/python scripts/lan_backup.py run

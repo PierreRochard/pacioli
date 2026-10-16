@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 
 from flask import current_app, make_response
 from flask_admin import AdminIndexView, expose
@@ -14,6 +15,9 @@ ACTIVE_CHASE = ('queued', 'signing_in', 'waiting_for_mfa', 'choosing_accounts',
                 'exporting', 'importing')
 CHASE_ATTENTION = ('waiting_for_mfa', 'choosing_accounts', 'needs_attention')
 STALE_IMPORT_DAYS = 7
+# scripts/lan_backup.py records each successful run here; the timer runs daily.
+LAN_BACKUP_DIR = Path(__file__).resolve().parents[2] / '.local' / 'lan-backup'
+STALE_BACKUP_HOURS = 36
 
 
 def dollars(amount):
@@ -45,6 +49,20 @@ def days_since(when, now):
     elif when.tzinfo is None:
         when = when.replace(tzinfo=timezone.utc)
     return max(0, (now - when).days)
+
+
+def lan_backup_age(now):
+    """Hours since the last successful LAN backup; None when none is configured."""
+    directory = Path(current_app.config.get('PACIOLI_LAN_BACKUP_DIR', LAN_BACKUP_DIR))
+    if not (directory / 'repository').is_file():
+        return None
+    try:
+        finished = datetime.fromisoformat((directory / 'last-success').read_text().strip())
+    except (OSError, ValueError):
+        return float('inf')
+    if finished.tzinfo is None:
+        finished = finished.replace(tzinfo=timezone.utc)
+    return max(0.0, (now - finished).total_seconds() / 3600)
 
 
 def nice_step(span, ticks=4):
@@ -122,10 +140,16 @@ def flow_chart(series):
             'width': CHART_WIDTH, 'height': CHART_HEIGHT, 'left': left, 'right': right}
 
 
-def attention(report, now):
+def attention(report, now, backup_age=None):
     """Ordered, linkable review tasks. Links only; nothing here changes the books."""
     from flask import url_for
     queue, items = report['queue'], []
+    if backup_age is not None and backup_age >= STALE_BACKUP_HOURS:
+        items.append(dict(
+            tone='danger', count='!', title='LAN backup is overdue',
+            detail=('No successful LAN backup is recorded.' if backup_age == float('inf') else
+                    'The last successful LAN backup finished {:.0f} hours ago.'.format(backup_age))
+                   + ' Check systemctl --user status pacioli-lan-backup on the workstation.'))
     chase = report['chase']
     if chase and chase['status'] in CHASE_ATTENTION:
         local = chase['mode'] in ('local_ai', 'local_preview')
@@ -191,7 +215,8 @@ class HomeView(AdminIndexView):
                 context['failed'] = True
             else:
                 context.update(
-                    report=report, attention=attention(report, report['now']),
+                    report=report, attention=attention(report, report['now'],
+                                                       lan_backup_age(report['now'])),
                     net_worth_chart=net_worth_chart(report['series']),
                     flow_chart=flow_chart(report['series']),
                     chase_active=bool(report['chase'] and

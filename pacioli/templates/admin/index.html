@@ -173,7 +173,7 @@
             <div>
               <div class="task-title">{{ item.title }}</div>
               <div class="task-detail">{{ item.detail }}</div>
-              <a href="{{ item.href }}">{{ item.action }} →</a>
+              {% if item.href %}<a href="{{ item.href }}">{{ item.action }} →</a>{% endif %}
             </div>
           </li>
         {% endfor %}
