@@ -7,14 +7,16 @@ with Python 3.14. Direct dependencies are listed in `requirements.in`;
 
 ## Local setup
 
-For a new local installation, install Python 3.14 and the PostgreSQL server
-binaries, then run:
+For a new local installation, install [uv](https://docs.astral.sh/uv/) and the
+PostgreSQL server binaries, then run:
 
 ```sh
 make env
 make db-init
 ```
 
+`make env` installs the Python version pinned in `.python-version` with uv and
+builds `.venv` on it. The web container's image uses the same version.
 `db-init` creates a persistent PostgreSQL cluster and a `pacioli` database in
 the ignored `.local/` directory, loads the chart, and runs the accounting
 check. It is safe to rerun. The server listens only on a private Unix socket
@@ -30,7 +32,9 @@ Use `make db-start`, `make db-stop`, and `make db-status` to manage the server.
 that PostgreSQL can read its archive index. Restore a backup periodically to
 verify the data, not just the archive index.
 Those dumps share a disk with the database. For an encrypted copy on another
-machine on the LAN, install restic and run once:
+machine on the LAN, install restic and run once. Ubuntu's package lags behind,
+so this machine uses the signed release binary in `~/.local/bin`, which systemd
+user units also find first; `restic self-update` keeps it current.
 
 ```sh
 .venv/bin/python scripts/lan_backup.py init sftp:HOST:backups/pacioli
@@ -46,7 +50,7 @@ repository password in `.local/lan-backup/password`. Keep a copy in a password
 manager: the backups cannot be decrypted without it, and the keys from
 `.local/config.json` are only inside them.
 
-To restore on a new machine, install Python 3.14, PostgreSQL and restic, clone
+To restore on a new machine, install Python 3.14, uv, PostgreSQL and restic, clone
 this repository, and recreate `.local/lan-backup/` (mode 0700) with the
 `repository` address and the `password` (mode 0600). Then run:
 

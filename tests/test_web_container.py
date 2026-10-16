@@ -2,6 +2,7 @@
 
 import importlib.util
 from pathlib import Path
+import re
 import stat
 import subprocess
 
@@ -72,3 +73,10 @@ def test_image_context_admits_no_private_files():
     allowed = [rule[1:] for rule in rules if rule.startswith('!')]
     assert [rule for rule in allowed if rule.startswith('.')] == ['.local/wheels/*.whl']
     assert not {'tests/', 'docs/', 'deploy/', '.env'} & set(allowed)
+
+
+def test_host_and_container_use_the_same_python():
+    pinned = (ROOT / '.python-version').read_text().strip()
+    image = re.search(r'^ARG PYTHON_IMAGE=python:([0-9.]+)-', (ROOT / 'Dockerfile').read_text(),
+                      re.MULTILINE).group(1)
+    assert image == pinned

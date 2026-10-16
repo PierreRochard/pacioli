@@ -1,10 +1,11 @@
 .PHONY: help env deps lock upgrade-deps audit test ci deploy db-init db-start db-stop db-status db-backup lan-backup
 
-PYTHON ?= python3.14
+# The interpreter in .python-version, installed by uv; set PYTHON to override.
+PYTHON ?=
 VENV ?= .venv
 
 help:
-	@echo "env   create a Python 3.14 development environment"
+	@echo "env   create a development environment on the Python in .python-version"
 	@echo "deps  install the hashed development lock into the environment"
 	@echo "lock  re-resolve the hashed locks after editing requirements*.in"
 	@echo "upgrade-deps  move every locked dependency to its latest release"
@@ -20,7 +21,8 @@ help:
 	@echo "lan-backup  store an encrypted restic snapshot on the LAN backup host"
 
 env:
-	$(PYTHON) install.py --dev --venv $(VENV)
+	uv python install
+	$(or $(PYTHON),$$(uv python find --system)) install.py --dev --venv $(VENV)
 
 deps:
 	$(VENV)/bin/python -m pip install --require-hashes -r requirements-dev.txt
