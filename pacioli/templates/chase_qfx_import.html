@@ -13,7 +13,7 @@
   {% endif %}
   <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-    <div class="form-group">
+    <div class="mb-3">
       <label for="statement">Chase .qfx file (up to 10 MiB)</label>
       <input type="file" id="statement" name="statement" accept=".qfx,.ofx" required>
     </div>

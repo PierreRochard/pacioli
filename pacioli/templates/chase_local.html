@@ -74,8 +74,8 @@
       <div class="form-check"><label><input type="checkbox" name="account_id" value="{{ account.id }}"> {{ account.label }}</label></div>
     {% endfor %}
     {% if not accounts %}<p><a href="{{ url_for('connections.import_chase') }}">Import your first Chase QFX</a> to register an account.</p>{% endif %}
-    <div class="form-group"><label for="local-from">From</label><input class="form-control" type="date" id="local-from" name="start" value="{{ start }}" max="{{ today }}" required></div>
-    <div class="form-group"><label for="local-to">To</label><input class="form-control" type="date" id="local-to" name="end" value="{{ today }}" max="{{ today }}" required></div>
+    <div class="mb-3"><label for="local-from">From</label><input class="form-control" type="date" id="local-from" name="start" value="{{ start }}" max="{{ today }}" required></div>
+    <div class="mb-3"><label for="local-to">To</label><input class="form-control" type="date" id="local-to" name="end" value="{{ today }}" max="{{ today }}" required></div>
     <div class="form-check"><label><input type="checkbox" name="reviewed_usd" value="yes"> These are my USD accounts and I authorize QFX export and import for the selected dates.</label></div>
     <button class="btn btn-secondary local-launch" name="action" value="preview" {% if not accounts or (run and run.active) %}disabled{% endif %}>Check page with local model</button>
     <button class="btn btn-primary local-launch" name="action" value="start" {% if not accounts or (run and run.active) %}disabled{% endif %}>Start sync</button>

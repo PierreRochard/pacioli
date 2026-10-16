@@ -3,7 +3,7 @@
 {% block access_control %}
     {% if current_user.is_authenticated %}
         {# Logout is POST-only, so another site cannot sign you out with a link. #}
-        <form class="form-inline" method="post" action="{{ url_for('security.logout') }}">
+        <form class="d-flex ms-lg-2" method="post" action="{{ url_for('security.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
             <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
         </form>

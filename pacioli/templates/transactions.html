@@ -1,14 +1,14 @@
 {% extends 'admin/model/list.html' %}
 
 {% block model_menu_bar_before_filters %}
-    <li>
+    <li class="nav-item">
     <form action="{{ get_url('banking/transactions.apply_all_mappings_view') }}" method="post">
         <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-        <button type="submit" title="Apply All Mappings">Apply All Mappings</button>
+        <button type="submit" class="btn btn-link nav-link" title="Apply All Mappings">Apply All Mappings</button>
     </form>
     </li>
-    <li>
-    <a href="{{ get_url('banking/transactions.index_view', flt3_58=1) }}" title="Apply All Mappings">
+    <li class="nav-item">
+    <a class="nav-link" href="{{ get_url('banking/transactions.index_view', flt3_58=1) }}" title="Apply All Mappings">
         Unbooked
     </a>
     </li>
@@ -16,31 +16,31 @@
 
 {% block model_menu_bar_after_filters %}
     {% if search %}
-        <li>
-            <form  action="{{ url_for('banking/transactions.index_view')}}" method="POST"  class="form-inline">
+        <li class="nav-item">
+            <form  action="{{ url_for('banking/transactions.index_view')}}" method="POST"  class="d-flex gap-2 align-items-center">
                 <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-                <div class="form-group">
+                <div>
                     {{ new_mapping_form.subaccount() }}
                 </div>
                 {{ new_mapping_form.keyword(value=search) }}
                 <input class="btn btn-primary" type=submit value="Apply">
             </form>
         </li>
-        <li class="dropdown">
-            <a class="dropdown-toggle" data-toggle="dropdown" href="javascript:void(0)">
-                Favorites<b class="caret"></b>
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">
+                Favorites
             </a>
             <ul class="dropdown-menu">
                 <li>
                     <form action="{{ url_for('banking/transactions.favorite', expense_account='Restaurants', keyword=search) }}" method="post">
                         <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-                        <button type="submit">Restaurant</button>
+                        <button type="submit" class="dropdown-item">Restaurant</button>
                     </form>
                 </li>
                 <li>
                     <form action="{{ url_for('banking/transactions.favorite', expense_account='Groceries', keyword=search) }}" method="post">
                         <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-                        <button type="submit">Groceries</button>
+                        <button type="submit" class="dropdown-item">Groceries</button>
                     </form>
                 </li>
             </ul>

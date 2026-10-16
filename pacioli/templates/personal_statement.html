@@ -23,15 +23,15 @@
 {% endif %}
 
 <table class="table table-striped">
-  <thead><tr><th>Subaccount</th><th class="text-right">USD amount</th></tr></thead>
+  <thead><tr><th>Subaccount</th><th class="text-end">USD amount</th></tr></thead>
   <tbody>
   {% if kind == 'income' %}
     {% for name, amount in report.income_rows %}
-      <tr><td><a href="{{ url_for('journalentries.index_view', subaccount=name, period_interval=period_interval, period=period) }}">{{ name }}</a></td><td class="text-right">{{ money(amount) }}</td></tr>
+      <tr><td><a href="{{ url_for('journalentries.index_view', subaccount=name, period_interval=period_interval, period=period) }}">{{ name }}</a></td><td class="text-end">{{ money(amount) }}</td></tr>
     {% endfor %}
   {% else %}
     {% for name, amount in report.balance_rows %}
-      <tr><td><a href="{{ url_for('journalentries.index_view', subaccount=name, period_interval=period_interval, period=period, cumulative='balance-sheet') }}">{{ name }}</a></td><td class="text-right">{{ money(amount) }}</td></tr>
+      <tr><td><a href="{{ url_for('journalentries.index_view', subaccount=name, period_interval=period_interval, period=period, cumulative='balance-sheet') }}">{{ name }}</a></td><td class="text-end">{{ money(amount) }}</td></tr>
     {% endfor %}
   {% endif %}
   </tbody>
@@ -44,7 +44,7 @@
   <table class="table table-striped">
     <tbody>
     {% for name, amount in report.oci_rows %}
-      <tr><td>{{ name }}</td><td class="text-right">{{ money(amount) }}</td></tr>
+      <tr><td>{{ name }}</td><td class="text-end">{{ money(amount) }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

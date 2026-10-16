@@ -1,0 +1,178 @@
+{#- Bootstrap 5 replacement for Flask-Admin's Bootstrap 4 form, pager and modal macros. -#}
+{% import 'admin/static.html' as admin_static with context %}
+
+{# ---------------------- Pager -------------------------- #}
+{% macro page_item(label, url=None, active=False) -%}
+  {% if url %}
+  <li class="page-item{% if active %} active{% endif %}">
+      <a class="page-link" href="{{ url }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+  </li>
+  {% else %}
+  <li class="page-item disabled"><span class="page-link">{{ label }}</span></li>
+  {% endif %}
+{%- endmacro %}
+
+{% macro pager(page, pages, generator) -%}
+{% if pages > 1 %}
+<ul class="pagination">
+    {% set min = page - 3 %}
+    {% set max = page + 3 + 1 %}
+    {% if min < 0 %}{% set max = max - min %}{% endif %}
+    {% if max >= pages %}{% set min = min - max + pages %}{% endif %}
+    {% if min < 0 %}{% set min = 0 %}{% endif %}
+    {% if max >= pages %}{% set max = pages %}{% endif %}
+
+    {{ page_item('«', generator(0) if min > 0 else None) }}
+    {{ page_item('‹', generator(page - 1) if page > 0 else None) }}
+    {% for p in range(min, max) %}
+      {{ page_item(p + 1, generator(p), active=(page == p)) }}
+    {% endfor %}
+    {{ page_item('›', generator(page + 1) if page + 1 < pages else None) }}
+    {{ page_item('»', generator(pages - 1) if max < pages else None) }}
+</ul>
+{% endif %}
+{%- endmacro %}
+
+{% macro simple_pager(page, have_next, generator) -%}
+<ul class="pagination">
+  {{ page_item('‹', generator(page - 1) if page > 0 else None) }}
+  {{ page_item('›', generator(page + 1) if have_next else None) }}
+</ul>
+{%- endmacro %}
+
+{# ---------------------- Modal Window ------------------- #}
+{% macro add_modal_window(modal_window_id='fa_modal_window', modal_label_id='fa_modal_label') %}
+  <div class="modal fade" id="{{ modal_window_id }}" tabindex="-1" aria-labelledby="{{ modal_label_id }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro add_modal_button(url='', title='', content='', modal_window_id='fa_modal_window', btn_class='icon') %}
+  <a class="{{ btn_class }}" data-bs-target="#{{ modal_window_id }}" title="{{ title }}" href="{{ url }}" data-bs-toggle="modal">
+    {{ content|safe }}
+  </a>
+{% endmacro %}
+
+{# ---------------------- Forms -------------------------- #}
+{% macro render_field(form, field, kwargs={}, caller=None) %}
+  {% set direct_error = h.is_field_error(field.errors) %}
+  {% set prepend = kwargs.pop('prepend', None) %}
+  {% set append = kwargs.pop('append', None) %}
+  {% set input_type = field.widget.input_type if field.widget.input_type is defined else None %}
+  {% set is_select = field.widget.__class__.__name__ in ('Select', 'Select2Widget') %}
+  <div class="mb-3 {{ kwargs.get('column_class', '') }}">
+    <label for="{{ field.id }}" class="form-label{% if input_type == 'checkbox' %} d-block{% endif %}">{{ field.label.text }}
+        {% if h.is_required_form_field(field) %}
+          <strong class="text-danger">&#42;</strong>
+        {%- endif %}
+    </label>
+    {% if prepend or append %}<div class="input-group">{{ prepend or '' }}{% endif %}
+      {% if input_type == 'checkbox' %}
+        {% set _class = kwargs.setdefault('class', 'form-check-input') %}
+      {% elif is_select %}
+        {% set _class = kwargs.setdefault('class', 'form-select') %}
+      {% else %}
+        {% set _class = kwargs.setdefault('class', 'form-control') %}
+      {% endif %}
+      {%- if direct_error %} {% set _ = kwargs.update({'class': kwargs['class'] ~ ' is-invalid'}) %} {% endif -%}
+      {{ field(**kwargs) | safe }}
+    {% if prepend or append %}{{ append or '' }}</div>{% endif %}
+    {% if direct_error %}
+      <div class="invalid-feedback d-block">
+        <ul class="mb-0">
+        {% for e in field.errors if e is string %}
+          <li>{{ e }}</li>
+        {% endfor %}
+        </ul>
+      </div>
+    {% elif field.description %}
+      <div class="form-text">{{ field.description|safe }}</div>
+    {% endif %}
+    {% if caller %}
+      {{ caller(form, field, direct_error, kwargs) }}
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{% macro render_header(form, text) %}
+    <h3>{{ text }}</h3>
+{% endmacro %}
+
+{% macro render_form_fields(form, form_opts=None) %}
+    {% if form.hidden_tag is defined %}
+        {{ form.hidden_tag() }}
+    {% else %}
+        {% if csrf_token is defined and csrf_token %}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        {% endif %}
+        {% for f in form if f.widget.input_type is defined and f.widget.input_type == 'hidden' %}
+            {{ f }}
+        {% endfor %}
+    {% endif %}
+
+    {% if form_opts and form_opts.form_rules %}
+        {% for r in form_opts.form_rules %}
+            {{ r(form, form_opts=form_opts) }}
+        {% endfor %}
+    {% else %}
+        {% for f in form if f.widget.input_type is undefined or f.widget.input_type != 'hidden' %}
+          {% if form_opts %}
+            {% set kwargs = form_opts.widget_args.get(f.short_name, {}) %}
+          {% else %}
+            {% set kwargs = {} %}
+          {% endif %}
+          {{ render_field(form, f, kwargs) }}
+        {% endfor %}
+    {% endif %}
+{% endmacro %}
+
+{% macro form_tag(form=None, action=None) %}
+    <form action="{{ action or '' }}" method="POST" role="form" class="admin-form" enctype="multipart/form-data">
+    <fieldset>
+      {{ caller() }}
+    </fieldset>
+    </form>
+{% endmacro %}
+
+{% macro render_form_buttons(cancel_url, extra=None, is_modal=False) %}
+  {% if not is_modal %}<hr><div class="mb-3 submit-row">{% endif %}
+    <input type="submit" class="btn btn-primary" value="{{ _gettext('Save') }}" />
+    {% if extra %}
+    {{ extra }}
+    {% endif %}
+    {% if cancel_url %}
+      <a href="{{ cancel_url }}" class="btn btn-danger" role="button"{% if is_modal %} data-bs-dismiss="modal"{% endif %}>{{ _gettext('Cancel') }}</a>
+    {% endif %}
+  {% if not is_modal %}</div>{% endif %}
+{% endmacro %}
+
+{% macro render_form(form, cancel_url, extra=None, form_opts=None, action=None, is_modal=False) -%}
+    {% call form_tag(action=action) %}
+        {{ render_form_fields(form, form_opts=form_opts) }}
+        {{ render_form_buttons(cancel_url, extra, is_modal) }}
+    {% endcall %}
+{% endmacro %}
+
+{% macro form_css() %}
+  <link href="{{ url_for('static', filename='vendor/select2/select2.min.css') }}" rel="stylesheet" {{ admin_csp_nonce_attribute }}>
+  <link href="{{ url_for('static', filename='vendor/select2-bootstrap-5-theme/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet" {{ admin_csp_nonce_attribute }}>
+  <link href="{{ url_for('static', filename='vendor/daterangepicker/daterangepicker.css') }}" rel="stylesheet" {{ admin_csp_nonce_attribute }}>
+{% endmacro %}
+
+{% macro form_js() %}
+  {#- Map widgets (FLASK_ADMIN_MAPS) are not supported by this theme. -#}
+  <script {{ admin_csp_nonce_attribute }} src="{{ url_for('static', filename='vendor/daterangepicker/daterangepicker.js') }}"></script>
+  <script {{ admin_csp_nonce_attribute }} src="{{ url_for('static', filename='theme/form.js') }}"></script>
+{% endmacro %}
+
+{% macro extra() %}
+  {% if admin_view.can_create %}
+  <input name="_add_another" type="submit" class="btn btn-secondary" value="{{ _gettext('Save and Add Another') }}" />
+  {% endif %}
+  {% if admin_view.can_edit %}
+  <input name="_continue_editing" type="submit" class="btn btn-secondary" value="{{ _gettext('Save and Continue Editing') }}" />
+  {% endif %}
+{% endmacro %}

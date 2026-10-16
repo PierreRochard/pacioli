@@ -12,12 +12,12 @@
 {% endif %}
 <form method="post" autocomplete="off" style="max-width: 420px">
   <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-  <div class="form-group">
+  <div class="mb-3">
     <label for="schwab-username">Schwab login ID</label>
     <input class="form-control" id="schwab-username" name="username" type="text" autocomplete="off"
            maxlength="254" required>
   </div>
-  <div class="form-group">
+  <div class="mb-3">
     <label for="schwab-password">Schwab password</label>
     <input class="form-control" id="schwab-password" name="password" type="password"
            autocomplete="new-password" maxlength="512" required>

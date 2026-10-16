@@ -1,26 +1,26 @@
 {% extends 'admin/model/list.html' %}
 
 {% block model_menu_bar_after_filters %}
-    <li class="dropdown">
-    <a class="{{ btn_class }}" data-toggle="dropdown">
-        {{ _gettext('Intervals') }}<b class="caret"></b>
+    <li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">
+        {{ _gettext('Intervals') }}
     </a>
     <ul class="dropdown-menu">
         {% for period_interval, interval_name in period_intervals %}
         <li>
-            <a href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval )}}">{{ interval_name }}</a>
+            <a class="dropdown-item" href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval )}}">{{ interval_name }}</a>
         </li>
         {% endfor %}
     </ul>
     </li>
-    <li class="dropdown">
-    <a class="{{ btn_class }}" data-toggle="dropdown">
-        {{ _gettext('Periods') }}<b class="caret"></b>
+    <li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">
+        {{ _gettext('Periods') }}
     </a>
     <ul class="dropdown-menu">
         {% for period in periods %}
         <li>
-            <a href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval, period=period )}}">{{ period }}</a>
+            <a class="dropdown-item" href="{{ url_for(admin_view.endpoint + '.index_view', period_interval=period_interval, period=period )}}">{{ period }}</a>
         </li>
         {% endfor %}
     </ul>

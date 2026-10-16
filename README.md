@@ -274,6 +274,27 @@ refuses to rebuild a populated database. Only for one brought up to date by
 the installers at commit 1de7fd3: back it up, run `manage.py db stamp 0001`,
 then `manage.py db upgrade`.
 
+## Admin theme and front-end libraries
+
+The admin pages use a Bootstrap 5 theme in `pacioli/templates/admin/` and
+`pacioli/static/theme/`. It overrides Flask-Admin's Bootstrap 4 templates and
+ports Flask-Admin's form and filter scripts to Select2 4 and daterangepicker 3.
+A small inline editor replaces x-editable for `column_editable_list`, and icons
+come from Bootstrap Icons. Map widgets are not supported.
+
+The front-end libraries are vendored in `pacioli/static/vendor/`, byte for byte
+from pinned npm releases: Bootstrap 5.3.8, Bootstrap Icons 1.13.1, jQuery 3.7.1,
+Select2 4.1.0 with its Bootstrap 5 theme, daterangepicker 3.1.0, and moment
+2.31.0. To upgrade one, change its version and published integrity in
+`scripts/vendor_assets.py`, run the script, then run `make ci`. jQuery stays on
+3.x because daterangepicker uses selectors that jQuery 4 removed.
+
+`make ci` checks the vendored files against their recorded digests, renders
+every admin page looking for Bootstrap 4 markup, and drives the widgets in a
+headless Firefox. It also fails when a Flask-Admin upgrade changes a file the
+theme was ported from: review the theme against the new version before
+updating the digests in `tests/test_admin_theme.py`.
+
 ## Tests with an existing PostgreSQL server
 
 Provide a PostgreSQL connection to the **postgres maintenance database** with

@@ -24,11 +24,11 @@
   <form method="post" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="save">
-    <div class="form-group">
+    <div class="mb-3">
       <label for="chase-username">Chase username</label>
       <input class="form-control" id="chase-username" name="username" type="text" autocomplete="off" maxlength="254" {% if not configured %}required{% endif %}>
     </div>
-    <div class="form-group">
+    <div class="mb-3">
       <label for="chase-password">Chase password</label>
       <input class="form-control" id="chase-password" name="password" type="password" autocomplete="new-password" maxlength="512" {% if not configured %}required{% endif %}>
     </div>
@@ -76,7 +76,7 @@
       <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
       <input type="hidden" name="action" value="mfa_code">
       <input id="chase-code-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
-      <div class="form-group"><label for="chase-code">Chase one-time code</label>
+      <div class="mb-3"><label for="chase-code">Chase one-time code</label>
         <input class="form-control" id="chase-code" name="code" type="password" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 -]{4,20}" maxlength="20" required>
       </div>
       <button class="btn btn-primary" type="submit">Send code to Chase</button>

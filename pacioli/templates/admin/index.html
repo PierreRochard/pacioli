@@ -237,16 +237,16 @@
     <div class="table-responsive">
       <table class="table home-table">
         <thead><tr><th scope="col">Account</th><th scope="col">Type</th>
-          <th scope="col" class="text-right">Ledger balance</th>
-          <th scope="col" class="text-right">Bank reported</th><th scope="col">Latest activity</th></tr></thead>
+          <th scope="col" class="text-end">Ledger balance</th>
+          <th scope="col" class="text-end">Bank reported</th><th scope="col">Latest activity</th></tr></thead>
         <tbody>
         {% for account in report.accounts %}
           {% set age = days_since(account.newest, report.now) %}
           <tr>
             <td><a href="{{ url_for('journalentries.index_view', subaccount=account.name, period_interval='YYYY-MM', period=report.period, cumulative='balance-sheet') }}">{{ account.name }}</a></td>
             <td class="muted">{{ account.kind }}</td>
-            <td class="text-right num">{% if account.ledger_balance is none %}—{% else %}{{ dollars(account.ledger_balance) }}{% endif %}</td>
-            <td class="text-right num">
+            <td class="text-end num">{% if account.ledger_balance is none %}—{% else %}{{ dollars(account.ledger_balance) }}{% endif %}</td>
+            <td class="text-end num">
               {% if account.bank_balance is not none %}{{ dollars(account.bank_balance) }}
                 <div class="muted small">as of {{ account.bank_balance_asof.strftime('%b %-d') }}</div>
               {% else %}<span class="muted">—</span>{% endif %}

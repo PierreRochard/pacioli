@@ -118,7 +118,7 @@ def link_transaction_search_formatter(view, context, model, name):
       <input name="csrf_token" type="hidden" value="{4}">
 
       <button onclick="return confirm('Are you sure you want to delete this record?');" title="Delete record">
-        <span class="fa fa-trash glyphicon glyphicon-trash"></span>
+        <i class="bi bi-trash" aria-hidden="true"></i>
       </button>
     </form>
         <a target="_blank" href="{1}">

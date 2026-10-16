@@ -89,7 +89,7 @@
 </details>
 </td>
 <td class="money">{{ item.amount }}</td>
-<td><label for="batch-category-{{ loop.index }}" class="sr-only">Category for {{ item.title }}</label>
+<td><label for="batch-category-{{ loop.index }}" class="visually-hidden">Category for {{ item.title }}</label>
 <select name="category_{{ item.item_id }}" id="batch-category-{{ loop.index }}" class="form-control batch-category" aria-describedby="batch-item-{{ loop.index }}" required>
 <option value="__suspense__" {% if not chosen or chosen not in allowed %}selected{% endif %}>Keep in suspense</option>
 {% for category in allowed %}<option value="{{ category }}" {% if chosen == category %}selected{% endif %}>{{ category }}</option>{% endfor %}
