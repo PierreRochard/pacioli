@@ -20,7 +20,7 @@ psycopg2-binary
 python-dateutil
 websockets
 yfinance
-# ofxtools 0.5 with the SQLAlchemy OFX models, built from commit c284f620 of the
+# ofxtools 0.5 with the SQLAlchemy OFX models, built from commit 40a1b52 of the
 # private PierreRochard/ofxtools repository. The wheel is not in git: copy it
 # into .local/wheels before installing. A path requirement never consults PyPI.
-./.local/wheels/ofxtools-0.5-py3-none-any.whl
+./.local/wheels/ofxtools-0.5+pacioli.1-py3-none-any.whl

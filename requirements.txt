@@ -1095,8 +1095,8 @@ numpy==2.5.4 \
     # via
     #   pandas
     #   yfinance
-./.local/wheels/ofxtools-0.5-py3-none-any.whl \
-    --hash=sha256:320741eb94b2d27ff8baff543d79d9951dd45c51a03dbdfbc40660b708708b7a
+./.local/wheels/ofxtools-0.5+pacioli.1-py3-none-any.whl \
+    --hash=sha256:3d76a41bcb7d955075d5390375f13c0bfca85bb0325a63ecc1bbfc239fa32b6c
     # via -r requirements.in
 pandas==3.0.6 \
     --hash=sha256:0704044b676496b8350e023b09f174a26772456c974a2b11c36bebb558c9490d \

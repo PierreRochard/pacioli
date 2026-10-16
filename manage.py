@@ -13,14 +13,13 @@ from dateutil.tz import tzlocal
 from flask.cli import ScriptInfo
 from flask_migrate import Migrate
 from flask_security.utils import hash_password
+from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
+from ofxtools.ofxalchemy import Base as OFX_Base
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
 from pacioli import create_app
-# Importing pacioli first restores the SafeConfigParser alias the ofxtools fork needs.
-from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
-from ofxtools.ofxalchemy import Base as OFX_Base
 from pacioli.database.setup import create_database, ofx_engine, populate_chart
 from pacioli.extensions import db, run_sql
 from pacioli.models import (Users, Roles, BankFeedAccounts,

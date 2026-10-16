@@ -1,10 +1,3 @@
-import configparser
-
-# The pinned ofxtools fork imports SafeConfigParser, an alias of ConfigParser
-# that Python 3.12 removed. Restore the alias before anything imports ofxtools.
-if not hasattr(configparser, 'SafeConfigParser'):
-    configparser.SafeConfigParser = configparser.ConfigParser
-
 from flask import Flask, url_for
 from flask_security import Security
 from flask_admin import helpers as admin_helpers
