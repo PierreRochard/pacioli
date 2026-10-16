@@ -1,7 +1,6 @@
 # Direct dependencies. requirements.txt is the hashed lock compiled from this
 # file; regenerate it with `make lock` after editing.
 Flask
-Flask-Admin
 Flask-Login
 Flask-Mail
 Flask-Migrate
@@ -22,3 +21,8 @@ yfinance
 # private PierreRochard/ofxtools repository. The wheel is not in git: copy it
 # into .local/wheels before installing. A path requirement never consults PyPI.
 ./.local/wheels/ofxtools-0.5+pacioli.1-py3-none-any.whl
+# Flask-Admin 2.2.1 with a Bootstrap 5 theme and current front-end libraries,
+# built from tag v2.2.1+pacioli.1 of the private PierreRochard/flask-admin-private
+# repository (see PACIOLI.md there). The wheel is not in git: copy it into
+# .local/wheels before installing.
+./.local/wheels/flask_admin-2.2.1+pacioli.1-py3-none-any.whl

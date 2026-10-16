@@ -1,5 +1,5 @@
 from flask_admin import Admin
-from flask_admin.theme import Bootstrap4Theme
+from flask_admin.theme import Bootstrap5Theme
 from pathlib import Path
 
 from flask_mail import Mail
@@ -10,7 +10,7 @@ from pacioli.views.dashboard_views import HomeView
 
 admin = Admin(url='/',
               name='pacio.li',
-              theme=Bootstrap4Theme(base_template='base_master.html'),
+              theme=Bootstrap5Theme(base_template='base_master.html'),
               index_view=HomeView(url='/'))
 
 mail = Mail()
