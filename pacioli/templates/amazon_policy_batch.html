@@ -42,7 +42,7 @@
 {% if owner_decisions %}<details><summary>Your {{ owner_decisions|length }} saved decisions</summary>
 <ul class="decision-list">{% for decision in owner_decisions %}<li><strong>{{ decision.label }}</strong>{% if decision.count is defined %} — {{ decision.count }} purchases{% endif %}{% if decision.amount %} · {{ decision.amount }} USD{% endif %}{% if decision.scope == 'future' %}. Reused as guidance for future reviews.{% endif %}{% if decision.answer_id %} <a href="{{ url_for('.amazon_policy_history',plan_id=plan.id,_anchor='saved-answer-history-heading') }}">Saved answer {{ decision.answer_id }}</a>{% endif %}</li>{% endfor %}</ul>
 </details>{% endif %}
-<section class="well" aria-labelledby="batch-totals-heading">
+<section class="card card-body bg-light" aria-labelledby="batch-totals-heading">
 <h3 id="batch-totals-heading">Current purchase review</h3>
 <p><strong>{{ totals.count }} purchases · {{ totals.amount }} USD</strong> still to resolve.</p>
 {% if totals.eligible_count %}<p>{{ totals.eligible_count }} purchases · {{ totals.eligible_amount }} USD have supported classifications ready for review.</p>{% endif %}
@@ -110,7 +110,7 @@
 </form>
 {% elif not needs_implementation %}
 <div class="alert alert-success">No purchases remain to classify in this batch.</div>
-<p><a class="btn btn-primary" href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">View posted allocations and status</a> <a class="btn btn-default" href="{{ url_for('.amazon_policy_history',plan_id=plan.id) }}">Read your saved decisions</a></p>
+<p><a class="btn btn-primary" href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">View posted allocations and status</a> <a class="btn btn-secondary" href="{{ url_for('.amazon_policy_history',plan_id=plan.id) }}">Read your saved decisions</a></p>
 {% endif %}
 {% endif %}
 </main>

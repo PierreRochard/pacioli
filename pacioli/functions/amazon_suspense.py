@@ -95,7 +95,7 @@ def _plan(plan_id, lock=False):
     if (body.get('version') != VERSION or body.get('source_run_id') != plan.source_run_id
             or digest(body.get('triage')) != plan.document_digest):
         raise ValueError('Suspense plan evidence changed')
-    source = db.session.query(AmazonItemRuns).populate_existing().get(plan.source_run_id)
+    source = db.session.get(AmazonItemRuns, plan.source_run_id, populate_existing=True)
     if not source or source.input_digest != body['triage']['source_manifest_digest']:
         raise ValueError('Suspense source manifest changed')
     manifest = workflow._manifest(source)
@@ -171,7 +171,7 @@ def import_triage(doc, reviewer):
 
 
 def _run(plan, source_manifest):
-    run = db.session.query(AmazonItemRuns).populate_existing().get(plan.review_run_id or plan.source_run_id)
+    run = db.session.get(AmazonItemRuns, plan.review_run_id or plan.source_run_id, populate_existing=True)
     if not run:
         raise ValueError('Missing current item review')
     manifest = workflow._manifest(run)
@@ -342,7 +342,7 @@ def review_control(item, category, run_id, decision=None):
     original = workflow._items(source_manifest).get(item['item_id'])
     if original is None or digest(original) != digest(item):
         raise ValueError('The suspense source occurrence changed')
-    run = db.session.query(AmazonItemRuns).populate_existing().get(run_id)
+    run = db.session.get(AmazonItemRuns, run_id, populate_existing=True)
     if not run or workflow._manifest(run)['projection']['archive_digest'] != source_manifest['projection']['archive_digest']:
         raise ValueError('The suspense review belongs to a different source archive')
     row = next(r for r in doc['items'] if r['item_id'] == item['item_id'])
@@ -451,7 +451,7 @@ def product_suggestion(item, categories):
     ancestor, ancestor_body = rule, body
     seen = set()
     while ancestor.supersedes_id is not None:
-        older = db.session.query(AmazonProductRules).get(ancestor.supersedes_id)
+        older = db.session.get(AmazonProductRules, ancestor.supersedes_id)
         if (not older or older.id in seen or older.id >= ancestor.id
                 or older.product_digest != rule.product_digest
                 or ancestor_body.get('previous_evidence_id') != older.evidence_id):
@@ -467,11 +467,11 @@ def product_suggestion(item, categories):
             or body.get('category') not in categories or body['category'] not in advisor.CATEGORY_DEFINITIONS):
         return None
     decision = _document(body['source_decision_id'], 'amazon_item_decision')
-    job = db.session.query(AmazonItemJobs).populate_existing().get(decision.get('job_id'))
+    job = db.session.get(AmazonItemJobs, decision.get('job_id'), populate_existing=True)
     if (not job or job.decision_id != body['source_decision_id'] or decision.get('category') != body['category']
             or decision.get('item_id') != body['source_item_id']):
         return None
-    source_run = db.session.query(AmazonItemRuns).populate_existing().get(job.run_id)
+    source_run = db.session.get(AmazonItemRuns, job.run_id, populate_existing=True)
     if not source_run:
         return None
     source_item = workflow._items(workflow._manifest(source_run)).get(body['source_item_id'])
@@ -629,7 +629,7 @@ def _posted_items(manifest, wanted):
             if live_preview['digest'] != preview['digest']:
                 continue
             proof = matching[0]
-            posted_run = db.session.query(AmazonItemRuns).get(proof['run_id'])
+            posted_run = db.session.get(AmazonItemRuns, proof['run_id'])
             if not posted_run or posted_run.input_digest != proof['manifest_digest']:
                 continue
             posted_manifest = workflow._manifest(posted_run)

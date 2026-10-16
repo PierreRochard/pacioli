@@ -72,7 +72,7 @@ def amazon_source(clean_ledger):
 
 
 def financial_fingerprints():
-    return {table: digest([dict(row) for row in db.session.execute(text(
+    return {table: digest([dict(row._mapping) for row in db.session.execute(text(
         'SELECT * FROM ' + table + ' ORDER BY 1'))]) for table in (
             'bookkeeping.journal_entries', 'bookkeeping.journal_entry_events',
             'bookkeeping.ofx_source_identities', 'bookkeeping.ofx_journal_sources',
@@ -83,7 +83,7 @@ def test_amazon_review_database_account_identity_utc_and_read_only_result(amazon
     before = financial_fingerprints()
     source_date = db.session.execute(text('SELECT date FROM ofx.transactions WHERE id=:id'),
                                      {'id': amazon_source['transaction_id']}).scalar()
-    journal = db.session.query(JournalEntries).get(amazon_source['journal_id'])
+    journal = db.session.get(JournalEntries, amazon_source['journal_id'])
     assert source_date.tzinfo is None
     assert journal.timestamp.tzinfo is not None
     result = review.build_report(db.session, amazon_source['archive_id'])
@@ -127,14 +127,14 @@ def test_amazon_review_saved_snapshot_is_read_only_encrypted_and_replay_safe(ama
 
 
 def test_amazon_review_missing_bank_currency_cannot_become_candidate(amazon_source):
-    db.session.delete(db.session.query(BankFeedAccounts).get(amazon_source['account_id']))
+    db.session.delete(db.session.get(BankFeedAccounts, amazon_source['account_id']))
     db.session.flush()
     result = review.build_report(db.session, amazon_source['archive_id'])
     assert result['records'][0]['status'] == 'needs_evidence'
 
 
 def test_amazon_review_manifest_and_table_tampering_are_rejected(amazon_source):
-    doc = db.session.query(AccountingEvidence).get(amazon_source['archive_id'])
+    doc = db.session.get(AccountingEvidence, amazon_source['archive_id'])
     manifest = json.loads(doc.payload)
     original = doc.payload
     doc.payload = dump(dict(manifest, filename='changed.csv'))
@@ -144,7 +144,7 @@ def test_amazon_review_manifest_and_table_tampering_are_rejected(amazon_source):
         with pytest.raises(ValueError, match='manifest'):
             review.build_report(db.session, doc.id)
     doc.payload = original
-    table = db.session.query(AccountingEvidence).get(manifest['tables'][0]['evidence_id'])
+    table = db.session.get(AccountingEvidence, manifest['tables'][0]['evidence_id'])
     contents = json.loads(table.payload)
     contents['rows'][0][contents['headers'].index('Total Amount')] = '999.00'
     table.payload = dump(contents)
@@ -177,7 +177,7 @@ def test_amazon_review_existing_allocation_requires_unchanged_evidence(amazon_so
             transaction_source='ofx', transaction_id=amazon_source['transaction_id']).one()
         journal.debit_subaccount = 'Restaurants'
     elif drift == 'bundle':
-        bundle = db.session.query(AmazonEvidenceBundles).get(bundle_id)
+        bundle = db.session.get(AmazonEvidenceBundles, bundle_id)
         body = json.loads(bundle.details)
         body['lines'][0]['title'] = 'Different unsupported purpose'
         bundle.details = dump(body)
@@ -198,15 +198,16 @@ def test_amazon_review_existing_allocation_requires_unchanged_evidence(amazon_so
             from datetime import timedelta
             journal.timestamp += timedelta(hours=1)
     else:
-        db.session.query(AmazonEvidenceBundles).get(bundle_id).posting_digest = '0' * 64
+        db.session.get(AmazonEvidenceBundles, bundle_id).posting_digest = '0' * 64
     if drift != 'proof':
         db.session.flush()
-    after = financial_fingerprints()
+    # SQLAlchemy 2 autoflushes before text queries too; keep the tampered proof unflushed.
     with db.session.no_autoflush:
+        after = financial_fingerprints()
         result = review.build_report(db.session, amazon_source['archive_id'])
-    assert result['records'][0]['status'] == 'needs_evidence'
-    assert result['records'][0]['candidates'][0]['existing_bundle_id'] == bundle_id
-    assert financial_fingerprints() == after
+        assert result['records'][0]['status'] == 'needs_evidence'
+        assert result['records'][0]['candidates'][0]['existing_bundle_id'] == bundle_id
+        assert financial_fingerprints() == after
 
 
 def test_amazon_review_routes_filter_csv_authentication_and_csrf(

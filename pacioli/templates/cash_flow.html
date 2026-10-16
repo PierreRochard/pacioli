@@ -79,7 +79,7 @@
       <input id="cash-flow-end" class="form-control" type="date" name="end" value="{{ report.end }}" required>
     </div>
     <button class="btn btn-primary" type="submit">Update statement</button>
-    <a class="btn btn-default cash-flow-export" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, export='csv') }}">Download statement CSV</a>
+    <a class="btn btn-secondary cash-flow-export" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, export='csv') }}">Download statement CSV</a>
   </form>
 
   {% if report.get('provisional') or issues or status.unclassified %}
@@ -204,9 +204,9 @@
     </div>
     {% if details.pages > 1 %}
     <nav class="pagination-actions" aria-label="Cash movement pages">
-      {% if details.page > 1 %}<a class="btn btn-default" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=selected_section, label=selected_label, direction=detail_direction, page=details.page - 1) }}#cash-flow-details">Previous page</a>{% endif %}
+      {% if details.page > 1 %}<a class="btn btn-secondary" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=selected_section, label=selected_label, direction=detail_direction, page=details.page - 1) }}#cash-flow-details">Previous page</a>{% endif %}
       <span>Page {{ details.page }} of {{ details.pages }} · Up to {{ details.page_size }} cash movements per page</span>
-      {% if details.page < details.pages %}<a class="btn btn-default" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=selected_section, label=selected_label, direction=detail_direction, page=details.page + 1) }}#cash-flow-details">Next page</a>{% endif %}
+      {% if details.page < details.pages %}<a class="btn btn-secondary" href="{{ url_for('cash-flows.index_view', start=report.start, end=report.end, section=selected_section, label=selected_label, direction=detail_direction, page=details.page + 1) }}#cash-flow-details">Next page</a>{% endif %}
     </nav>
     {% endif %}
   </section>

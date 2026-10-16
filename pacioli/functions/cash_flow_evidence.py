@@ -50,7 +50,7 @@ def _ids(values):
 
 
 def _chart(session):
-    return {row.name: dict(row) for row in session.execute(text('''
+    return {row.name: dict(row._mapping) for row in session.execute(text('''
         SELECT s.name,a.name AS parent,a.is_cash,a.cash_source,c.parent AS element
         FROM bookkeeping.subaccounts s JOIN bookkeeping.accounts a ON a.name=s.parent
         JOIN bookkeeping.classifications c ON c.name=a.parent'''))}
@@ -58,7 +58,7 @@ def _chart(session):
 
 def _accounts(session):
     # Only public bookkeeping names and internal IDs; never provider numbers.
-    return {row.id: dict(row) for row in session.execute(text('''
+    return {row.id: dict(row._mapping) for row in session.execute(text('''
         SELECT a.id,a.name,b.currency,cc.id IS NOT NULL AS is_card
         FROM ofx.acctfrom a LEFT JOIN bookkeeping.bank_feed_accounts b ON b.ofx_account_id=a.id
         LEFT JOIN ofx.ccacctfrom cc ON cc.id=a.id'''))}
@@ -67,7 +67,7 @@ def _accounts(session):
 def _sources(session, identifiers):
     if not identifiers:
         return {}
-    return {row.id: dict(row) for row in session.execute(text('''
+    return {row.id: dict(row._mapping) for row in session.execute(text('''
         SELECT i.public_id AS id,t.dtposted AS date,t.trnamt AS amount,
                concat(t.name,t.memo) AS description,a.name AS account,
                t.acctfrom_id AS account_id,b.currency,i.source_id
@@ -283,7 +283,7 @@ def _transfers(session, start, end, chart, accounts):
 def _statement_valid(session, anchor):
     """Check only this anchor's retained document; return no document contents."""
     try:
-        document = session.query(AccountingEvidence).get(anchor.evidence_id)
+        document = session.get(AccountingEvidence, anchor.evidence_id)
         if (document is None or document.kind != 'bank_statement' or
                 sha256(document.payload.encode()).hexdigest() != document.sha256):
             return False
@@ -314,13 +314,13 @@ def _opening_checks_valid(session, row, details):
         return False
     directly_documented = False
     for check in checks:
-        anchor = session.query(BankStatements).get(check['statement_id'])
+        anchor = session.get(BankStatements, check['statement_id'])
         if (anchor is None or anchor.account_id != row.account_id or
                 anchor.evidence_id != check['evidence_id'] or
                 anchor.end_date != date.fromisoformat(check['end']) or anchor.end_date < row.cutover or
                 anchor.closing != Decimal(check['closing']) or not _statement_valid(session, anchor)):
             return False
-        sources = [dict(source) for source in session.execute(text('''
+        sources = [dict(source._mapping) for source in session.execute(text('''
             SELECT i.public_id AS id,t.dtposted AS date,t.trnamt AS amount,
                    concat(t.name,t.memo) AS description
             FROM ofx.stmttrn t LEFT JOIN bookkeeping.ofx_source_identities i
@@ -352,7 +352,7 @@ def _opening(session, row, name):
                  details['cutover'] == str(row.cutover) and Decimal(details['amount']) == row.amount and
                  details['digest'] == row.evidence_digest and
                  _digest({k: v for k, v in details.items() if k != 'digest'}) == row.evidence_digest)
-        entry = session.query(JournalEntries).get(row.journal_id) if row.journal_id else None
+        entry = session.get(JournalEntries, row.journal_id) if row.journal_id else None
         if row.amount == 0:
             valid = valid and row.journal_id is None
         else:
@@ -387,7 +387,7 @@ def cash_flow_context(session, start, end):
             JournalEntries.credit_subaccount.in_(cash_names))).all()
     active = {name for entry in journal_rows for name in
               (entry.debit_subaccount, entry.credit_subaccount) if name in cash_names}
-    source_rows = [dict(row) for row in session.execute(text('''
+    source_rows = [dict(row._mapping) for row in session.execute(text('''
         SELECT i.public_id AS id,i.source_id,t.acctfrom_id AS account_id,
                t.dtposted AS date,t.trnamt AS amount,a.name AS account,b.currency
         FROM ofx.stmttrn t JOIN ofx.acctfrom a ON a.id=t.acctfrom_id
@@ -431,7 +431,7 @@ def cash_flow_context(session, start, end):
         verified[row.file_import_id].append((row.start, row.end))
     for aid, acct in sorted(active_accounts.items()):
         name = acct['name']
-        opening = _opening(session, session.query(OpeningBalances).get(aid), name)
+        opening = _opening(session, session.get(OpeningBalances, aid), name)
         opening.update(account_id=aid, account=name,
                        covers_start=bool(opening['valid'] and opening['cutover'] <= start.date()))
         openings.append(opening)

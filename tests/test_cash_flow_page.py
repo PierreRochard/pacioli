@@ -72,7 +72,7 @@ def test_cash_flow_dates_are_explicit_and_leap_safe():
 
 
 def test_cash_flow_requires_admin_and_valid_filters(clean_ledger, client, admin_user):
-    client.get('/logout/')
+    client.post('/logout/')
     assert client.get(URL).status_code == 302
     client.post('/login/', data=admin_user)
     for suffix in ('&section=bad', '&page=0', '&page=10001', '&page=no',
@@ -201,7 +201,7 @@ def test_cash_flow_non_administrator_cannot_read_or_export(clean_ledger, client)
     db.session.add(viewer)
     db.session.commit()
     with client.session_transaction() as session:
-        session['_user_id'] = str(viewer.id)
+        session['_user_id'] = viewer.fs_uniquifier
         session['_fresh'] = True
     assert client.get(URL).status_code == 403
     assert client.get(URL + '&export=csv').status_code == 403

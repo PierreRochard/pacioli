@@ -57,7 +57,7 @@ def test_event_replay_encryption_redaction_pagination_and_owner(progress_run, cl
     assert client.get(PATH+'status/?run_id=0&after=999999').json['events'] == first['events']
     assert client.get(PATH+'status/?after=-1').status_code == 400
     assert client.get(PATH+'events/', headers={'Last-Event-ID':'malformed'}).status_code == 400
-    client.get('/logout/')
+    client.post('/logout/')
     assert client.get(PATH+'status/').status_code == 302
     assert client.get(PATH+'events/').status_code == 302
 

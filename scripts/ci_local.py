@@ -2,6 +2,7 @@
 
 import ast
 import getpass
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -79,7 +80,11 @@ def main():
             environment['PYTHONDONTWRITEBYTECODE'] = '1'
 
             check_python_syntax()
-            run(sys.executable, '-m', 'pip', 'check', env=environment)
+            # Environments built by uv carry no pip; check them with uv instead.
+            if importlib.util.find_spec('pip'):
+                run(sys.executable, '-m', 'pip', 'check', env=environment)
+            else:
+                run('uv', 'pip', 'check', '--python', sys.executable, env=environment)
             run(sys.executable, '-B', '-m', 'pytest', '-q',
                 '--basetemp', str(work / 'pytest'),
                 '--disable-warnings', '-p', 'no:cacheprovider', 'tests', *sys.argv[1:],

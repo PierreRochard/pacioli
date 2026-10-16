@@ -44,7 +44,7 @@ def default_mapping_decision(mapping_id):
     """
     from pacioli.extensions import db
     from pacioli.models import Mappings
-    mapping = db.session.query(Mappings).get(mapping_id)
+    mapping = db.session.get(Mappings, mapping_id)
     if mapping is None:
         raise ValueError('The selected mapping no longer exists')
     snapshot = rule_snapshot(mapping)

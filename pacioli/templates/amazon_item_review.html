@@ -45,7 +45,7 @@
 <select id="item-run-selector" name="run_id">
 {% for saved_run in runs %}<option value="{{ saved_run.id }}" {% if run and saved_run.id == run.id %}selected{% endif %}>Run {{ saved_run.id }} · {{ saved_run.state|replace('_',' ') }}</option>{% endfor %}
 </select>
-<button class="btn btn-default">Open run</button>
+<button class="btn btn-secondary">Open run</button>
 </form>
 {% endif %}
 
@@ -57,7 +57,7 @@
 <p id="item-run-counts">{% for name,count in run.counts|dictsort %}{{ name|replace('_',' ')|capitalize }}: {{ count }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
 <p>Accounting holds and technical failures are separate. A missing-purpose hold needs evidence; a failed or interrupted model request can be retried.</p>
 <div class="run-controls">
-<form method="post">{{ csrf() }}<input type="hidden" name="action" value="resume"><input type="hidden" name="run_id" value="{{ run.id }}"><input type="hidden" name="page" value="{{ page }}"><button class="btn btn-default">Resume classification</button></form>
+<form method="post">{{ csrf() }}<input type="hidden" name="action" value="resume"><input type="hidden" name="run_id" value="{{ run.id }}"><input type="hidden" name="page" value="{{ page }}"><button class="btn btn-secondary">Resume classification</button></form>
 </div>
 <div id="item-results-ready" class="alert alert-info" hidden>
 Background work has finished. Your current review edits are preserved. Save them before loading the latest results.
@@ -73,7 +73,7 @@ Background work has finished. Your current review edits are preserved. Save them
 {% set proposal = row.proposal or {} %}
 {% set answer = proposal.get('answer', {}) %}
 {% set decision = row.decision or {} %}
-<article class="well item-card" id="item-{{ row.id }}" aria-labelledby="item-heading-{{ row.id }}">
+<article class="card card-body bg-light item-card" id="item-{{ row.id }}" aria-labelledby="item-heading-{{ row.id }}">
 <h3 id="item-heading-{{ row.id }}">{{ item.title }}</h3>
 <p><strong>{{ item.amount }} USD including adjustments</strong> · Quantity {{ item.quantity }}{% if item.department %} · {{ item.department }}{% endif %}{% if item.condition %} · {{ item.condition }}{% endif %}</p>
 {% if row.settlement %}
@@ -87,7 +87,7 @@ Background work has finished. Your current review edits are preserved. Save them
 {% if item.blockers %}<div class="alert alert-warning"><strong>Source context needs review.</strong><ul>{% for blocker in item.blockers %}<li>{{ blocker|replace('_',' ')|capitalize }}</li>{% endfor %}</ul></div>{% endif %}
 <details class="item-details">
 <summary>Exact costs and source evidence</summary>
-<div class="table-responsive"><table class="table table-condensed">
+<div class="table-responsive"><table class="table table-sm">
 <caption>Original monetary components for this item</caption>
 <thead><tr><th scope="col">Component</th><th scope="col">Amount (USD)</th><th scope="col">Source fields</th></tr></thead>
 <tbody>{% for component in item.components %}<tr><td>{{ component.kind|replace('_',' ')|capitalize }}</td><td>{{ component.amount }}</td><td>{% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %}<br>{{ source.fields|join(', ') }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% else %}<tr><td colspan="3">No nonzero monetary components; this source item has zero cost.</td></tr>{% endfor %}</tbody>
@@ -132,7 +132,7 @@ Background work has finished. Your current review edits are preserved. Save them
 <label for="item-reason-{{ row.id }}">Evidence and reason for this decision</label>
 <textarea name="reason" id="item-reason-{{ row.id }}" rows="2" required maxlength="2000" class="form-control">{{ decision.reason if decision else '' }}</textarea>
 <p>A product title may identify the item without establishing its purpose. Keep it in suspense when purpose or an applicable accounting policy is missing.</p>
-<button class="btn btn-default" {% if (row.state is defined and row.state in ('queued','running')) or (posting_job and posting_job.state in ('queued','running')) %}disabled{% endif %}>{{ 'Save revised item decision' if row.posted else 'Save reviewed decision' }}</button>
+<button class="btn btn-secondary" {% if (row.state is defined and row.state in ('queued','running')) or (posting_job and posting_job.state in ('queued','running')) %}disabled{% endif %}>{{ 'Save revised item decision' if row.posted else 'Save reviewed decision' }}</button>
 </form>
 </article>
 {% else %}<p>No item records in this run.</p>{% endfor %}
@@ -147,7 +147,7 @@ Background work has finished. Your current review edits are preserved. Save them
 <section aria-labelledby="post-items-heading">
 <h3 id="post-items-heading">Post reviewed allocations</h3>
 <p>This action applies saved, reviewed item decisions across this run, including other pages. Exact source amounts are allocated to the selected categories; unreviewed or unsupported portions remain in Bookkeeping Suspense. The existing bank amount is preserved. Starting classification or saving a decision does not perform this step.</p>
-<div class="well" aria-label="Background posting status">
+<div class="card card-body bg-light" aria-label="Background posting status">
 <p id="item-posting-progress" role="status" aria-live="polite">{% if posting_job %}Posting request {{ posting_job.id }} · {{ posting_job.state|replace('_',' ')|capitalize }}: {{ posting_job.progress }}{% else %}No background posting request has been made.{% endif %}</p>
 <p id="item-posting-result">{% if posting_job and posting_job.result %}{% for key,value in posting_job.result|dictsort %}{{ key|replace('_',' ')|capitalize }}: {{ value }}{% if key in ('classified_amount','suspense_amount') %} USD{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}</p>
 <p id="item-posting-error" class="text-danger">{% if posting_job and posting_job.error %}Posting needs attention: {{ posting_job.error|replace('_',' ') }}. Review the current evidence before retrying.{% endif %}</p>
@@ -155,10 +155,10 @@ Background work has finished. Your current review edits are preserved. Save them
 </div>
 {% if run.posting_summary %}
 {% set posting = run.posting_summary %}
-<div class="well">
+<div class="card card-body bg-light">
 <p><strong>Current posting preview:</strong> {{ posting.settlements }} selected settlements · {{ posting.classified_amount }} USD classified · {{ posting.suspense_amount }} USD retained in suspense within those settlements.</p>
 <p>{{ posting.held_settlements }} wholly held settlements are omitted from these amounts and remain unchanged.</p>
-<div class="table-responsive"><table class="table table-condensed"><caption>Exact allocation totals for the selected reviewed settlements</caption>
+<div class="table-responsive"><table class="table table-sm"><caption>Exact allocation totals for the selected reviewed settlements</caption>
 <thead><tr><th scope="col">Destination</th><th scope="col">Amount (USD)</th></tr></thead>
 <tbody>{% for allocation in posting.categories %}<tr><td>{{ allocation.category }}</td><td>{{ allocation.amount }}</td></tr>{% else %}<tr><td colspan="2">No reviewed category amounts are ready to post.</td></tr>{% endfor %}</tbody>
 </table></div>

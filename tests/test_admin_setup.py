@@ -10,7 +10,7 @@ from sqlalchemy.schema import CreateTable
 
 from pacioli import create_app
 from pacioli.admin_setup import issue_admin_link
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.models import AdminSetupLinks, Roles, Users, roles_users
 from pacioli.settings import DevConfig
 
@@ -20,8 +20,13 @@ def bootstrap_app(database_url):
     parsed = make_url(database_url)
     admin = create_engine(str(parsed.set(database='postgres')),
                           isolation_level='AUTOCOMMIT')
+
+    def admin_sql(statement):
+        with admin.connect() as connection:
+            connection.exec_driver_sql(statement)
+
     name = 'pacioli_bootstrap_' + uuid4().hex[:12]
-    admin.execute('CREATE DATABASE "{}"'.format(name))
+    admin_sql('CREATE DATABASE "{}"'.format(name))
 
     class BootstrapConfig(DevConfig):
         TESTING = True
@@ -30,19 +35,19 @@ def bootstrap_app(database_url):
 
     app = create_app(BootstrapConfig, env='test')
     with app.app_context():
-        db.engine.execute('CREATE SCHEMA admin')
+        run_sql('CREATE SCHEMA admin')
         # The legacy OFX models register global metadata events, so create
         # only the admin tables instead of invoking that unrelated metadata.
         for table in (Roles.__table__, Users.__table__, roles_users,
                       AdminSetupLinks.__table__):
-            db.engine.execute(CreateTable(table))
+            run_sql(CreateTable(table))
     try:
         yield app
     finally:
         with app.app_context():
             db.session.remove()
             db.engine.dispose()
-        admin.execute('DROP DATABASE "{}" WITH (FORCE)'.format(name))
+        admin_sql('DROP DATABASE "{}" WITH (FORCE)'.format(name))
         admin.dispose()
 
 

@@ -46,7 +46,7 @@ def page_identity(url):
 
 
 def collect(run_id, bridge=None):
-    run=db.session.query(AmazonCollectionRuns).get(run_id)
+    run=db.session.get(AmazonCollectionRuns, run_id)
     if not run or run.state!='running':return
     bridge=bridge or FirefoxBridge()
     bridge.path=Path('/run/user')/str(os.getuid())/'pacioli-amazon-extension.sock'
@@ -109,7 +109,7 @@ def collect(run_id, bridge=None):
             run.state='needs_attention';progress('Reached the ten-page batch limit; earlier history remains');return
         run.state='complete';progress('Captured {} receipts from the selected history range. Item/settlement review remains required'.format(run.documents))
     except (ValueError,LocalChaseError,KeyError) as exc:
-        db.session.rollback();run=db.session.query(AmazonCollectionRuns).get(run_id)
+        db.session.rollback();run=db.session.get(AmazonCollectionRuns, run_id)
         run.state='needs_attention'
         messages={
             'bridge_unavailable':'Connect the Amazon reader in Firefox, then collect again. Saved receipts are retained.',

@@ -33,8 +33,8 @@ def _request(run_id, expected=None, reviewer=PRIVATE_REVIEWER, reason=PRIVATE_RE
 
 
 def _proof(job_id):
-    job = db.session.query(AmazonItemPostRuns).populate_existing().get(job_id)
-    evidence = db.session.query(AccountingEvidence).get(job.evidence_id)
+    job = db.session.get(AmazonItemPostRuns, job_id, populate_existing=True)
+    evidence = db.session.get(AccountingEvidence, job.evidence_id)
     body = json.loads(evidence.payload)
     assert evidence.kind == 'amazon_item_post_request'
     assert digest(body) == evidence.sha256

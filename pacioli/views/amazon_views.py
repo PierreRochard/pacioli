@@ -73,7 +73,7 @@ class AmazonItemView(PrivateModelView):
         require_action_csrf()
         apply_all_mappings()
         return redirect(url_for('amazonitems.index_view'))
-admin.add_view(AmazonItemView(AmazonTransactions, db.session, endpoint='amazonitems', name='Amazon Items', category='Amazon'))
+admin.add_view(AmazonItemView(AmazonTransactions, db, endpoint='amazonitems', name='Amazon Items', category='Amazon'))
 
 
 class AmazonOrdersView(PrivateModelView):
@@ -86,10 +86,9 @@ class AmazonOrdersView(PrivateModelView):
     column_list = ('id', 'order_date')
     column_filters = column_list
     column_searchable_list = column_list
-    # column_default_sort = {'field': 'order_date', 'sort_desc': True, 'absolute_value': False}
-    column_default_sort = ('order_state', True)
+    column_default_sort = ('order_date', True)
     column_labels = dict(id='ID')
-admin.add_view(AmazonOrdersView(AmazonOrders, db.session, category='Amazon'))
+admin.add_view(AmazonOrdersView(AmazonOrders, db, category='Amazon'))
 
 
 class AmazonCategoriesView(PrivateModelView):
@@ -100,4 +99,4 @@ class AmazonCategoriesView(PrivateModelView):
     column_display_actions = False
     # column_default_sort = {'field': 'name', 'sort_desc': False, 'absolute_value': False}
     column_default_sort = ('name', False)
-admin.add_view(AmazonCategoriesView(AmazonCategories, db.session, category='Amazon'))
+admin.add_view(AmazonCategoriesView(AmazonCategories, db, category='Amazon'))

@@ -186,7 +186,7 @@ def test_batch_failure_rolls_back_preceding_item_reviews_even_when_outer_commits
 def test_posted_ordinary_sibling_survives_policy_migration_without_global_old_gate_bypass(item_workflow_source, monkeypatch):
     run_id, book_id, wash_id = _prepared(item_workflow_source, approve=False)
     doc = _triage(run_id)
-    wash_item = db.session.query(AmazonItemJobs).get(wash_id).item_id
+    wash_item = db.session.get(AmazonItemJobs, wash_id).item_id
     for row in doc['items']:
         if row['item_id'] == wash_item:
             row.update(policy_gate='needs_property', property_treatment_needed=True,

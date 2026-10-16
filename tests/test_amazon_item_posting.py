@@ -63,11 +63,11 @@ def allocation(source, *, books='12.00', remainder='9.65', suspense=True):
 
 
 def snapshots():
-    return dict(journals=[dict(row) for row in db.session.execute(text(
+    return dict(journals=[dict(row._mapping) for row in db.session.execute(text(
         'SELECT * FROM bookkeeping.journal_entries ORDER BY id'))],
         events=db.session.query(JournalEntryEvents).count(),
         evidence=db.session.query(AccountingEvidence).count(),
-        bundles=[dict(row) for row in db.session.execute(text('SELECT * FROM amazon.evidence_bundles ORDER BY id'))])
+        bundles=[dict(row._mapping) for row in db.session.execute(text('SELECT * FROM amazon.evidence_bundles ORDER BY id'))])
 
 
 def assert_preserves_source(source):
@@ -254,7 +254,7 @@ def test_revision_refund_retains_original_credit_cash_direction(item_settlement)
 
 def test_preview_requires_original_immutable_item_evidence(item_settlement):
     source = item_settlement()
-    bundle = db.session.query(AmazonEvidenceBundles).get(source['bundle_id'])
+    bundle = db.session.get(AmazonEvidenceBundles, source['bundle_id'])
     body = json.loads(bundle.details)
     body['lines'][0]['title'] = 'Changed purpose'
     bundle.details = dump(body)

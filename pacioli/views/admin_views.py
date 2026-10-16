@@ -26,8 +26,8 @@ class UserModelView(PrivateModelView):
     column_formatters = dict(confirmed_at=date_formatter, current_login_at=date_formatter)
 
 
-admin.add_view(UserModelView(Users, db.session, category='Admin'))
-admin.add_view(PrivateModelView(Roles, db.session, category='Admin'))
+admin.add_view(UserModelView(Users, db, category='Admin'))
+admin.add_view(PrivateModelView(Roles, db, category='Admin'))
 
 
 class ConnectionsModelView(PrivateModelView):
@@ -56,7 +56,7 @@ class ConnectionsModelView(PrivateModelView):
     def schwab_connection(self):
         """Save the Schwab sign-in encrypted; it is never displayed again."""
         from pacioli.models import BrokerageCredentials
-        credentials = db.session.query(BrokerageCredentials).get('schwab')
+        credentials = db.session.get(BrokerageCredentials, 'schwab')
         if request.method == 'POST':
             require_action_csrf()
             action = request.form.get('action')
@@ -140,7 +140,7 @@ class ConnectionsModelView(PrivateModelView):
                         request.form.get('start', ''), request.form.get('end', ''),
                         request.form.get('reviewed_usd') == 'yes', preview=action == 'preview')
                 elif action in ('resume', 'cancel'):
-                    run = db.session.query(ChaseBrowserRuns).get(int(request.form.get('run_id', '0')))
+                    run = db.session.get(ChaseBrowserRuns, int(request.form.get('run_id', '0')))
                     if run is None or run.mode not in chase_local.MODES or run.requested_by_id != current_user.id:
                         abort(404)
                     if action == 'resume': chase_local.resume(run.id, current_user.id)
@@ -335,7 +335,7 @@ class ConnectionsModelView(PrivateModelView):
                     run_id = request.form.get('run_id', '')
                     if not run_id.isdigit() or connection is None:
                         abort(400)
-                    run = db.session.query(ChaseBrowserRuns).get(int(run_id))
+                    run = db.session.get(ChaseBrowserRuns, int(run_id))
                     if run is None or run.connection_id != connection.id:
                         abort(404)
                     if action == 'select':
@@ -584,7 +584,7 @@ def _chase_status_message(run, browser_engine='chromium'):
         return _chase_message(run.error_code)
     return _chase_message(run.error_code)
 
-admin.add_view(ConnectionsModelView(Connections, db.session, category='Admin'))
+admin.add_view(ConnectionsModelView(Connections, db, category='Admin'))
 
 
 class ConnectionResponsesView(PrivateModelView):
@@ -601,7 +601,7 @@ class ConnectionResponsesView(PrivateModelView):
     column_display_actions = False
     column_formatters = dict(connected_at=date_formatter)
 
-admin.add_view(ConnectionResponsesView(ConnectionResponses, db.session, category='Admin', endpoint='connection-responses'))
+admin.add_view(ConnectionResponsesView(ConnectionResponses, db, category='Admin', endpoint='connection-responses'))
 
 
 class MappingsModelView(PrivateModelView):
@@ -621,7 +621,7 @@ class MappingsModelView(PrivateModelView):
     form_ajax_refs = dict(positive_debit_subaccount=subaccount_loader, positive_credit_subaccount=subaccount_loader,
                           negative_debit_subaccount=subaccount_loader, negative_credit_subaccount=subaccount_loader)
     column_editable_list = ('keyword',)
-admin.add_view(MappingsModelView(Mappings, db.session, category='Admin'))
+admin.add_view(MappingsModelView(Mappings, db, category='Admin'))
 
 
 class MappingOverlapsModelView(PrivateModelView):
@@ -632,4 +632,4 @@ class MappingOverlapsModelView(PrivateModelView):
     column_labels = dict(mapping_id_1='Mapping ID 1', mapping_id_2='Mapping ID 2')
     column_formatters = dict(mapping_id_1=link_mapping_formatter, mapping_id_2=link_mapping_formatter,
                              mapping_keyword_1=link_transaction_search_formatter, mapping_keyword_2=link_transaction_search_formatter)
-admin.add_view(MappingOverlapsModelView(MappingOverlaps, db.session, category='Admin', name='Mapping Overlaps', endpoint='mapping-overlaps'))
+admin.add_view(MappingOverlapsModelView(MappingOverlaps, db, category='Admin', name='Mapping Overlaps', endpoint='mapping-overlaps'))

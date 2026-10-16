@@ -15,15 +15,15 @@ from pacioli.functions.mapping_workflow import (SUSPENSE_ACCOUNTS, mapping_value
 
 def snapshot_mappings(mapping_ids):
     """Capture every linked entry; a review cannot silently omit other rule uses."""
-    mappings=[dict(r) for r in db.session.execute(text('''SELECT * FROM admin.mappings
+    mappings=[dict(r._mapping) for r in db.session.execute(text('''SELECT * FROM admin.mappings
         WHERE id=ANY(:ids) ORDER BY id'''),{'ids':mapping_ids})]
-    journals=[dict(r) for r in db.session.execute(text('''SELECT * FROM bookkeeping.journal_entries
+    journals=[dict(r._mapping) for r in db.session.execute(text('''SELECT * FROM bookkeeping.journal_entries
         WHERE mapping_id=ANY(:ids) ORDER BY id'''),{'ids':mapping_ids})]
-    sources=[dict(r) for r in db.session.execute(text('''SELECT t.id,t.date,t.amount,t.description,t.account,
+    sources=[dict(r._mapping) for r in db.session.execute(text('''SELECT t.id,t.date,t.amount,t.description,t.account,
         t.account_id,b.currency FROM ofx.transactions t JOIN bookkeeping.bank_feed_accounts b
         ON b.ofx_account_id=t.account_id WHERE t.id=ANY(:ids) ORDER BY t.id'''),
         {'ids':[j['transaction_id'] for j in journals if j['transaction_source']=='ofx']})]
-    chart=[dict(r) for r in db.session.execute(text(CHART_SQL))]
+    chart=[dict(r._mapping) for r in db.session.execute(text(CHART_SQL))]
     snap=json.loads(json.dumps(dict(mappings=mappings,journals=journals,sources=sources,chart=chart),default=str))
     snap['snapshot_sha256']=digest(snap)
     return snap
@@ -170,11 +170,11 @@ def reclassify(snapshot, review, *, commit=False, finalize=True,
         if state!='O':raise ValueError('Derived balance trigger must be enabled')
         db.session.execute(text('ALTER TABLE bookkeeping.journal_entries DISABLE TRIGGER subaccount_insert_trigger'))
         for mid in changed_maps:
-            mapping=db.session.query(Mappings).get(mid)
+            mapping=db.session.get(Mappings, mid)
             for field in (*mapping_values('unused'),'review_required','review_note','provenance'):
                 setattr(mapping,field,expected_maps[mid][field])
         for jid,side,category,memo in changes:
-            entry=db.session.query(JournalEntries).get(jid)
+            entry=db.session.get(JournalEntries, jid)
             setattr(entry,side,category);entry.memo=memo
         db.session.flush()
         rebuild_trial_balances()

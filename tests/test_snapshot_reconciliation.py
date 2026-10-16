@@ -62,7 +62,7 @@ def approve(case, p):
 
 
 def rewrite_source(row, transform):
-    response = db.session.query(ConnectionResponses).get(row.response_id)
+    response = db.session.get(ConnectionResponses, row.response_id)
     raw = transform(response.response.encode('latin-1'))
     response.response = raw.decode('latin-1')
     row.sha256 = sha256(raw).hexdigest()
@@ -99,13 +99,13 @@ def test_snapshot_requires_complete_independent_evidence(snapshot_case, monkeypa
     old, new, anchor = snapshot_case
     p = proof(snapshot_case)
     if failure == 'hash':
-        db.session.query(ConnectionResponses).get(old.response_id).response += '\n'
+        db.session.get(ConnectionResponses, old.response_id).response += '\n'
     elif failure == 'identity':
         rewrite_source(old, lambda b: re.sub(rb'<ACCTID>[^<]+', b'<ACCTID>not-this-account', b))
     elif failure == 'balance':
         new.balance_amount += Decimal('1')
     elif failure == 'same_day_in_original':
-        response = db.session.query(ConnectionResponses).get(new.response_id).response.encode('latin-1')
+        response = db.session.get(ConnectionResponses, new.response_id).response.encode('latin-1')
         expense = re.search(rb'<STMTTRN><TRNTYPE>DEBIT.*?</STMTTRN>', response, flags=re.S)[0]
         rewrite_source(old, lambda b: b.replace(b'</BANKTRANLIST>', expense+b'</BANKTRANLIST>'))
     elif failure == 'missing_later_row':
@@ -125,7 +125,7 @@ def test_snapshot_requires_complete_independent_evidence(snapshot_case, monkeypa
     elif failure == 'coverage_metadata': old.coverage_end += timedelta(days=1)
     elif failure == 'later_not_later': new.imported_at = old.imported_at
     elif failure == 'stale_digest': p['digest'] = 'wrong'
-    elif failure == 'unreviewed_currency': db.session.query(BankFeedAccounts).get(old.ofx_account_id).currency = 'EUR'
+    elif failure == 'unreviewed_currency': db.session.get(BankFeedAccounts, old.ofx_account_id).currency = 'EUR'
     elif failure == 'extra_bank_entry':
         post_pair(timestamp=datetime(2026,9,3,tzinfo=timezone.utc), debit='Personal Equity', credit=rec.account(old.ofx_account_id).name, functional_amount='1')
     elif failure == 'closed':
@@ -162,7 +162,7 @@ def test_snapshot_utc_boundaries_ignore_database_timezone(snapshot_case):
 def test_new_review_supersedes_stale_proof_without_erasing_history(snapshot_case):
     old, new, anchor = snapshot_case
     first = approve(snapshot_case, proof(snapshot_case)); db.session.commit()
-    response = db.session.query(ConnectionResponses).get(new.response_id).response.encode('latin-1')
+    response = db.session.get(ConnectionResponses, new.response_id).response.encode('latin-1')
     extra = (b'<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260903000000<TRNAMT>-10.00<FITID>late-debit<NAME>Late debit</STMTTRN>'
              b'<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260903000000<TRNAMT>10.00<FITID>late-credit<NAME>Late credit</STMTTRN>')
     imported = import_chase_qfx(response.replace(b'</BANKTRANLIST>', extra+b'</BANKTRANLIST>'), reviewed_usd=True)
@@ -188,7 +188,7 @@ def test_ordinary_later_import_does_not_invalidate_reviewed_past_interval(snapsh
     old, witness, _ = snapshot_case
     p = proof(snapshot_case)
     approve(snapshot_case, p); db.session.commit()
-    raw = db.session.query(ConnectionResponses).get(witness.response_id).response.encode('latin-1')
+    raw = db.session.get(ConnectionResponses, witness.response_id).response.encode('latin-1')
     extra = b'<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260904000000<TRNAMT>-10.00<FITID>future-expense<NAME>Future expense</STMTTRN>'
     raw = raw.replace(b'</BANKTRANLIST>',extra+b'</BANKTRANLIST>')
     raw = re.sub(rb'<BALAMT>[^<]+', b'<BALAMT>'+str(witness.balance_amount-10).encode(), raw)

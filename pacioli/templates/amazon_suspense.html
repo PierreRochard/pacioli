@@ -54,15 +54,15 @@
 </table></div>
 <details>
 <summary>Suggested categories, largest amount first</summary>
-<div class="table-responsive"><table class="table table-condensed"><thead><tr><th scope="col">Suggested category</th><th scope="col">Items</th><th scope="col" class="money">Amount (USD)</th></tr></thead>
+<div class="table-responsive"><table class="table table-sm"><thead><tr><th scope="col">Suggested category</th><th scope="col">Items</th><th scope="col" class="money">Amount (USD)</th></tr></thead>
 <tbody>{% for entry in categories %}<tr><th scope="row"><a href="{{ url_for('.amazon_suspense',plan_id=plan.id,category=entry.key) }}">{{ entry.label }}</a></th><td>{{ entry.count }}</td><td class="money">{{ entry.amount }}</td></tr>{% endfor %}</tbody></table></div>
 </details>
 </section>
 
-<section class="well" aria-labelledby="prepare-review-heading">
+<section class="card card-body bg-light" aria-labelledby="prepare-review-heading">
 <h3 id="prepare-review-heading">Prepare a review under the current policy</h3>
 <p>This prepares item decisions for the current category policy and retains approved items from partially posted purchases. It runs no model and makes no journal entries. Missing property policy keeps the affected purchases in suspense; no capitalization threshold is assumed.</p>
-<form method="post">{{ fields('prepare') }}<button class="btn btn-default" {% if plan.posting_active %}disabled{% endif %}>Prepare current-policy review</button></form>
+<form method="post">{{ fields('prepare') }}<button class="btn btn-secondary" {% if plan.posting_active %}disabled{% endif %}>Prepare current-policy review</button></form>
 {% if plan.posting_active %}<p>Posting is in progress. Wait before preparing or changing classifications and purchase context.
 {% if plan.review_run_id %}<a href="{{ url_for('.amazon_items',run_id=plan.review_run_id,_anchor='post-items-heading') }}">Follow background posting status</a>.{% endif %}</p>
 {% elif review_ready %}<p style="margin-top: 12px">Review run {{ plan.review_run_id }} is ready for saved decisions.
@@ -78,12 +78,12 @@
 <label for="suspense-category">Suggested category<br><select name="category" id="suspense-category">
 <option value="">All suggested categories</option>{% for entry in categories %}<option value="{{ entry.key }}" {% if selected_category == entry.key %}selected{% endif %}>{{ entry.label }}</option>{% endfor %}
 </select></label>
-<button class="btn btn-default">Filter purchases</button>
+<button class="btn btn-secondary">Filter purchases</button>
 <a href="{{ url_for('.amazon_suspense',plan_id=plan.id) }}">Clear filters</a>
 </form>
 <p>{{ total }} matching items · Page {{ page }} of {{ pages }} · Largest amounts first</p>
 
-<form method="post" id="amazon-suspense-review" class="well">
+<form method="post" id="amazon-suspense-review" class="card card-body bg-light">
 {{ fields('review') }}
 <h3>Save the selected classifications</h3>
 <p>Choose specific items below, then apply one reviewed category and reason to those items. Nothing is selected automatically.</p>
@@ -105,7 +105,7 @@
 
 {% for row in items %}
 {% set item = row.item %}
-<article class="well review-card" id="suspense-item-{{ row.item_id }}" aria-labelledby="suspense-heading-{{ loop.index }}">
+<article class="card card-body bg-light review-card" id="suspense-item-{{ row.item_id }}" aria-labelledby="suspense-heading-{{ loop.index }}">
 <h3 id="suspense-heading-{{ loop.index }}">{{ item.title }}</h3>
 <p><strong>{{ item.amount }} USD including adjustments</strong> · Quantity {{ item.quantity }}{% if item.department %} · {{ item.department }}{% endif %}</p>
 <p><strong>Original review: {{ row.group_label }}</strong> · {{ row.reason }}</p>
@@ -125,7 +125,7 @@
 
 <details>
 <summary>Exact costs and original source evidence</summary>
-<div class="table-responsive"><table class="table table-condensed"><caption>Item amounts include quantity; do not multiply them again.</caption><thead><tr><th scope="col">Component</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Source</th></tr></thead>
+<div class="table-responsive"><table class="table table-sm"><caption>Item amounts include quantity; do not multiply them again.</caption><thead><tr><th scope="col">Component</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Source</th></tr></thead>
 <tbody>{% for component in item.components %}<tr><td>{{ component.kind|replace('_',' ')|capitalize }}</td><td class="money">{{ component.amount }}</td><td>{% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %}<br>{{ source.fields|join(', ') }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table></div>
 <p>Original item: {% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>
 </details>
@@ -137,7 +137,7 @@
 <form method="post">{{ fields('fact') }}<input type="hidden" name="item_id" value="{{ row.item_id }}">
 <label for="suspense-fact-{{ loop.index }}">Purchase context for this item</label>
 <textarea id="suspense-fact-{{ loop.index }}" name="note" class="form-control" rows="2" required maxlength="2000"></textarea>
-<button class="btn btn-default" {% if plan.posting_active %}disabled{% endif %}>Save purchase context</button>
+<button class="btn btn-secondary" {% if plan.posting_active %}disabled{% endif %}>Save purchase context</button>
 </form>
 </details>
 </article>

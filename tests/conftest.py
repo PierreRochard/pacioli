@@ -36,17 +36,22 @@ def database_url():
 
     database_name = 'pacioli_test_' + uuid.uuid4().hex[:12]
     admin_engine = create_engine(admin_url, isolation_level='AUTOCOMMIT')
+
+    def admin_sql(statement):
+        with admin_engine.connect() as connection:
+            connection.exec_driver_sql(statement)
+
     created = False
     try:
-        admin_engine.execute('CREATE DATABASE "{}"'.format(database_name))
+        admin_sql('CREATE DATABASE "{}"'.format(database_name))
         created = True
         # Period labels for timestamptz values must not depend on the host's
         # local PostgreSQL timezone when tests run on another workstation.
-        admin_engine.execute('ALTER DATABASE "{}" SET timezone TO UTC'.format(database_name))
+        admin_sql('ALTER DATABASE "{}" SET timezone TO UTC'.format(database_name))
         yield str(parsed.set(database=database_name))
     finally:
         if created:
-            admin_engine.execute('DROP DATABASE "{}" WITH (FORCE)'.format(database_name))
+            admin_sql('DROP DATABASE "{}" WITH (FORCE)'.format(database_name))
         admin_engine.dispose()
 
 
@@ -98,7 +103,7 @@ def app_context(app):
 @pytest.fixture
 def clean_ledger(app_context):
     """Isolate journal and balance assertions within the disposable test DB."""
-    from pacioli.extensions import db
+    from pacioli.extensions import db, run_sql
 
     sql = ('TRUNCATE bookkeeping.opening_balances, bookkeeping.transfer_match_legs, '
            'bookkeeping.transfer_matches, bookkeeping.bank_statements, '
@@ -117,23 +122,23 @@ def clean_ledger(app_context):
            'investments.brokerage_sources, investments.brokerage_exports, investments.brokerage_accounts '
            'RESTART IDENTITY')
     db.session.remove()
-    db.engine.execute(sql)
+    run_sql(sql)
     yield
     db.session.remove()
-    db.engine.execute(sql)
+    run_sql(sql)
 
 
 @pytest.fixture
 def clean_amazon_orders(app_context):
     """The report-request test must choose from only its own order history."""
-    from pacioli.extensions import db
+    from pacioli.extensions import db, run_sql
 
     sql = 'TRUNCATE amazon.items, amazon.orders RESTART IDENTITY'
     db.session.remove()
-    db.engine.execute(sql)
+    run_sql(sql)
     yield
     db.session.remove()
-    db.engine.execute(sql)
+    run_sql(sql)
 
 
 @pytest.fixture
@@ -143,14 +148,14 @@ def client(app):
 
 @pytest.fixture(scope='session')
 def admin_user(app):
-    from flask_security.utils import encrypt_password
+    from flask_security.utils import hash_password
     from pacioli.extensions import db
     from pacioli.models import Roles, Users
 
     with app.app_context():
         role = Roles(name='administrator', description='administrator')
         user = Users(email='admin@example.com',
-                     password=encrypt_password('test-password'),
+                     password=hash_password('test-password'),
                      active=True, confirmed_at=datetime.now(timezone.utc))
         user.roles.append(role)
         db.session.add(user)

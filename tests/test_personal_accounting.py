@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from pacioli.database.accounting_migration import install_journal_constraints
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.functions.accounting_report import (audit_ledger, bank_balance_differences,
                                                 period_bounds, source_differences,
                                                 statement)
@@ -81,7 +81,7 @@ def test_reconciliation_detects_tampered_balance_and_source_amount(clean_ledger)
         {'source': 'amazon', 'transaction_id': str(item.id),
          'booked': Decimal('4.00'), 'source_amount': Decimal('5.00')}]
 
-    db.engine.execute("UPDATE bookkeeping.trial_balances SET net_balance = net_balance + 1 "
+    run_sql("UPDATE bookkeeping.trial_balances SET net_balance = net_balance + 1 "
                       "WHERE subaccount = 'Rent' AND period_interval = 'YYYY-MM'")
     db.session.expire_all()
     issues = audit_ledger(db.session)
@@ -208,14 +208,14 @@ def test_constraint_installation_is_repeatable_on_current_schema(clean_ledger):
 
 
 def test_imported_bank_balance_requires_opening_cash_or_all_transactions(clean_ledger):
-    account_id = db.engine.execute(text(
+    account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
         "VALUES ('bankacctfrom', 'Chase Checking') RETURNING id")).scalar()
     db.session.add(BankFeedAccounts(ofx_account_id=account_id, currency='USD'))
     db.session.commit()
     as_of = at(2045, 1, 31).replace(hour=0)
     try:
-        db.engine.execute(text("""INSERT INTO ofx.ledgerbal
+        run_sql(text("""INSERT INTO ofx.ledgerbal
             (acctfrom_id, dtasof, balamt) VALUES (:id, :as_of, 100)
         """), {'id': account_id, 'as_of': as_of})
         differences = bank_balance_differences(db.session)
@@ -229,9 +229,9 @@ def test_imported_bank_balance_requires_opening_cash_or_all_transactions(clean_l
         assert audit_ledger(db.session) == []
     finally:
         db.session.rollback()
-        db.engine.execute(text('DELETE FROM ofx.ledgerbal WHERE acctfrom_id = :id'),
+        run_sql(text('DELETE FROM ofx.ledgerbal WHERE acctfrom_id = :id'),
                           {'id': account_id})
-        db.engine.execute(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
+        run_sql(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
                           {'id': account_id})
 
 
@@ -257,10 +257,10 @@ def test_direct_journal_edit_is_recorded_and_audit_history_is_immutable(clean_le
 
 def test_existing_schema_hardening_fails_closed_on_legacy_zero(clean_ledger):
     for name in ('journal_functional_money', 'journal_source_money'):
-        db.engine.execute('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT ' + name)
+        run_sql('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT ' + name)
     identifier = None
     try:
-        identifier = db.engine.execute(text("""INSERT INTO bookkeeping.journal_entries
+        identifier = run_sql(text("""INSERT INTO bookkeeping.journal_entries
             (timestamp, debit_subaccount, credit_subaccount, functional_amount,
              functional_currency, source_amount, source_currency)
             VALUES (:when, 'Rent', 'Accounts Payable', 0, 'USD', 0, 'USD')
@@ -268,12 +268,12 @@ def test_existing_schema_hardening_fails_closed_on_legacy_zero(clean_ledger):
         """), {'when': at(2047, 1, 1)}).scalar()
         with pytest.raises(ValueError, match='Historical journal entries violate'):
             install_journal_constraints()
-        assert db.engine.execute(text('SELECT functional_amount FROM '
+        assert run_sql(text('SELECT functional_amount FROM '
                                       'bookkeeping.journal_entries WHERE id = :id'),
                                  {'id': identifier}).scalar() == 0
     finally:
         if identifier is not None:
-            db.engine.execute(text('DELETE FROM bookkeeping.journal_entries WHERE id = :id'),
+            run_sql(text('DELETE FROM bookkeeping.journal_entries WHERE id = :id'),
                               {'id': identifier})
         install_journal_constraints()
 
@@ -294,14 +294,14 @@ def test_amazon_purchase_and_bank_settlement_do_not_double_count_expense(clean_l
                        title='Cross-source purchase', shipment_date=date(2048, 2, 1))
     db.session.add(item)
     db.session.flush()
-    account_id = db.engine.execute(text(
+    account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
         "VALUES ('bankacctfrom', 'Chase Checking') RETURNING id")).scalar()
     db.session.add(BankFeedAccounts(ofx_account_id=account_id, currency='USD'))
     db.session.commit()
     fitid = 'SETTLEMENT-{}'.format(item.id)
     try:
-        db.engine.execute(text("""INSERT INTO ofx.stmttrn
+        run_sql(text("""INSERT INTO ofx.stmttrn
             (fitid, acctfrom_id, trntype, dtposted, trnamt, name)
             VALUES (:fitid, :account, 'DEBIT', :posted, -10, 'Amazon payment')
         """), {'fitid': fitid, 'account': account_id,
@@ -325,26 +325,26 @@ def test_amazon_purchase_and_bank_settlement_do_not_double_count_expense(clean_l
     finally:
         db.session.rollback()
         # Remove fixture postings before their now-FK-protected sources.
-        db.engine.execute(text("DELETE FROM bookkeeping.journal_entries WHERE transaction_source='ofx' "
+        run_sql(text("DELETE FROM bookkeeping.journal_entries WHERE transaction_source='ofx' "
                                "AND transaction_id=(SELECT public_id FROM bookkeeping.ofx_source_identities "
                                "WHERE acctfrom_id=:account AND fitid=:fitid)"),
                           {'fitid': fitid, 'account': account_id})
-        db.engine.execute(text('DELETE FROM ofx.stmttrn WHERE fitid = :fitid '
+        run_sql(text('DELETE FROM ofx.stmttrn WHERE fitid = :fitid '
                                'AND acctfrom_id = :account'),
                           {'fitid': fitid, 'account': account_id})
-        db.engine.execute(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
+        run_sql(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
                           {'id': account_id})
 
 
 def test_ofx_split_is_one_source_row_and_reconciles_full_amount(clean_ledger):
-    account_id = db.engine.execute(text(
+    account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
         "VALUES ('bankacctfrom', 'Chase Checking') RETURNING id")).scalar()
     db.session.add(BankFeedAccounts(ofx_account_id=account_id, currency='USD'))
     db.session.commit()
     fitid = 'SPLIT-TEST-{}'.format(account_id)
     try:
-        db.engine.execute(text("""INSERT INTO ofx.stmttrn
+        run_sql(text("""INSERT INTO ofx.stmttrn
             (fitid, acctfrom_id, trntype, dtposted, trnamt, name)
             VALUES (:fitid, :account, 'DEBIT', :posted, -10, 'Split receipt')
         """), {'fitid': fitid, 'account': account_id,
@@ -366,26 +366,26 @@ def test_ofx_split_is_one_source_row_and_reconciles_full_amount(clean_ledger):
     finally:
         db.session.rollback()
         # Remove fixture postings before their now-FK-protected sources.
-        db.engine.execute(text("DELETE FROM bookkeeping.journal_entries WHERE transaction_source='ofx' "
+        run_sql(text("DELETE FROM bookkeeping.journal_entries WHERE transaction_source='ofx' "
                                "AND transaction_id=(SELECT public_id FROM bookkeeping.ofx_source_identities "
                                "WHERE acctfrom_id=:account AND fitid=:fitid)"),
                           {'fitid': fitid, 'account': account_id})
-        db.engine.execute(text('DELETE FROM ofx.stmttrn WHERE fitid = :fitid '
+        run_sql(text('DELETE FROM ofx.stmttrn WHERE fitid = :fitid '
                                'AND acctfrom_id = :account'),
                           {'fitid': fitid, 'account': account_id})
-        db.engine.execute(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
+        run_sql(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
                           {'id': account_id})
 
 
 def test_ofx_currency_must_be_reviewed_before_mapping(clean_ledger, app):
     import manage
 
-    account_id = db.engine.execute(text(
+    account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
         "VALUES ('bankacctfrom', 'Chase Checking') RETURNING id")).scalar()
     fitid = 'CURRENCY-TEST-{}'.format(account_id)
     try:
-        db.engine.execute(text("""INSERT INTO ofx.stmttrn
+        run_sql(text("""INSERT INTO ofx.stmttrn
             (fitid, acctfrom_id, trntype, dtposted, trnamt, name)
             VALUES (:fitid, :account, 'DEBIT', :posted, -10, 'Currency fixture')
         """), {'fitid': fitid, 'account': account_id,
@@ -401,7 +401,7 @@ def test_ofx_currency_must_be_reviewed_before_mapping(clean_ledger, app):
         db.session.commit()
         with pytest.raises(ValueError, match='reviewed USD'):
             post_pair(**kwargs)
-        db.session.query(BankFeedAccounts).get(account_id).currency = 'USD'
+        db.session.get(BankFeedAccounts, account_id).currency = 'USD'
         db.session.commit()
         post_pair(**kwargs)
         db.session.commit()
@@ -414,14 +414,14 @@ def test_ofx_currency_must_be_reviewed_before_mapping(clean_ledger, app):
     finally:
         db.session.rollback()
         # Remove fixture postings before their now-FK-protected sources.
-        db.engine.execute(text("DELETE FROM bookkeeping.journal_entries WHERE transaction_source='ofx' "
+        run_sql(text("DELETE FROM bookkeeping.journal_entries WHERE transaction_source='ofx' "
                                "AND transaction_id=(SELECT public_id FROM bookkeeping.ofx_source_identities "
                                "WHERE acctfrom_id=:account AND fitid=:fitid)"),
                           {'fitid': fitid, 'account': account_id})
-        db.engine.execute(text('DELETE FROM ofx.stmttrn WHERE fitid = :fitid '
+        run_sql(text('DELETE FROM ofx.stmttrn WHERE fitid = :fitid '
                                'AND acctfrom_id = :account'),
                           {'fitid': fitid, 'account': account_id})
-        db.engine.execute(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
+        run_sql(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
                           {'id': account_id})
 
 
@@ -449,7 +449,7 @@ def test_closed_month_preserves_statement_and_requires_later_reversal(clean_ledg
     reverse_entry(original.id, timestamp=at(2025, 2, 1),
                   reason='Opening amount was incorrect')
     db.session.commit()
-    assert db.session.query(ClosedPeriods).get('2025-01').journal_digest == original_digest
+    assert db.session.get(ClosedPeriods, '2025-01').journal_digest == original_digest
     assert statement(db.session, 'YYYY-MM', '2025-01')['cash'] == Decimal('100')
     assert statement(db.session, 'YYYY-MM', '2025-02')['cash'] == 0
     assert audit_ledger(db.session) == []

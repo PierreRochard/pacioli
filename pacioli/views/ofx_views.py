@@ -139,7 +139,7 @@ class TransactionsModelView(OFXModelView):
 
 
 admin.add_view(TransactionsModelView(model=Transactions,
-                                     session=db.session,
+                                     session=db,
                                      name='Transactions',
                                      category='Banking',
                                      endpoint='banking/transactions'))
@@ -158,13 +158,13 @@ class AccountsFromModelView(OFXModelView):
     form_columns = ['name']
 
 
-admin.add_view(AccountsFromModelView(AccountsFrom, db.session,
+admin.add_view(AccountsFromModelView(AccountsFrom, db,
                                      name='Accounts', category='Banking', endpoint='banking/accounts'))
 
-admin.add_view(OFXModelView(BankAccounts, db.session,
+admin.add_view(OFXModelView(BankAccounts, db,
                             name='Bank Accounts', category='Banking', endpoint='banking/bank-accounts'))
 
-admin.add_view(OFXModelView(CreditCardAccounts, db.session,
+admin.add_view(OFXModelView(CreditCardAccounts, db,
                             name='Credit Card Accounts', category='Banking', endpoint='banking/credit-card-accounts'))
 
 
@@ -179,7 +179,7 @@ class InvestmentTransactionsView(OFXModelView):
                              unitprice=currency_formatter, total=currency_formatter)
 
 
-admin.add_view(InvestmentTransactionsView(InvestmentTransactions, db.session, name='Transactions',
+admin.add_view(InvestmentTransactionsView(InvestmentTransactions, db, name='Transactions',
                                           category='Investments', endpoint='investments/transactions'))
 
 
@@ -188,7 +188,7 @@ class CostBasesView(OFXModelView):
     column_formatters = dict(close=currency_formatter, market_value=currency_formatter, pnl=currency_formatter, pnl_percent=percent_formatter)
 
 
-admin.add_view(CostBasesView(CostBases, db.session, name='Cost Bases',
+admin.add_view(CostBasesView(CostBases, db, name='Cost Bases',
                              category='Investments', endpoint='investments/cost-bases'))
 
 
@@ -198,7 +198,7 @@ class InvestmentAccountsModelView(OFXModelView):
     column_labels = dict(acctfrom='Account', brokerid='Broker ID', acctid='Account ID')
 
 
-admin.add_view(InvestmentAccountsModelView(InvestmentAccounts, db.session, name='Accounts',
+admin.add_view(InvestmentAccountsModelView(InvestmentAccounts, db, name='Accounts',
                                            category='Investments', endpoint='investments/accounts'))
 
 
@@ -210,7 +210,7 @@ class InvestmentBalancesView(OFXModelView):
                              shortbalance=currency_formatter, buypower=currency_formatter)
 
 
-admin.add_view(InvestmentBalancesView(InvestmentBalances, db.session, name='Balances',
+admin.add_view(InvestmentBalancesView(InvestmentBalances, db, name='Balances',
                                       category='Investments', endpoint='investments/balances'))
 
 
@@ -225,7 +225,7 @@ class InvestmentPositionsModelView(OFXModelView):
                              unitprice=currency_formatter, mktval=currency_formatter, postype=string_formatter)
 
 
-admin.add_view(InvestmentPositionsModelView(InvestmentPositions, db.session, name='Positions',
+admin.add_view(InvestmentPositionsModelView(InvestmentPositions, db, name='Positions',
                                             category='Investments', endpoint='investments/positions'))
 
 
@@ -233,5 +233,5 @@ class SecuritiesView(OFXModelView):
     column_list = ('id', 'subclass', 'uniqueidtype', 'uniqueid', 'secname', 'ticker')
 
 
-admin.add_view(SecuritiesView(Securities, db.session, name='Securities', category='Investments',
+admin.add_view(SecuritiesView(Securities, db, name='Securities', category='Investments',
                               endpoint='investments/securities'))

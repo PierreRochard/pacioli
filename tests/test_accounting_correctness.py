@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.models import BankFeedAccounts, JournalEntries, TrialBalances
 
 
@@ -385,7 +385,7 @@ def test_periods_are_utc_even_when_database_session_uses_another_timezone(clean_
     connection = db.engine.connect()
     try:
         with connection.begin():
-            connection.execute("SET LOCAL TIME ZONE 'America/Chicago'")
+            connection.exec_driver_sql("SET LOCAL TIME ZONE 'America/Chicago'")
             connection.execute(sql, {'timestamp': utc(2045, 1, 1, 0, 30)})
     finally:
         connection.close()
@@ -413,7 +413,7 @@ def test_amazon_mapping_reconciles_refund_and_is_idempotent(clean_ledger):
                        negative_credit_subaccount_id='Groceries')
     db.session.add(mapping)
     db.session.commit()
-    db.session.execute("SET LOCAL TIME ZONE 'Pacific/Auckland'")
+    db.session.execute(text("SET LOCAL TIME ZONE 'Pacific/Auckland'"))
     amazon_functions.apply_single_amazon_mapping(mapping.id)
     entries = db.session.query(JournalEntries).all()
     assert len(entries) == 2
@@ -431,7 +431,7 @@ def test_ofx_positive_and_negative_mappings_reconcile_and_do_not_repost(clean_le
     from pacioli.models import Mappings
 
     suffix = uuid4().hex[:10]
-    account_id = db.engine.execute(text(
+    account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
         "VALUES ('bankacctfrom', 'Chase Checking') RETURNING id"
     )).scalar()
@@ -441,7 +441,7 @@ def test_ofx_positive_and_negative_mappings_reconcile_and_do_not_repost(clean_le
         ('credit', Decimal('30'), utc(2047, 1, 10)),
         ('debit', Decimal('-12'), utc(2047, 2, 10)),
     ):
-        db.engine.execute(text('''INSERT INTO ofx.stmttrn
+        run_sql(text('''INSERT INTO ofx.stmttrn
             (fitid, acctfrom_id, trntype, dtposted, trnamt, name)
             VALUES (:fitid, :account_id, 'OTHER', :posted, :amount, :name)'''),
             {'fitid': suffix + identifier, 'account_id': account_id,
@@ -470,7 +470,7 @@ def test_ofx_mapping_failure_rolls_back_earlier_postings(clean_ledger):
     from pacioli.models import Mappings
 
     suffix = uuid4().hex[:10]
-    account_id = db.engine.execute(text(
+    account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
         "VALUES ('bankacctfrom', 'Chase Checking') RETURNING id"
     )).scalar()
@@ -480,7 +480,7 @@ def test_ofx_mapping_failure_rolls_back_earlier_postings(clean_ledger):
         ('valid', Decimal('9'), utc(2048, 2, 2)),
         ('zero', Decimal('0'), utc(2048, 2, 1)),
     ):
-        db.engine.execute(text('''INSERT INTO ofx.stmttrn
+        run_sql(text('''INSERT INTO ofx.stmttrn
             (fitid, acctfrom_id, trntype, dtposted, trnamt, name)
             VALUES (:fitid, :account_id, 'OTHER', :posted, :amount, :name)'''),
             {'fitid': suffix + identifier, 'account_id': account_id,

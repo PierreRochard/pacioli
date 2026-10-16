@@ -1,4 +1,4 @@
-from pacioli.models import db
+from pacioli.extensions import run_sql
 
 
 def create_all():
@@ -12,7 +12,7 @@ def create_all():
 
 
 def create_journal_audit_trigger():
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE FUNCTION bookkeeping.record_journal_event()
     RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN
@@ -45,7 +45,7 @@ def create_journal_audit_trigger():
 
 
 def create_period_close_trigger():
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE FUNCTION bookkeeping.reject_closed_period_change()
     RETURNS trigger LANGUAGE plpgsql AS $$
     DECLARE
@@ -87,7 +87,7 @@ def create_period_close_trigger():
 
 
 def create_trial_balances_trigger_function():
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE FUNCTION
       bookkeeping.update_trial_balance(
           _subaccount VARCHAR,
@@ -146,7 +146,7 @@ def create_trial_balances_trigger_function():
     LANGUAGE  plpgsql;
     """)
 
-    db.engine.execute("""
+    run_sql("""
         CREATE OR REPLACE FUNCTION bookkeeping.subaccount_insert_triggered()
         RETURNS trigger AS $$
           DECLARE
@@ -251,7 +251,7 @@ def create_trial_balances_trigger_function():
         LANGUAGE  plpgsql;
         """)
 
-    db.engine.execute("""
+    run_sql("""
         DROP TRIGGER IF EXISTS subaccount_insert_trigger
             ON bookkeeping.journal_entries;
         CREATE TRIGGER subaccount_insert_trigger
@@ -263,7 +263,7 @@ def create_trial_balances_trigger_function():
 
 
 def create_ofx_views():
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE VIEW ofx.transactions
       AS SELECT
         identity.public_id AS id,
@@ -295,7 +295,7 @@ def create_ofx_views():
       ORDER BY ofx.stmttrn.dtposted DESC;
     """)
 
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE VIEW ofx.investment_transactions AS SELECT
             ofx.invtran.*,
             ofx.acctfrom.name AS account_name,
@@ -341,7 +341,7 @@ def create_ofx_views():
         ORDER BY ofx.invtran.dttrade DESC;
     """)
 
-    db.engine.execute("""
+    run_sql("""
         CREATE OR REPLACE VIEW ofx.cost_bases AS SELECT
             investment_transactions.secname,
             sum(investment_transactions.units) AS total_units,
@@ -376,7 +376,7 @@ def create_ofx_views():
 
 
 def create_amazon_views():
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE VIEW amazon.amazon_transactions
     AS SELECT
       amazon.items.*,
@@ -394,7 +394,7 @@ def create_amazon_views():
 
 
 def create_bookkeeping_views():
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE VIEW bookkeeping.detailed_journal_entries
     AS SELECT
         bookkeeping.journal_entries.id AS id,
@@ -431,7 +431,7 @@ def create_bookkeeping_views():
 def create_mappings_views():
     # Both sides use the same literal matcher. Percent and underscore in merchant
     # descriptions are ordinary text, as in mapping_resolution.description_matches.
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE FUNCTION admin.mapping_description_matches(
         description text, keyword text, match_mode text)
     RETURNS boolean LANGUAGE plpgsql IMMUTABLE STRICT AS $$
@@ -466,33 +466,46 @@ def create_mappings_views():
         RETURN has_term;
     END $$;
     """)
-    db.engine.execute("""
+    run_sql("""
     CREATE OR REPLACE VIEW admin.mapping_overlaps
-    AS SELECT DISTINCT
-      concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
-      mappings_table_1.id AS mapping_id_1,
-      mappings_table_1.keyword AS mapping_keyword_1,
-      mappings_table_2.id AS mapping_id_2,
-      mappings_table_2.keyword AS mapping_keyword_2,
-      mappings_table_2.source AS source
-    FROM ofx.stmttrn
-    JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
-    JOIN admin.mappings mappings_table_1
-      ON admin.mapping_description_matches(concat(ofx.stmttrn.name, ofx.stmttrn.memo),
-                                           mappings_table_1.keyword, mappings_table_1.match_mode)
-        AND mappings_table_1.source = 'ofx'
-        AND (CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_1.positive_debit_subaccount_id
-                  ELSE mappings_table_1.negative_credit_subaccount_id END IS NULL
-             OR CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_1.positive_debit_subaccount_id
-                     ELSE mappings_table_1.negative_credit_subaccount_id END = ofx.acctfrom.name)
-    JOIN admin.mappings mappings_table_2
-      ON admin.mapping_description_matches(concat(ofx.stmttrn.name, ofx.stmttrn.memo),
-                                           mappings_table_2.keyword, mappings_table_2.match_mode)
-        AND mappings_table_1.id < mappings_table_2.id
-        AND mappings_table_2.source = 'ofx'
-        AND (CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_2.positive_debit_subaccount_id
-                  ELSE mappings_table_2.negative_credit_subaccount_id END IS NULL
-             OR CASE WHEN ofx.stmttrn.trnamt > 0 THEN mappings_table_2.positive_debit_subaccount_id
-                     ELSE mappings_table_2.negative_credit_subaccount_id END = ofx.acctfrom.name)
+    AS WITH sources AS (
+      SELECT DISTINCT concat(ofx.stmttrn.name, ofx.stmttrn.memo) AS description,
+             coalesce(ofx.stmttrn.trnamt > 0, false) AS positive,
+             ofx.acctfrom.id AS account_id, ofx.acctfrom.name AS account_name
+      FROM ofx.stmttrn
+      JOIN ofx.acctfrom ON ofx.acctfrom.id = ofx.stmttrn.acctfrom_id
+    ), matches AS (
+      -- An exact match implies equal lowercased text, so exact mappings hash-join
+      -- on it; the matcher then runs on candidates, not on every source/mapping pair.
+      SELECT sources.*, mappings.id, mappings.keyword, mappings.source,
+             CASE WHEN sources.positive THEN mappings.positive_debit_subaccount_id
+                  ELSE mappings.negative_credit_subaccount_id END AS scope
+      FROM sources
+      JOIN admin.mappings ON mappings.source = 'ofx' AND mappings.match_mode = 'exact'
+        AND lower(mappings.keyword) = lower(sources.description)
+        AND admin.mapping_description_matches(sources.description, mappings.keyword,
+                                              mappings.match_mode)
+      UNION ALL
+      SELECT sources.*, mappings.id, mappings.keyword, mappings.source,
+             CASE WHEN sources.positive THEN mappings.positive_debit_subaccount_id
+                  ELSE mappings.negative_credit_subaccount_id END
+      FROM sources
+      JOIN admin.mappings ON mappings.source = 'ofx' AND mappings.match_mode <> 'exact'
+        AND admin.mapping_description_matches(sources.description, mappings.keyword,
+                                              mappings.match_mode)
+    ), eligible AS (
+      SELECT * FROM matches WHERE scope IS NULL OR scope = account_name
+    )
+    SELECT DISTINCT
+      first.description,
+      first.id AS mapping_id_1,
+      first.keyword AS mapping_keyword_1,
+      second.id AS mapping_id_2,
+      second.keyword AS mapping_keyword_2,
+      second.source AS source
+    FROM eligible first
+    JOIN eligible second ON second.description = first.description
+      AND second.positive = first.positive AND second.account_id = first.account_id
+      AND first.id < second.id
     ORDER BY description;
     """)

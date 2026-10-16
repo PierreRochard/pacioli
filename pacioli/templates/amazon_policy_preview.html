@@ -12,7 +12,7 @@
 <p>{% if already_confirmed or stale %}<a href="{{ url_for('.amazon_policy_history',plan_id=plan_id) }}">Back to current questions</a>{% else %}<a href="{{ url_for('.amazon_policy_history',plan_id=plan_id,question_key=question.key) }}">Back to this question</a>{% endif %} · <a href="{{ url_for('.amazon_suspense',plan_id=plan_id) }}">Suspense workbench</a></p>
 {% if stale %}<div class="alert alert-warning">The sources, ledger, policy or saved answers changed after this preview. Return to the question and create a fresh preview before saving.</div>{% endif %}
 {% if posting_active and not already_confirmed %}<div class="alert alert-warning">A posting is queued or running. Wait for it to finish, then create a fresh preview before saving.</div>{% endif %}
-<section class="well" aria-labelledby="answer-preview-heading">
+<section class="card card-body bg-light" aria-labelledby="answer-preview-heading">
 <h3 id="answer-preview-heading">{{ question.title }}</h3>
 <p><strong>Your proposed direction:</strong> {{ choice.label }}</p>
 <p>{{ choice.explanation }}</p>
@@ -39,7 +39,7 @@
 <input type="hidden" name="preview_id" value="{{ preview_id }}">
 <input type="hidden" name="token" value="{{ token }}">
 <button class="btn btn-primary" {% if stale or posting_active %}disabled{% endif %}>{% if status == 'deferred' %}Save deferral and continue{% else %}Save answer and continue{% endif %}</button>
-<a class="btn btn-default" href="{{ url_for('.amazon_policy_history',plan_id=plan_id,question_key=question.key if not stale else none) }}">Return without saving</a>
+<a class="btn btn-secondary" href="{{ url_for('.amazon_policy_history',plan_id=plan_id,question_key=question.key if not stale else none) }}">Return without saving</a>
 </form>{% endif %}
 </main>
 {% endblock %}

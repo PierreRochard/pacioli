@@ -24,7 +24,7 @@ from pacioli.functions.source_identity import source_identity
 
 
 def _financial_state():
-    return {table: digest([dict(row) for row in db.session.execute(text(
+    return {table: digest([dict(row._mapping) for row in db.session.execute(text(
         'SELECT * FROM ' + table + ' ORDER BY 1'))]) for table in (
             'bookkeeping.journal_entries', 'bookkeeping.journal_entry_events',
             'bookkeeping.ofx_source_identities', 'bookkeeping.ofx_journal_sources',
@@ -259,7 +259,7 @@ def test_source_or_account_match_drift_rejects_entire_post_without_financial_wri
     elif drift == 'card':
         db.session.execute(text("UPDATE ofx.ccacctfrom SET acctid='different9999' WHERE id=:id"), dict(id=source['account_id']))
     elif drift == 'currency':
-        db.session.query(BankFeedAccounts).get(source['account_id']).currency = 'EUR'
+        db.session.get(BankFeedAccounts, source['account_id']).currency = 'EUR'
     elif drift == 'competing_source':
         db.session.execute(text('''INSERT INTO ofx.stmttrn
             (fitid,acctfrom_id,trntype,dtposted,trnamt,name)
@@ -282,9 +282,9 @@ def test_source_or_account_match_drift_rejects_entire_post_without_financial_wri
 def test_old_decision_digest_is_rejected_after_second_session_update_despite_cached_job(item_workflow_source):
     run_id, book_id, _ = _prepared(item_workflow_source)
     expected = workflow.review_digest(run_id)
-    cached = db.session.query(AmazonItemJobs).get(book_id)
+    cached = db.session.get(AmazonItemJobs, book_id)
     old_id = cached.decision_id
-    original = json.loads(db.session.query(AccountingEvidence).get(old_id).payload)
+    original = json.loads(db.session.get(AccountingEvidence, old_id).payload)
     second = Session(bind=db.engine)
     try:
         revised = dict(original, category=None, reason='Independent reviewer requests more evidence.',
@@ -308,7 +308,7 @@ def test_old_decision_digest_is_rejected_after_second_session_update_despite_cac
 
 def test_review_refreshes_cached_job_state_before_accepting_decision(item_workflow_source):
     run_id, book_id, _ = _prepared(item_workflow_source, approve=False)
-    cached = db.session.query(AmazonItemJobs).get(book_id)
+    cached = db.session.get(AmazonItemJobs, book_id)
     assert cached.state == 'suggested'
     second = Session(bind=db.engine)
     try:
@@ -319,7 +319,7 @@ def test_review_refreshes_cached_job_state_before_accepting_decision(item_workfl
     with pytest.raises(ValueError, match='Wait'):
         workflow.review_item(book_id, 'Books and Publications', 'Stale view must be refused.', 'fixture owner')
     db.session.rollback()
-    assert db.session.query(AmazonItemJobs).get(book_id).decision_id is None
+    assert db.session.get(AmazonItemJobs, book_id).decision_id is None
 
 
 def test_closed_period_rejects_posting_atomically(item_workflow_source):
@@ -470,14 +470,14 @@ def test_all_hold_correction_of_posted_basket_is_explicitly_rejected(item_workfl
 
 def test_decision_preserves_original_proposal_when_mutable_job_result_changes(item_workflow_source):
     run_id, book_id, _ = _prepared(item_workflow_source)
-    job = db.session.query(AmazonItemJobs).get(book_id)
-    decision = json.loads(db.session.query(AccountingEvidence).get(job.decision_id).payload)
+    job = db.session.get(AmazonItemJobs, book_id)
+    decision = json.loads(db.session.get(AccountingEvidence, job.decision_id).payload)
     original_proposal = json.loads(job.proposal)
     assert decision['proposal'] == original_proposal
     assert decision['proposal_digest'] == digest(original_proposal)
     job.proposal = dump(dict(original_proposal, raw_content='A later diagnostic response.'))
     db.session.commit()
-    immutable = json.loads(db.session.query(AccountingEvidence).get(job.decision_id).payload)
+    immutable = json.loads(db.session.get(AccountingEvidence, job.decision_id).payload)
     assert immutable['proposal'] == original_proposal
     assert immutable['proposal_digest'] == digest(immutable['proposal'])
 
@@ -485,8 +485,8 @@ def test_decision_preserves_original_proposal_when_mutable_job_result_changes(it
 def test_refreshed_partial_run_preserves_posted_reviews_without_claiming_new_model_output(item_workflow_source, monkeypatch):
     old_run, book_id, _ = _prepared(item_workflow_source)
     _post(old_run)
-    original_decision = db.session.query(AmazonItemJobs).get(book_id).decision_id
-    original_proof = json.loads(db.session.query(AccountingEvidence).get(original_decision).payload)
+    original_decision = db.session.get(AmazonItemJobs, book_id).decision_id
+    original_proof = json.loads(db.session.get(AccountingEvidence, original_decision).payload)
     monkeypatch.setattr(advisor, 'POLICY_VERSION', advisor.POLICY_VERSION + '-refreshed')
     before = _financial_state()
     refreshed = workflow.create_run(item_workflow_source['archive_id'], 'fixture owner', think=False)
@@ -535,7 +535,7 @@ def test_resumed_worker_refuses_changed_model_pin(item_workflow_source, monkeypa
     with pytest.raises(ValueError, match='pinned model changed'):
         workflow.run_worker(run_id, infer_fn=_fake_infer)
     assert _financial_state() == before
-    assert db.session.query(AmazonItemRuns).get(run_id).state == 'needs_attention'
+    assert db.session.get(AmazonItemRuns, run_id).state == 'needs_attention'
 
 
 def test_old_posting_digest_is_rejected_after_valid_second_session_revision_despite_cached_bundle(
@@ -580,8 +580,8 @@ def test_old_posting_digest_is_rejected_after_valid_second_session_revision_desp
 
 def test_oversized_item_request_is_reviewable_and_does_not_starve_later_jobs(item_workflow_source):
     source = item_workflow_source
-    manifest = json.loads(db.session.query(AccountingEvidence).get(source['archive_id']).payload)
-    table = json.loads(db.session.query(AccountingEvidence).get(manifest['tables'][0]['evidence_id']).payload)
+    manifest = json.loads(db.session.get(AccountingEvidence, source['archive_id']).payload)
+    table = json.loads(db.session.get(AccountingEvidence, manifest['tables'][0]['evidence_id']).payload)
     table['rows'][0][table['headers'].index('Product Name')] = 'Fixture paperback ' + 'x' * 9000
     stream = io.StringIO(newline='')
     writer = csv.writer(stream)
@@ -675,9 +675,9 @@ def test_item_category_install_is_additive_idempotent_and_operating(clean_ledger
              for name in workflow.ITEM_CATEGORY_NAMES}
     assert workflow.install_item_categories(db.session) == []
     for name, identifier in first.items():
-        subaccount = db.session.query(Subaccounts).get(identifier)
-        account = db.session.query(Accounts).get(subaccount.parent)
-        classification = db.session.query(Classifications).get(account.parent)
+        subaccount = db.session.get(Subaccounts, identifier)
+        account = db.session.get(Accounts, subaccount.parent)
+        classification = db.session.get(Classifications, account.parent)
         assert subaccount.name == name and subaccount.description == advisor.CATEGORY_DEFINITIONS[name]
         assert account.cash_source == 'Operating' and account.is_cash is False
         assert classification.parent == 'Expenses'
@@ -689,9 +689,9 @@ def test_item_category_install_is_additive_idempotent_and_operating(clean_ledger
 def test_item_category_install_rejects_existing_structure_without_repairing_it(clean_ledger, collision):
     from pacioli.models import Accounts, Classifications, Subaccounts
     workflow.install_item_categories(db.session)
-    account = db.session.query(Accounts).get('Household Supplies Expense')
+    account = db.session.get(Accounts, 'Household Supplies Expense')
     subaccount = db.session.query(Subaccounts).filter_by(name='Household Supplies').one()
-    classification = db.session.query(Classifications).get('Ordinary Personal Purchases')
+    classification = db.session.get(Classifications, 'Ordinary Personal Purchases')
     target, attribute, value = {
         'classification': (classification, 'parent', 'Assets'),
         'account_parent': (account, 'parent', 'Fixed Costs'),
@@ -869,12 +869,12 @@ def test_direct_item_review_cannot_bypass_a_curated_property_hold(item_workflow_
     plan_id, _, _, _ = _plan(item_workflow_source, gate='needs_property')
     held = suspense.page(plan_id)['items'][0]
     before = _financial_state()
-    decision_id = db.session.query(AmazonItemJobs).get(held['job_id']).decision_id
+    decision_id = db.session.get(AmazonItemJobs, held['job_id']).decision_id
     with pytest.raises(ValueError, match='accounting-policy treatment'):
         workflow.review_item(held['job_id'], 'Personal Care',
             'A category chosen on the old item page must not override a controller hold.', 'fixture owner')
     db.session.rollback()
-    assert db.session.query(AmazonItemJobs).get(held['job_id']).decision_id == decision_id
+    assert db.session.get(AmazonItemJobs, held['job_id']).decision_id == decision_id
     assert _financial_state() == before
 
 

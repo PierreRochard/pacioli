@@ -26,7 +26,7 @@
       <option value="firefox" {% if browser_engine == 'firefox' %}selected{% endif %}>My existing Firefox</option>
       <option value="chromium" {% if browser_engine == 'chromium' %}selected{% endif %}>Separate Chromium profile (legacy)</option>
     </select>
-    <button class="btn btn-default" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>Save browser selection</button>
+    <button class="btn btn-secondary" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>Save browser selection</button>
   </form>
   {% endif %}
   <form id="chase-firefox-form" method="post" {% if browser_engine != 'firefox' %}hidden{% endif %}>
@@ -57,7 +57,7 @@
   <form method="post" style="margin-top:1em">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="forget">
-    <button class="btn btn-default" id="chase-forget-button" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>{{ 'Forget saved Pacioli login' if browser_engine == 'firefox' else 'Forget saved login and browser session' }}</button>
+    <button class="btn btn-secondary" id="chase-forget-button" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>{{ 'Forget saved Pacioli login' if browser_engine == 'firefox' else 'Forget saved login and browser session' }}</button>
   </form>
   {% endif %}
 
@@ -65,7 +65,7 @@
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="start">
-    <div class="checkbox"><label><input type="checkbox" name="reviewed_usd" value="yes" required> I confirm these are my Chase accounts and their statement currency is USD.</label></div>
+    <div class="form-check"><label><input type="checkbox" name="reviewed_usd" value="yes" required> I confirm these are my Chase accounts and their statement currency is USD.</label></div>
     <button class="btn btn-primary" id="chase-start-button" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>{{ 'Resume with a visible browser' if run and run.status == 'needs_attention' else 'Open Chase and export QFX' }}</button>
   </form>
 
@@ -75,7 +75,7 @@
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="sync_now">
-    <button class="btn btn-default" id="chase-sync-button" type="submit" {% if not configured or not saved_account_count or (run and run.status in active_statuses) %}disabled{% endif %}>Sync now</button>
+    <button class="btn btn-secondary" id="chase-sync-button" type="submit" {% if not configured or not saved_account_count or (run and run.status in active_statuses) %}disabled{% endif %}>Sync now</button>
     {% if configured and not saved_account_count %}<p>Complete one supervised export to choose accounts first.</p>{% endif %}
   </form>
 
@@ -91,7 +91,7 @@
   <form method="post" style="margin-top:1em">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="test_lastpass">
-    <button class="btn btn-default" id="chase-lastpass-button" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>Test my LastPass passkey</button>
+    <button class="btn btn-secondary" id="chase-lastpass-button" type="submit" {% if not configured or (run and run.status in active_statuses) %}disabled{% endif %}>Test my LastPass passkey</button>
     <p>This opens LastPass's official Chrome Web Store listing alongside Chase in the separate test browser. Install and unlock LastPass there, then return to the Chase tab and reload it before choosing passkey sign-in. Enter your LastPass master password only in LastPass. After a confirmed sign-in, this browser profile is retained for future syncs.</p>
   </form>
 
@@ -101,17 +101,17 @@
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="enroll_passkey">
-    <button class="btn btn-default" id="chase-enroll-button" type="submit" {% if not passkey_enrollment_enabled or not configured or passkey_saved or (run and run.status in active_statuses) %}disabled{% endif %}>Open Chase to add a local passkey</button>
+    <button class="btn btn-secondary" id="chase-enroll-button" type="submit" {% if not passkey_enrollment_enabled or not configured or passkey_saved or (run and run.status in active_statuses) %}disabled{% endif %}>Open Chase to add a local passkey</button>
   </form>
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="test_passkey">
-    <button class="btn btn-default" id="chase-test-passkey-button" type="submit" {% if not passkey_saved or (run and run.status in active_statuses) %}disabled{% endif %}>Test local passkey sign-in</button>
+    <button class="btn btn-secondary" id="chase-test-passkey-button" type="submit" {% if not passkey_saved or (run and run.status in active_statuses) %}disabled{% endif %}>Test local passkey sign-in</button>
   </form>
   <form id="chase-forget-passkey-form" method="post" {% if not passkey_saved %}hidden{% endif %}>
     <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
     <input type="hidden" name="action" value="forget_passkey">
-    <button class="btn btn-default" id="chase-forget-passkey-button" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>Remove local passkey copy</button>
+    <button class="btn btn-secondary" id="chase-forget-passkey-button" type="submit" {% if run and run.status in active_statuses %}disabled{% endif %}>Remove local passkey copy</button>
   </form>
   </details>
   </div>
@@ -156,7 +156,7 @@
       <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
       <input type="hidden" name="action" value="reject_passkey">
       <input id="chase-passkey-reject-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
-      <button class="btn btn-default" type="submit">Chase rejected the passkey</button>
+      <button class="btn btn-secondary" type="submit">Chase rejected the passkey</button>
     </form>
     <p id="chase-run-counts" {% if not run or run.mode in ('passkey_enroll', 'passkey_test', 'provider_test', 'lastpass_test', 'firefox_test') or run.status not in ('completed', 'partial') %}hidden{% endif %}>Imported: {{ run.imported_count if run else 0 }}. Already present: {{ run.duplicate_count if run else 0 }}.</p>
     <form id="chase-select-form" method="post" {% if not run or run.status != 'choosing_accounts' %}hidden{% endif %}>
@@ -167,7 +167,7 @@
       <div id="chase-account-choices">
         {% if run and run.status == 'choosing_accounts' %}
           {% for choice in run.account_choices or [] %}
-            <div class="checkbox"><label><input type="checkbox" name="account_index" value="{{ choice.index }}"> {{ choice.label }}</label></div>
+            <div class="form-check"><label><input type="checkbox" name="account_index" value="{{ choice.index }}"> {{ choice.label }}</label></div>
           {% endfor %}
         {% endif %}
       </div>
@@ -177,7 +177,7 @@
       <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
       <input type="hidden" name="action" value="cancel">
       <input id="chase-cancel-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
-      <button class="btn btn-default" type="submit">Cancel session</button>
+      <button class="btn btn-secondary" type="submit">Cancel session</button>
     </form>
   </div>
   <p><a href="{{ url_for('connections.index_view') }}">Back to connections</a></p>

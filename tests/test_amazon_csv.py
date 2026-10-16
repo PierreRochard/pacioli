@@ -13,6 +13,7 @@ from pacioli.models import AccountingEvidence, AmazonEvidenceBundles, BankFeedAc
 from pacioli.functions import amazon_csv as a
 from pacioli.functions.reconciliation import evidence, dump
 from pacioli.functions.journal_posting import post_pair
+from sqlalchemy import text
 
 
 ROWS = b'Order ID,Product Name,Quantity,Total Owed\r\n123-1234567-1234567,Same item,1,10.00\r\n123-1234567-1234567,Same item,1,10.00\r\n'
@@ -38,7 +39,7 @@ def test_archive_preserves_duplicate_rows_bytes_encryption_and_replay(clean_ledg
     assert manifest['tables'][0]['source_sha256']==hashlib.sha256(ROWS).hexdigest()
     assert manifest['tables'][0]['source_bytes']==len(ROWS)
     assert manifest['tables'][0]['order_id_column']=='Order ID'
-    table=db.session.query(AccountingEvidence).get(manifest['tables'][0]['evidence_id'])
+    table=db.session.get(AccountingEvidence, manifest['tables'][0]['evidence_id'])
     assert len(json.loads(table.payload)['rows'])==2
     count=db.session.query(AccountingEvidence).count()
     same,created=a.import_archive(raw,'renamed.zip','owner');db.session.commit()
@@ -48,9 +49,9 @@ def test_archive_preserves_duplicate_rows_bytes_encryption_and_replay(clean_ledg
         snapshot_names=[name for name in z.namelist() if name.startswith('source_tables/')]
         assert len(snapshot_names)==3
         assert json.loads(z.read('manifest.json'))['source_imports'][0]['source_sha256']==manifest['source_sha256']
-    stored=db.session.execute('SELECT payload FROM bookkeeping.accounting_evidence').scalars().all()
+    stored=db.session.execute(text('SELECT payload FROM bookkeeping.accounting_evidence')).scalars().all()
     assert all(s.startswith('fernet:') and 'Same item' not in s for s in stored)
-    assert db.session.execute('SELECT count(*) FROM bookkeeping.journal_entries').scalar()==0
+    assert db.session.execute(text('SELECT count(*) FROM bookkeeping.journal_entries')).scalar()==0
     refund_table=manifest['tables'][1]['evidence_id']
     assert list(csv.reader(io.StringIO(a.source_table_csv(refund_table).decode('utf-8-sig'))))[1][1]=="'-10.00"
 
@@ -60,7 +61,7 @@ def test_new_export_is_a_snapshot_not_an_overwrite_or_posting(clean_ledger):
     updated,_=a.import_archive(ROWS.replace(b'1,10.00',b'2,20.00'),'Orders.csv','owner');db.session.commit()
     assert original.id!=updated.id
     assert a.original_archive(original.id)==(ROWS,False)
-    assert db.session.execute('SELECT count(*) FROM bookkeeping.journal_entries').scalar()==0
+    assert db.session.execute(text('SELECT count(*) FROM bookkeeping.journal_entries')).scalar()==0
 
 
 @pytest.mark.parametrize('bad',[
@@ -105,7 +106,7 @@ def test_native_companions_and_repeated_digital_components_are_preserved(clean_l
     assert [table['orders'] for table in manifest['tables']] == [None] * 5 + [1]
     assert [table['rows'] for table in manifest['tables']] == [1, 1, 1, 1, 0, 3]
     assert all(table['order_id_column'] is None for table in manifest['tables'][:5])
-    saved = json.loads(db.session.query(AccountingEvidence).get(manifest['tables'][-1]['evidence_id']).payload)
+    saved = json.loads(db.session.get(AccountingEvidence, manifest['tables'][-1]['evidence_id']).payload)
     assert saved['rows'] == list(csv.reader(io.StringIO(digital.decode())))[1:]
     assert db.session.query(AmazonEvidenceBundles).count() == 0
     assert db.session.query(JournalEntries).count() == 0
@@ -169,7 +170,7 @@ def test_exports_all_receipts_repeated_lines_and_existing_journals(clean_ledger)
     post_pair(timestamp=datetime(2026,1,1,tzinfo=timezone.utc),debit='Groceries',credit='Chase Checking',
               functional_amount='20.00',transaction_source='ofx',transaction_id=transaction,allocation_key='amazon:000')
     db.session.commit()
-    before=db.session.execute('SELECT count(*) FROM bookkeeping.journal_entries').scalar()
+    before=db.session.execute(text('SELECT count(*) FROM bookkeeping.journal_entries')).scalar()
     files=a.accounting_exports()
     receipts=list(csv.DictReader(io.StringIO(files['receipts.csv'].decode('utf-8-sig'))))
     assert len(receipts)==105 and receipts[0]['receipt_text'].startswith("'=DANGEROUS")
@@ -179,7 +180,7 @@ def test_exports_all_receipts_repeated_lines_and_existing_journals(clean_ledger)
     allocations=list(csv.DictReader(io.StringIO(files['journal_allocations.csv'].decode('utf-8-sig'))))
     assert len(allocations)==1 and allocations[0]['amount']=='20.00'
     assert allocations[0]['bank_transaction_id']==transaction
-    assert db.session.execute('SELECT count(*) FROM bookkeeping.journal_entries').scalar()==before
+    assert db.session.execute(text('SELECT count(*) FROM bookkeeping.journal_entries')).scalar()==before
     with zipfile.ZipFile(io.BytesIO(a.export_zip())) as z:
         assert set(z.namelist())==set(files)|{'README.txt','manifest.json'}
         assert json.loads(z.read('manifest.json'))['rows']['receipts.csv']==105

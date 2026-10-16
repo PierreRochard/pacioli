@@ -1,0 +1,12 @@
+{% extends 'admin/master.html' %}
+{# Flask-Security pages fill the content block; show them inside the admin layout. #}
+{% block body %}
+{{ super() }}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <div class="card card-body bg-light">
+            {% block content %}{% endblock content %}
+        </div>
+    </div>
+</div>
+{% endblock body %}

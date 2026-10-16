@@ -1,12 +1,13 @@
 # Pacioli
 
-Pacioli is a legacy Flask accounting application backed by PostgreSQL. This
-repository can be set up locally with Python 3.11; the dependency set preserves
-the older application APIs.
+Pacioli is a Flask accounting application backed by PostgreSQL, set up locally
+with Python 3.14. Direct dependencies are listed in `requirements.in`;
+`requirements.txt` is the hash-pinned lock compiled from it (`make lock`), and
+`make audit` checks the installed environment for known vulnerabilities.
 
 ## Local setup
 
-For a new local installation, install Python 3.11 and the PostgreSQL server
+For a new local installation, install Python 3.14 and the PostgreSQL server
 binaries, then run:
 
 ```sh
@@ -55,7 +56,7 @@ database; separate `PGUSER` and `PGPASSWORD` are not required when it is set.
 Keep the application credential key outside the database and its dumps.
 
 `install.py` only creates a virtual environment and installs pinned packages.
-Use `python3.11 install.py` to omit the test dependency, or `make env` for the
+Use `python3.14 install.py` to omit the test dependency, or `make env` for the
 same development setup shown above.
 
 When configuring an external database, generate `PACIOLI_CREDENTIAL_KEY` with
@@ -196,14 +197,15 @@ expense-classified `Amazon Suspense Account` are rejected for new postings and
 flagged by `accounting_check` if already posted; review and reverse/repost them
 individually rather than silently reclassifying history.
 
-`.venv/bin/python manage.py backup_db` creates a PostgreSQL custom-format
-archive for the configured database and emails it to `MAIL_USERNAME`. It uses
-`PACIOLI_BACKUP_DIR` if set, otherwise `TMPDIR`. A failed email leaves the
-archive in that directory for recovery; a successful send removes it.
+`.venv/bin/python manage.py backup_db` writes a PostgreSQL custom-format
+archive of the configured database to `PACIOLI_BACKUP_DIR`, or to
+`.local/backups` by default, readable only by its owner. The archive holds
+the whole ledger, so it is never mailed or uploaded; copy it to another disk
+yourself, and keep `.local/config.json` (the encryption key) with it.
 
 ## Local CI
 
-Run the complete local gate after `make env` or `python3.11 install.py --dev`:
+Run the complete local gate after `make env` or `python3.14 install.py --dev`:
 
 ```sh
 make ci

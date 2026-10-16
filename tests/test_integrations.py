@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from sqlalchemy import text
 
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.functions import amazon_functions
 from pacioli.models import (AmazonItems, AmazonOrders, Connections, JournalEntries,
                             Mappings, SecurityPrices, TrialBalances)
@@ -24,7 +24,7 @@ def test_amazon_csv_import_and_source_scoped_mapping(clean_ledger):
 
     assert amazon_functions.import_amazon_csv(csv_data) == 2
     assert amazon_functions.import_amazon_csv(csv_data) == 0
-    assert db.session.query(AmazonOrders).get(order_id).order_date == date(2026, 9, 10)
+    assert db.session.get(AmazonOrders, order_id).order_date == date(2026, 9, 10)
     assert db.session.query(AmazonItems).filter_by(order_id=order_id).count() == 2
 
     db.session.add(Mappings(source='ofx', keyword='Widget',
@@ -112,15 +112,15 @@ def test_ofx_sync_uses_the_selected_bank_account_history(app_context, monkeypatc
     from pacioli.functions import ofx_functions
     for number, timestamp in [('11111111', '2025-01-10 12:00:00+00'),
                               ('22222222', '2026-01-10 12:00:00+00')]:
-        identifier = db.engine.execute(text(
+        identifier = run_sql(text(
             "INSERT INTO ofx.acctfrom (subclass, name) "
             "VALUES ('bankacctfrom', :name) RETURNING id"
         ), {'name': number}).scalar()
-        db.engine.execute(text(
+        run_sql(text(
             "INSERT INTO ofx.bankacctfrom (id, bankid, acctid, accttype) "
             "VALUES (:id, '123456789', :number, 'CHECKING')"
         ), {'id': identifier, 'number': number})
-        db.engine.execute(text(
+        run_sql(text(
             "INSERT INTO ofx.stmttrn (fitid, acctfrom_id, trntype, dtposted, trnamt) "
             "VALUES (:fitid, :id, 'DEBIT', :posted, -1)"
         ), {'fitid': 'TX-' + number, 'id': identifier, 'posted': timestamp})
@@ -151,7 +151,7 @@ def test_ofx_sync_uses_the_selected_bank_account_history(app_context, monkeypatc
 def test_market_prices_update_existing_rows_without_network(app_context, monkeypatch):
     from pacioli.functions import investment_functions
     ticker = 'T' + uuid4().hex[:7].upper()
-    db.engine.execute(text(
+    run_sql(text(
         "INSERT INTO ofx.secinfo (subclass, uniqueidtype, uniqueid, secname, ticker) "
         "VALUES ('secinfo', 'CUSIP', :uniqueid, 'Test security', :ticker)"
     ), {'uniqueid': ticker, 'ticker': ticker})

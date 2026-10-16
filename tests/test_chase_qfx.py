@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.functions.accounting_report import bank_balance_differences
 from pacioli.functions.ofx_file_import import AccountNotApproved, import_chase_qfx, account_summary
 from pacioli.functions.journal_posting import post_pair
@@ -230,11 +230,11 @@ def test_chase_qfx_import_is_deduplicated_and_preserves_encrypted_source(app_con
         assert summary['opening_candidate'] == Decimal('500.00')
         assert account_number not in summary['account_name']
         assert db.session.query(Subaccounts).filter_by(name=summary['account_name']).one().parent == 'Cash'
-        assert db.session.query(BankFeedAccounts).get(account_id).currency == 'USD'
+        assert db.session.get(BankFeedAccounts, account_id).currency == 'USD'
 
         record = db.session.query(OFXFileImports).filter_by(sha256=result['sha256']).one()
         connection_id = record.connection_id
-        assert db.session.query(Connections).get(connection_id).source == 'ofx_file'
+        assert db.session.get(Connections, connection_id).source == 'ofx_file'
         raw = db.session.execute(text(
             'SELECT response FROM admin.connection_responses WHERE id = :id'),
             {'id': record.response_id}).scalar()
@@ -256,26 +256,26 @@ def test_chase_qfx_import_is_deduplicated_and_preserves_encrypted_source(app_con
     finally:
         db.session.remove()
         if account_id is not None:
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM admin.ofx_file_imports WHERE ofx_account_id = :id'), {'id': account_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM admin.connection_responses WHERE connection_id = :id'),
                 {'id': connection_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM bookkeeping.bank_feed_accounts WHERE ofx_account_id = :id'),
                 {'id': account_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM ofx.stmttrn WHERE acctfrom_id = :id'), {'id': account_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM ofx.ledgerbal WHERE acctfrom_id = :id'), {'id': account_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM ofx.bankacctfrom WHERE id = :id'), {'id': account_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM ofx.acctfrom WHERE id = :id'), {'id': account_id})
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM admin.connections WHERE id = :id'), {'id': connection_id})
             if summary is not None:
-                db.engine.execute(text(
+                run_sql(text(
                     'DELETE FROM bookkeeping.subaccounts WHERE name = :name'),
                     {'name': summary['account_name']})
 
@@ -304,7 +304,8 @@ def test_chase_qfx_import_page_requires_login_and_csrf(
         page = client.get(path)
         assert page.status_code == 200
         assert b'Import Chase QFX' in page.data
-        assert page.data.count(b'name="csrf_token"') == 1
+        # The import form and the navbar's logout form.
+        assert page.data.count(b'name="csrf_token"') == 2
         assert client.post(path, data={'reviewed_usd': 'yes',
                                        'statement': (BytesIO(b'not ofx'), 'bad.qfx')}).status_code == 400
         token = re.search(rb'name="csrf_token" value="([^"]+)"', page.data).group(1).decode('ascii')
@@ -323,14 +324,14 @@ def test_chase_card_balance_reconciles_to_liability(clean_ledger):
     try:
         db.session.add(Subaccounts(name=account_name, parent='Accounts Payable'))
         db.session.commit()
-        account_id = db.engine.execute(text("""
+        account_id = run_sql(text("""
             INSERT INTO ofx.acctfrom (subclass, name)
             VALUES ('ccacctfrom', :name) RETURNING id
         """), {'name': account_name}).scalar()
-        db.engine.execute(text("""
+        run_sql(text("""
             INSERT INTO ofx.ccacctfrom (id, acctid) VALUES (:id, :acctid)
         """), {'id': account_id, 'acctid': uuid4().hex[:16]})
-        db.engine.execute(text("""
+        run_sql(text("""
             INSERT INTO ofx.ledgerbal (acctfrom_id, dtasof, balamt)
             VALUES (:id, :asof, -500)
         """), {'id': account_id, 'asof': datetime(2026, 9, 3)})
@@ -343,20 +344,20 @@ def test_chase_card_balance_reconciles_to_liability(clean_ledger):
                     if issue['account_id'] == account_id]
     finally:
         db.session.remove()
-        db.engine.execute(text(
+        run_sql(text(
             'DELETE FROM bookkeeping.journal_entries WHERE credit_subaccount = :name'),
             {'name': account_name})
         if account_id is not None:
-            db.engine.execute(text(
+            run_sql(text(
                 'DELETE FROM bookkeeping.bank_feed_accounts WHERE ofx_account_id = :id'),
                 {'id': account_id})
-            db.engine.execute(text('DELETE FROM ofx.ledgerbal WHERE acctfrom_id = :id'),
+            run_sql(text('DELETE FROM ofx.ledgerbal WHERE acctfrom_id = :id'),
                               {'id': account_id})
-            db.engine.execute(text('DELETE FROM ofx.ccacctfrom WHERE id = :id'),
+            run_sql(text('DELETE FROM ofx.ccacctfrom WHERE id = :id'),
                               {'id': account_id})
-            db.engine.execute(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
+            run_sql(text('DELETE FROM ofx.acctfrom WHERE id = :id'),
                               {'id': account_id})
-        db.engine.execute(text('DELETE FROM bookkeeping.subaccounts WHERE name = :name'),
+        run_sql(text('DELETE FROM bookkeeping.subaccounts WHERE name = :name'),
                           {'name': account_name})
 
 

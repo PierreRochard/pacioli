@@ -12,17 +12,17 @@ import click
 from dateutil.tz import tzlocal
 from flask.cli import ScriptInfo
 from flask_migrate import Migrate
-from flask_security.utils import encrypt_password
-from flask_mail import Message
-from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
-from ofxtools.ofxalchemy import Base as OFX_Base
+from flask_security.utils import hash_password
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
-from pacioli import create_app, mail
+from pacioli import create_app
+# Importing pacioli first restores the SafeConfigParser alias the ofxtools fork needs.
+from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
+from ofxtools.ofxalchemy import Base as OFX_Base
 from pacioli.database.setup import create_database, ofx_engine, populate_chart
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.models import (Users, Roles, BankFeedAccounts,
                             ChaseBrowserCredentials, ChaseBrowserRuns, ChaseLocalPreferences,
                             ChaseExportCoverage, ChaseLocalEvents)
@@ -63,7 +63,7 @@ def createdb():
 @app.cli.command('migrate_chase_browser')
 def migrate_chase_browser():
     """Add or extend Chase connector tables without touching accounting data."""
-    db.engine.execute('CREATE SCHEMA IF NOT EXISTS admin')
+    run_sql('CREATE SCHEMA IF NOT EXISTS admin')
     db.metadata.create_all(bind=db.engine, tables=[
         ChaseBrowserCredentials.__table__, ChaseBrowserRuns.__table__,
         ChaseLocalPreferences.__table__, ChaseExportCoverage.__table__,
@@ -86,10 +86,10 @@ def migrate_chase_browser():
         'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS passkey_confirmed boolean NOT NULL DEFAULT false',
         'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS diagnostics text',
     ):
-        db.engine.execute(clause)
-    db.engine.execute("UPDATE admin.chase_browser_runs SET mode = 'automatic' WHERE mode = 'scheduled'")
+        run_sql(clause)
+    run_sql("UPDATE admin.chase_browser_runs SET mode = 'automatic' WHERE mode = 'scheduled'")
     for column in ('auto_sync_enabled', 'scheduled_by_id', 'last_scheduled_at'):
-        db.engine.execute('ALTER TABLE admin.chase_browser_credentials DROP COLUMN IF EXISTS {}'.format(column))
+        run_sql('ALTER TABLE admin.chase_browser_credentials DROP COLUMN IF EXISTS {}'.format(column))
 
 
 @app.cli.command('dropdb')
@@ -106,7 +106,7 @@ def create_admin(email, password):
     try:
         admin = Users()
         admin.email = email
-        admin.password = encrypt_password(password)
+        admin.password = hash_password(password)
         admin.active = True
         admin.confirmed_at = datetime.now(tzlocal())
         db.session.add(admin)
@@ -115,7 +115,7 @@ def create_admin(email, password):
     except IntegrityError:
         db.session.rollback()
         admin = db.session.query(Users).filter(Users.email == email).one()
-        admin.password = encrypt_password(password)
+        admin.password = hash_password(password)
         admin.confirmed_at = datetime.now(tzlocal())
         db.session.commit()
         print('Password reset for {0}'.format(email))
@@ -186,6 +186,10 @@ def runs_at_7am_and_7pm():
 
 @app.cli.command('backup_db')
 def backup_db():
+    """Write a custom-format archive to PACIOLI_BACKUP_DIR (default .local/backups).
+
+    The archive holds the whole ledger, so it stays on this machine with
+    owner-only permissions; it is never mailed or uploaded."""
     pg_dump = shutil.which('pg_dump')
     if not pg_dump:
         raise RuntimeError('pg_dump is required for database backups')
@@ -194,12 +198,11 @@ def backup_db():
     if database_url.get_backend_name() != 'postgresql' or not database_url.database:
         raise RuntimeError('Database backup requires a PostgreSQL database URL')
 
-    backup_directory = os.environ.get('PACIOLI_BACKUP_DIR') or os.environ.get('TMPDIR')
-    if not backup_directory:
-        raise RuntimeError('Set PACIOLI_BACKUP_DIR or TMPDIR for database backups')
-    backup_dir = Path(backup_directory)
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(prefix='pacioli-', suffix='.dump',
+    backup_dir = Path(os.environ.get('PACIOLI_BACKUP_DIR') or
+                      Path(__file__).resolve().parent / '.local' / 'backups')
+    backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    with tempfile.NamedTemporaryFile(prefix='pacioli-{}-'.format(stamp), suffix='.dump',
                                      dir=str(backup_dir), delete=False) as backup:
         backup_path = Path(backup.name)
 
@@ -223,16 +226,8 @@ def backup_db():
     except Exception:
         backup_path.unlink()
         raise
-
-    try:
-        msg = Message('Database Backup', recipients=[app.config['MAIL_USERNAME']])
-        msg.attach(backup_path.name, 'application/octet-stream', backup_path.read_bytes())
-        mail.send(msg)
-    except Exception:
-        click.echo('Backup retained at {}'.format(backup_path), err=True)
-        raise
-    else:
-        backup_path.unlink()
+    backup_path.chmod(0o600)
+    click.echo('Backup written to {}'.format(backup_path))
 
 
 @app.cli.command('encrypt_existing_data')
@@ -401,7 +396,7 @@ def set_ofx_account_currency(account_id, currency):
                               {'id': account_id}).scalar()
     if name is None:
         raise click.ClickException('OFX account does not exist')
-    registered = db.session.query(BankFeedAccounts).get(account_id)
+    registered = db.session.get(BankFeedAccounts, account_id)
     if registered is None:
         registered = BankFeedAccounts(ofx_account_id=account_id, currency=currency)
         db.session.add(registered)

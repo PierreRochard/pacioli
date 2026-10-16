@@ -70,7 +70,7 @@ def candidates(bundle):
     body = json.loads(bundle.details)
     total = sum((money(l['amount']) for l in body['lines']),Decimal(0))
     day = date.fromisoformat(body['lines'][0]['date'])
-    return [dict(r) for r in db.session.execute(text('''SELECT id, date, amount, description, account
+    return [dict(r._mapping) for r in db.session.execute(text('''SELECT id, date, amount, description, account
         FROM ofx.transactions WHERE amount=:amount AND date>=:start AND date<:end
         AND (description ILIKE '%AMAZON%' OR description ILIKE '%AMZN%')
         AND id NOT IN (SELECT transaction_id FROM amazon.evidence_bundles WHERE transaction_id IS NOT NULL)
@@ -81,7 +81,7 @@ def _bundle_body(bundle):
     """Mutable bundle pointers cannot replace their immutable source evidence."""
     try:
         body = json.loads(bundle.details)
-        document = db.session.query(AccountingEvidence).get(bundle.evidence_id)
+        document = db.session.get(AccountingEvidence, bundle.evidence_id)
         if (not document or document.kind != 'amazon_items' or
                 json.loads(document.payload) != body or digest(body) != document.sha256 or
                 body['bundle_id'] != bundle.external_id or not body['lines'] or
@@ -96,7 +96,7 @@ def allocation_preview(bundle_id, transaction_id, allocations, *, allow_suspense
     """Reviewer explicitly allocates the all-in charge; no silent proportional tax guess."""
     if not isinstance(allow_suspense, bool):
         raise ValueError('Partial allocation must be explicitly enabled with a boolean')
-    bundle = db.session.query(AmazonEvidenceBundles).get(bundle_id)
+    bundle = db.session.get(AmazonEvidenceBundles, bundle_id)
     if not bundle:
         raise ValueError('Missing item evidence')
     body = _bundle_body(bundle)
@@ -135,7 +135,7 @@ def allocation_preview(bundle_id, transaction_id, allocations, *, allow_suspense
         ON j.transaction_source='amazon' AND j.transaction_id=i.id::text
         WHERE i.order_id=ANY(:orders) LIMIT 1'''),{'orders':orders}).first():
         raise ValueError('Legacy Amazon journals already exist for this order; reconcile those first')
-    payload = dict(bundle_id=bundle_id, evidence_digest=digest(body), source=dict(source, date=utc(source.date)), allocations=normalized)
+    payload = dict(bundle_id=bundle_id, evidence_digest=digest(body), source=dict(source._mapping, date=utc(source.date)), allocations=normalized)
     if allow_suspense:
         payload['allow_suspense'] = True
     payload = json.loads(dump(payload))

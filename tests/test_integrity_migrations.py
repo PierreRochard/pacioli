@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.models import JournalEntries, BankFeedAccounts, JournalEntryEvents
 from pacioli.database.source_identity import install_source_identities
 from pacioli.database.accounting_migration import install_journal_constraints
@@ -73,8 +73,8 @@ def test_legacy_migration_preserves_journals_events_and_fingerprint(clean_ledger
     fitid = uuid4().hex
     legacy = fitid + str(account)
     db.session.commit()
-    db.engine.execute('ALTER TABLE ofx.stmttrn DISABLE TRIGGER register_ofx_source')
-    db.engine.execute('ALTER TABLE bookkeeping.journal_entries DISABLE TRIGGER journal_source_link')
+    run_sql('ALTER TABLE ofx.stmttrn DISABLE TRIGGER register_ofx_source')
+    run_sql('ALTER TABLE bookkeeping.journal_entries DISABLE TRIGGER journal_source_link')
     try:
         source(account, fitid)
         entry = journal(source_currency='USD', source_amount=Decimal('80'), conversion_rate=None,
@@ -93,15 +93,15 @@ def test_legacy_migration_preserves_journals_events_and_fingerprint(clean_ledger
         assert db.session.execute(text('SELECT count(*) FROM bookkeeping.ofx_journal_sources')).scalar() == 1
     finally:
         db.session.rollback()
-        db.engine.execute('ALTER TABLE ofx.stmttrn ENABLE TRIGGER register_ofx_source')
-        db.engine.execute('ALTER TABLE bookkeeping.journal_entries ENABLE TRIGGER journal_source_link')
+        run_sql('ALTER TABLE ofx.stmttrn ENABLE TRIGGER register_ofx_source')
+        run_sql('ALTER TABLE bookkeeping.journal_entries ENABLE TRIGGER journal_source_link')
 
 
 def test_ambiguous_legacy_migration_rolls_back_without_guessing(clean_ledger):
     small = bank()
     large = bank(int('8' + str(small)))
     db.session.commit()
-    db.engine.execute('ALTER TABLE ofx.stmttrn DISABLE TRIGGER register_ofx_source')
+    run_sql('ALTER TABLE ofx.stmttrn DISABLE TRIGGER register_ofx_source')
     try:
         source(small, 'collision8')
         source(large, 'collision')
@@ -112,7 +112,7 @@ def test_ambiguous_legacy_migration_rolls_back_without_guessing(clean_ledger):
         assert db.session.execute(text('SELECT count(*) FROM ofx.stmttrn')).scalar() == 2
     finally:
         db.session.rollback()
-        db.engine.execute('ALTER TABLE ofx.stmttrn ENABLE TRIGGER register_ofx_source')
+        run_sql('ALTER TABLE ofx.stmttrn ENABLE TRIGGER register_ofx_source')
 
 
 def test_raw_ofx_journal_requires_real_source_reference(clean_ledger):
@@ -137,8 +137,8 @@ def test_database_rejects_missing_or_nonfinite_fx_evidence(clean_ledger, field, 
 
 
 def test_constraint_upgrade_replaces_existing_named_definition(clean_ledger):
-    db.engine.execute('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT journal_conversion_evidence')
-    db.engine.execute('ALTER TABLE bookkeeping.journal_entries ADD CONSTRAINT journal_conversion_evidence CHECK (conversion_rate > 0)')
+    run_sql('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT journal_conversion_evidence')
+    run_sql('ALTER TABLE bookkeeping.journal_entries ADD CONSTRAINT journal_conversion_evidence CHECK (conversion_rate > 0)')
     install_journal_constraints()
     with pytest.raises(IntegrityError):
         db.session.add(journal(conversion_rate=None))
@@ -147,8 +147,8 @@ def test_constraint_upgrade_replaces_existing_named_definition(clean_ledger):
 
 
 def test_constraint_upgrade_preserves_invalid_history_and_rolls_back(clean_ledger):
-    db.engine.execute('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT journal_conversion_evidence')
-    db.engine.execute('ALTER TABLE bookkeeping.journal_entries ADD CONSTRAINT journal_conversion_evidence CHECK (conversion_rate > 0)')
+    run_sql('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT journal_conversion_evidence')
+    run_sql('ALTER TABLE bookkeeping.journal_entries ADD CONSTRAINT journal_conversion_evidence CHECK (conversion_rate > 0)')
     row = journal(conversion_rate=None)
     db.session.add(row)
     db.session.commit()
@@ -157,7 +157,7 @@ def test_constraint_upgrade_preserves_invalid_history_and_rolls_back(clean_ledge
     try:
         with pytest.raises(ValueError, match='journal_conversion_evidence'):
             install_journal_constraints()
-        assert db.session.query(JournalEntries).get(identifier).conversion_rate is None
+        assert db.session.get(JournalEntries, identifier).conversion_rate is None
         definition = db.session.execute(text("SELECT pg_get_constraintdef(oid) FROM pg_constraint "
             "WHERE conrelid='bookkeeping.journal_entries'::regclass AND conname='journal_conversion_evidence'")).scalar()
         assert 'IS TRUE' not in definition

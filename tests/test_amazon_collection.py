@@ -5,6 +5,7 @@ import pytest
 from pacioli.extensions import db
 from pacioli.models import AccountingEvidence,AmazonCollectionRuns
 from pacioli.functions.amazon_collection import capture,collect,order_id,page_identity
+from sqlalchemy import text
 
 
 def receipt():
@@ -15,8 +16,8 @@ def receipt():
 def test_capture_is_encrypted_idempotent_and_never_posts(clean_ledger):
     first=capture(receipt(),'owner');db.session.commit()
     assert capture(receipt(),'owner').id==first.id
-    assert db.session.execute('SELECT payload FROM bookkeeping.accounting_evidence').scalar().startswith('fernet:')
-    assert db.session.execute('SELECT count(*) FROM bookkeeping.journal_entries').scalar()==0
+    assert db.session.execute(text('SELECT payload FROM bookkeeping.accounting_evidence')).scalar().startswith('fernet:')
+    assert db.session.execute(text('SELECT count(*) FROM bookkeeping.journal_entries')).scalar()==0
     changed=receipt();changed['text']='Order 999-1234567-1234567 wrong identity but enough text to exceed minimum'
     with pytest.raises(ValueError):capture(changed,'owner')
     with pytest.raises(ValueError):order_id('https://www.amazon.com.evil.example/gp/your-account/order-details?orderID=123-1234567-1234567')
@@ -61,7 +62,7 @@ def test_collection_waits_for_requested_document_after_navigation(clean_ledger,m
     assert run.state=='complete' and run.documents==1
     assert bridge.ops.count('amazon_navigate')==1 and bridge.ops.count('amazon_back')==1
     assert db.session.query(AccountingEvidence).count()==1
-    assert db.session.execute('SELECT count(*) FROM bookkeeping.journal_entries').scalar()==0
+    assert db.session.execute(text('SELECT count(*) FROM bookkeeping.journal_entries')).scalar()==0
 
 
 def test_page_identity_retains_range_and_page():

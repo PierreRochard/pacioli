@@ -18,7 +18,7 @@
     <p id="local-step" role="status" aria-live="polite"></p>
     <progress id="local-progress" value="0" max="1" aria-label="Completed export intervals" style="width:100%"></progress>
     <details open><summary>Account intervals</summary>
-      <div style="overflow:auto;max-height:16rem"><table class="table table-condensed">
+      <div style="overflow:auto;max-height:16rem"><table class="table table-sm">
         <thead><tr><th>Account ending</th><th>Dates</th><th>Status</th></tr></thead>
         <tbody id="local-intervals"></tbody>
       </table></div>
@@ -26,8 +26,8 @@
     <h3>Live activity</h3>
     <p>Every step is saved and restored when you return. Times are shown in your local time zone. File transaction counts include transactions already present.</p>
     <label><input id="local-follow" type="checkbox" checked> Follow latest activity</label>
-    <button type="button" class="btn btn-default btn-sm" id="local-older" hidden>Earlier activity</button>
-    <button type="button" class="btn btn-default btn-sm" id="local-newest" hidden>Latest activity</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="local-older" hidden>Earlier activity</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="local-newest" hidden>Latest activity</button>
     <p id="local-event-count"></p>
     <ol id="local-events" aria-label="Chase update activity" tabindex="0" style="max-height:28rem;overflow:auto;padding-left:2.8rem"></ol>
     <form method="post" id="local-resume" {% if not run or not run.resumable %}hidden{% endif %}>
@@ -36,7 +36,7 @@
     </form>
     <form method="post" id="local-cancel" {% if not run or not run.active %}hidden{% endif %}>
       <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}"><input type="hidden" name="action" value="cancel"><input class="local-run-id" type="hidden" name="run_id" value="{{ run.id if run else '' }}">
-      <button class="btn btn-default">Cancel</button>
+      <button class="btn btn-secondary">Cancel</button>
     </form>
   </section>
   <h2>Balances and opening candidates</h2>
@@ -51,12 +51,12 @@
       <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
       <input type="hidden" name="action" value="preferences">
       {% for account in accounts %}
-      <div class="checkbox"><label><input type="checkbox" name="account_id" value="{{ account.id }}" {% if account.id in preferences.account_ids %}checked{% endif %}> {{ account.label }}</label></div>
+      <div class="form-check"><label><input type="checkbox" name="account_id" value="{{ account.id }}" {% if account.id in preferences.account_ids %}checked{% endif %}> {{ account.label }}</label></div>
       {% endfor %}
       <label for="overlap-days">Days of recent coverage to recheck</label>
       <input class="form-control" type="number" id="overlap-days" name="overlap_days" min="1" max="90" value="{{ preferences.overlap_days }}" required>
       <p>Dates also include missing intervals within imported history. Settings are saved in Pacioli's database and apply to the next new update.</p>
-      <button class="btn btn-default">Save update settings</button>
+      <button class="btn btn-secondary">Save update settings</button>
     </form>
   </details>
   <p>In Firefox, select your Chase tab and click the <strong>Pacioli Local Chase Connector</strong> toolbar button. Keep that tab open; the update can move it into its own window so you can keep using Pacioli. Complete sign-in and passkey approvals directly in Firefox.</p>
@@ -71,13 +71,13 @@
     <h2>Accounts and dates</h2>
     <p>Choose from previously imported Chase accounts. Import a first QFX manually to register another account.</p>
     {% for account in accounts %}
-      <div class="checkbox"><label><input type="checkbox" name="account_id" value="{{ account.id }}"> {{ account.label }}</label></div>
+      <div class="form-check"><label><input type="checkbox" name="account_id" value="{{ account.id }}"> {{ account.label }}</label></div>
     {% endfor %}
     {% if not accounts %}<p><a href="{{ url_for('connections.import_chase') }}">Import your first Chase QFX</a> to register an account.</p>{% endif %}
     <div class="form-group"><label for="local-from">From</label><input class="form-control" type="date" id="local-from" name="start" value="{{ start }}" max="{{ today }}" required></div>
     <div class="form-group"><label for="local-to">To</label><input class="form-control" type="date" id="local-to" name="end" value="{{ today }}" max="{{ today }}" required></div>
-    <div class="checkbox"><label><input type="checkbox" name="reviewed_usd" value="yes"> These are my USD accounts and I authorize QFX export and import for the selected dates.</label></div>
-    <button class="btn btn-default local-launch" name="action" value="preview" {% if not accounts or (run and run.active) %}disabled{% endif %}>Check page with local model</button>
+    <div class="form-check"><label><input type="checkbox" name="reviewed_usd" value="yes"> These are my USD accounts and I authorize QFX export and import for the selected dates.</label></div>
+    <button class="btn btn-secondary local-launch" name="action" value="preview" {% if not accounts or (run and run.active) %}disabled{% endif %}>Check page with local model</button>
     <button class="btn btn-primary local-launch" name="action" value="start" {% if not accounts or (run and run.active) %}disabled{% endif %}>Start sync</button>
     <p>The page check reads the current export form and proposes one action without activating controls. Sync saves its progress and splits date ranges when Chase reports too many transactions.</p>
   </form>

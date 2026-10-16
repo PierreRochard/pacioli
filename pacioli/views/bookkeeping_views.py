@@ -3,13 +3,13 @@ from flask_admin import expose
 from sqlalchemy import func
 from wtforms import StringField
 
-from pacioli.extensions import admin
+from pacioli.extensions import admin, db
 from pacioli.models import (db, JournalEntries, Subaccounts,
                             Accounts, Classifications, Elements, DetailedJournalEntries)
 from pacioli.views import PrivateModelView
 from pacioli.functions.accounting_functions import journal_period
-from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter, CKTextAreaField, \
-    html_formatter
+from pacioli.views.utilities import date_formatter, id_formatter, currency_formatter, string_formatter
+from wtforms import TextAreaField
 
 
 class JournalEntriesView(PrivateModelView):
@@ -57,12 +57,12 @@ class JournalEntriesView(PrivateModelView):
         if 'subaccount' not in request.view_args:
             return super(JournalEntriesView, self).get_query()
         elif not request.view_args.get('cumulative', None):
-            return (self.session.query(self.model)
+            return (db.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
                     .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
         else:
-            return (self.session.query(self.model)
+            return (db.session.query(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
                     .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
@@ -71,12 +71,12 @@ class JournalEntriesView(PrivateModelView):
         if 'subaccount' not in request.view_args:
             return super(JournalEntriesView, self).get_count_query()
         elif not request.view_args.get('cumulative', None):
-            return (self.session.query(func.count('*')).select_from(self.model)
+            return (db.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
                     .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) == request.view_args['period']))
         else:
-            return (self.session.query(func.count('*')).select_from(self.model)
+            return (db.session.query(func.count('*')).select_from(self.model)
                     .filter(db.or_(self.model.debit_subaccount == request.view_args['subaccount'],
                                    self.model.credit_subaccount == request.view_args['subaccount']))
                     .filter(journal_period(self.model.timestamp, request.view_args['period_interval']) <= request.view_args['period']))
@@ -89,7 +89,7 @@ class JournalEntriesView(PrivateModelView):
     def index_view(self, subaccount=None, period_interval=None, period=None, cumulative=None):
         period_interval = request.view_args.get('period_interval', 'YYYY-MM')
         if not request.view_args.get('period', None):
-            latest = (self.session.query(journal_period(JournalEntries.timestamp, period_interval))
+            latest = (db.session.query(journal_period(JournalEntries.timestamp, period_interval))
                       .order_by(journal_period(JournalEntries.timestamp, period_interval).desc()).first())
             most_recent_period = latest[0] if latest else ''
             request.view_args['period'] = most_recent_period
@@ -97,12 +97,12 @@ class JournalEntriesView(PrivateModelView):
         self._template_args['period_interval'] = period_interval
         self._template_args['period'] = request.view_args['period']
         self._template_args['period_intervals'] = [('YYYY', 'Annual'), ('YYYY-Q', 'Quarterly'), ('YYYY-MM', 'Monthly'), ('YYYY-MM-DD', 'Daily')]
-        self._template_args['periods'] = (self.session.query(journal_period(JournalEntries.timestamp, self._template_args['period_interval']))
+        self._template_args['periods'] = (db.session.query(journal_period(JournalEntries.timestamp, self._template_args['period_interval']))
                                           .order_by(journal_period(JournalEntries.timestamp, self._template_args['period_interval'])
                                                     .desc()).distinct().limit(30))
         self._template_args['periods'] = [p[0] for p in self._template_args['periods']]
         return super(JournalEntriesView, self).index_view()
-admin.add_view(JournalEntriesView(DetailedJournalEntries, db.session, category='Bookkeeping', endpoint='journalentries', name='Journal Entries'))
+admin.add_view(JournalEntriesView(DetailedJournalEntries, db, category='Bookkeeping', endpoint='journalentries', name='Journal Entries'))
 
 
 class TaxonomyModelView(PrivateModelView):
@@ -117,10 +117,7 @@ class SubaccountsModelView(PrivateModelView):
     column_labels = dict(parent='Account')
     column_filters = column_list
     column_searchable_list = column_list[:-1]
-    column_formatters = dict(description=html_formatter)
-    form_overrides = dict(description=CKTextAreaField)
-    create_template = 'create.html'
-    edit_template = 'edit.html'
+    form_overrides = dict(description=TextAreaField)
 
 
 class AccountsModelView(PrivateModelView):
@@ -136,7 +133,7 @@ class ClassificationsModelView(PrivateModelView):
 class ElementsModelView(PrivateModelView):
     column_list = ('name', 'classifications')
 
-admin.add_view(SubaccountsModelView(Subaccounts, db.session, category='Bookkeeping'))
-admin.add_view(AccountsModelView(Accounts, db.session, category='Bookkeeping'))
-admin.add_view(ClassificationsModelView(Classifications, db.session, category='Bookkeeping'))
-admin.add_view(ElementsModelView(Elements, db.session, category='Bookkeeping'))
+admin.add_view(SubaccountsModelView(Subaccounts, db, category='Bookkeeping'))
+admin.add_view(AccountsModelView(Accounts, db, category='Bookkeeping'))
+admin.add_view(ClassificationsModelView(Classifications, db, category='Bookkeeping'))
+admin.add_view(ElementsModelView(Elements, db, category='Bookkeeping'))

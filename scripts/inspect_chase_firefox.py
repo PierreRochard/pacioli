@@ -15,7 +15,7 @@ def main():
     from pacioli.wsgi import app
     from pacioli.models import ChaseBrowserRuns
     with app.app_context():
-        run = ChaseBrowserRuns.query.get(arguments.run_id)
+        run = db.session.get(ChaseBrowserRuns, arguments.run_id)
         report = json.loads(run.diagnostics) if run and run.diagnostics else {}
         if report.get('kind') != 'chase_firefox':
             raise SystemExit('This run has no Firefox diagnostic report.')

@@ -18,7 +18,7 @@ def ensure_ofx_usd(transaction_id):
         {'id': transaction_id}).fetchall()
     if len(rows) != 1:
         raise ValueError('OFX source transaction does not exist or is ambiguous')
-    account = db.session.query(BankFeedAccounts).get(rows[0].account_id)
+    account = db.session.get(BankFeedAccounts, rows[0].account_id)
     if account is None or account.currency != 'USD':
         raise ValueError('OFX account requires reviewed USD currency before posting')
     from pacioli.functions.accounting_report import chart_accounts
@@ -58,7 +58,7 @@ def validate_import_posting(*, timestamp, debit, credit, amount, source_amount,
     else:
         from pacioli.models import AmazonItems, AmazonEvidenceBundles
         import json
-        item = db.session.query(AmazonItems).get(int(transaction_id)) if str(transaction_id).isdigit() else None
+        item = db.session.get(AmazonItems, int(transaction_id)) if str(transaction_id).isdigit() else None
         if item is None:
             raise ValueError('Amazon source item does not exist')
         if item.shipment_date is None or timestamp.date() != item.shipment_date:
@@ -233,7 +233,7 @@ def reverse_entry(entry_id, *, timestamp, reason):
     """Create an idempotent, linked compensating entry without erasing history."""
     if not reason or not reason.strip():
         raise ValueError('A reversal reason is required')
-    original = db.session.query(JournalEntries).get(entry_id)
+    original = db.session.get(JournalEntries, entry_id)
     if original is None:
         raise ValueError('Journal entry does not exist')
     if timestamp < original.timestamp:
@@ -243,7 +243,7 @@ def reverse_entry(entry_id, *, timestamp, reason):
                 .first())
     if existing is not None:
         return existing
-    db.session.execute("SELECT set_config('pacioli.reason', :reason, true)",
+    db.session.execute(text("SELECT set_config('pacioli.reason', :reason, true)"),
                        {'reason': reason.strip()})
     return post_pair(timestamp=timestamp, debit=original.credit_subaccount,
                      credit=original.debit_subaccount,

@@ -45,7 +45,7 @@ def _request_key(run_id, expected_digest):
 
 
 def _request(job):
-    document = db.session.query(AccountingEvidence).get(job.evidence_id)
+    document = db.session.get(AccountingEvidence, job.evidence_id)
     if not document or document.kind != 'amazon_item_post_request':
         raise ValueError('Missing immutable posting authorization')
     body = json.loads(document.payload)
@@ -95,7 +95,7 @@ def create_request(run_id, expected_digest, reviewer, reason):
         old.updated_at = _now()
         db.session.flush()
         return old
-    run = db.session.query(AmazonItemRuns).populate_existing().get(run_id)
+    run = db.session.get(AmazonItemRuns, run_id, populate_existing=True)
     if not run or run.state not in ('completed', 'needs_attention'):
         raise ValueError('Complete item classification before approving financial posting')
     workflow._manifest(run)
@@ -138,7 +138,7 @@ def _status(job):
 
 
 def status(job_id):
-    job = db.session.query(AmazonItemPostRuns).populate_existing().get(_identifier(job_id))
+    job = db.session.get(AmazonItemPostRuns, _identifier(job_id), populate_existing=True)
     if not job:
         raise ValueError('Missing posting request')
     return _status(job)
@@ -203,13 +203,13 @@ def run_worker(job_id):
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return None
-        job = db.session.query(AmazonItemPostRuns).populate_existing().get(job_id)
+        job = db.session.get(AmazonItemPostRuns, job_id, populate_existing=True)
         if not job:
             raise ValueError('Missing posting request')
         if job.state == 'completed':
             return _status(job)
         request = _request(job)
-        run = db.session.query(AmazonItemRuns).populate_existing().get(job.run_id)
+        run = db.session.get(AmazonItemRuns, job.run_id, populate_existing=True)
         if not run or run.input_digest != request['manifest_digest']:
             raise ValueError('The approved review manifest changed')
         job.state = 'running'; job.progress = 'Starting the original approved posting request'
@@ -218,7 +218,7 @@ def run_worker(job_id):
         result = workflow.post_reviewed(request['run_id'], request['expected_digest'],
             request['reviewer'], request['reason'],
             report=lambda stage, **counts: _progress(job_id, stage, **counts))
-        job = db.session.query(AmazonItemPostRuns).populate_existing().get(job_id)
+        job = db.session.get(AmazonItemPostRuns, job_id, populate_existing=True)
         job.state = 'completed'; job.progress = 'The complete reviewed batch has been committed'
         job.result = dump(result); job.updated_at = _now()
         # The success record and every financial write commit together. If the
@@ -227,7 +227,7 @@ def run_worker(job_id):
         return _status(job)
     except Exception as exc:
         db.session.rollback()
-        job = db.session.query(AmazonItemPostRuns).populate_existing().get(job_id)
+        job = db.session.get(AmazonItemPostRuns, job_id, populate_existing=True)
         if job and job.state == 'completed':
             return _status(job)  # A commit succeeded despite a lost acknowledgement.
         if job:

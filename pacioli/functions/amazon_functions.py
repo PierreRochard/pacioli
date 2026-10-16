@@ -217,10 +217,10 @@ def import_amazon_csv(csv_text):
                 continue
 
             category = row.get('category') or 'Other'
-            if db.session.query(AmazonCategories).get(category) is None:
+            if db.session.get(AmazonCategories, category) is None:
                 db.session.add(AmazonCategories(name=category))
                 db.session.flush()
-            if db.session.query(AmazonOrders).get(order_id) is None:
+            if db.session.get(AmazonOrders, order_id) is None:
                 order_date = row.get('order_date')
                 db.session.add(AmazonOrders(
                     id=order_id,

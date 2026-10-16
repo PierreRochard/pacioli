@@ -52,8 +52,8 @@ def batch(clean_ledger):
              'amount':Decimal(amount)})
         ids.append(source_identity(db.session, account, fitid))
     db.session.commit()
-    chart = [dict(row) for row in db.session.execute(text(CHART_SQL))]
-    rows = [dict(row) for row in db.session.execute(text(SOURCE_SQL),{'ids':ids})]
+    chart = [dict(row._mapping) for row in db.session.execute(text(CHART_SQL))]
+    rows = [dict(row._mapping) for row in db.session.execute(text(SOURCE_SQL),{'ids':ids})]
     snapshot = json.loads(json.dumps({'rows':rows,'chart':chart,
         'groups':[{'id':'group-1','source_ids':ids,'merchant':'PINE CAFE'}]},default=str))
     snapshot['snapshot_sha256'] = digest(snapshot)

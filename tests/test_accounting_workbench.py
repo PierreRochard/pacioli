@@ -59,7 +59,7 @@ def test_statement_opening_boundary_replay_and_encryption(bank,monkeypatch):
     row=r.post_opening(acct[0],date(2026,1,1),preview['digest'],'owner')
     db.session.commit()
     assert row.amount==Decimal('100')
-    assert db.session.query(JournalEntries).get(row.journal_id).timestamp==datetime(2025,12,31,23,59,59,999999,tzinfo=timezone.utc)
+    assert db.session.get(JournalEntries, row.journal_id).timestamp==datetime(2025,12,31,23,59,59,999999,tzinfo=timezone.utc)
     assert all(c['difference']==0 for c in r.statement_checks())
     assert r.post_opening(acct[0],date(2026,1,1),preview['digest'],'owner').account_id==acct[0]
     db.session.commit();assert db.session.query(JournalEntries).count()==2
@@ -98,7 +98,7 @@ def test_card_opening_sign_zero_and_changed_equity_leg(bank,monkeypatch,amount):
     preview=r.opening_preview(acct[0],date(2026,1,1))
     row=r.post_opening(acct[0],date(2026,1,1),preview['digest'],'owner');db.session.commit()
     if Decimal(amount):
-        entry=db.session.query(JournalEntries).get(row.journal_id)
+        entry=db.session.get(JournalEntries, row.journal_id)
         assert entry.debit_subaccount=='Personal Equity' and entry.credit_subaccount=='Credit Card'
         entry.debit_subaccount='Restaurants';db.session.commit()
         assert any(i['kind']=='opening_evidence' for i in r.evidence_differences(db.session))
@@ -205,7 +205,7 @@ def test_legacy_amazon_posting_cannot_duplicate_a_reconciled_order(bank,clean_am
     db.session.add(mapping);db.session.commit()
     with pytest.raises(ValueError,match='duplicate'):apply_single_amazon_mapping(mapping.id)
     assert db.session.query(JournalEntries).count()==1
-    db.session.delete(db.session.query(Mappings).get(mapping.id));db.session.commit()
+    db.session.delete(db.session.get(Mappings, mapping.id));db.session.commit()
 
 
 def test_review_fact_model_separation_atomic_approval_and_stale_guard(bank):

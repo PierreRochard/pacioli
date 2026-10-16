@@ -64,11 +64,11 @@ def prepare(path, profile='text14', legacy=False):
     path.mkdir(parents=True, mode=0o700, exist_ok=False)
     with create_engine(database_url()).begin() as connection:
         connection.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'))
-        rows = [dict(row) for row in connection.execute(text('''SELECT
+        rows = [dict(row._mapping) for row in connection.execute(text('''SELECT
             t.id,t.date,t.amount,t.description,t.type::text,t.account,t.account_id,b.currency
             FROM ofx.transactions t LEFT JOIN bookkeeping.bank_feed_accounts b
             ON b.ofx_account_id=t.account_id WHERE t.journal_entry_id IS NULL ORDER BY t.date,t.id'''))]
-        chart = planned_chart([dict(row) for row in connection.execute(text(CHART_SQL))])
+        chart = planned_chart([dict(row._mapping) for row in connection.execute(text(CHART_SQL))])
     rows = json.loads(json.dumps(rows, default=str))
     if len({row['id'] for row in rows}) != len(rows):
         raise ValueError('Ambiguous source identity')

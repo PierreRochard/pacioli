@@ -11,7 +11,7 @@ from pacioli.functions.suspense_advisor import normalized_description
 
 
 def create_review(mapping_id, fact, fact_source, reviewer):
-    mapping = db.session.query(Mappings).get(mapping_id)
+    mapping = db.session.get(Mappings, mapping_id)
     if not mapping or mapping.source!='ofx' or mapping.match_mode!='exact' or not mapping.review_required:
         raise ValueError('Choose an exact provisional OFX mapping')
     if len(fact)>4000 or len(fact_source)>1000 or (fact and not fact_source.strip()):
@@ -48,7 +48,7 @@ def model_record(review):
 
 def run_advisor(review_id, infer_fn=None):
     """One worker, one bounded job. Model output is evidence, never authorization."""
-    row=db.session.query(AccountingReviews).get(review_id)
+    row=db.session.get(AccountingReviews, review_id)
     if not row or row.state!='queued':
         return
     row.state='running';row.updated_at=datetime.now(timezone.utc);db.session.commit()
@@ -76,7 +76,7 @@ def run_advisor(review_id, infer_fn=None):
 
 
 def approve_review(review_id, category, reason, reviewer):
-    row=db.session.query(AccountingReviews).get(review_id)
+    row=db.session.get(AccountingReviews, review_id)
     if not row or not reason.strip() or len(reason)>2000:
         raise ValueError('A review and independent reason are required')
     if row.state=='approved':

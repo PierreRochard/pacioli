@@ -16,8 +16,8 @@ def main():
                         help='virtual environment path (default: .venv)')
     args = parser.parse_args()
 
-    if sys.version_info[:2] != (3, 11):
-        parser.error('Pacioli currently requires Python 3.11')
+    if sys.version_info[:2] != (3, 14):
+        parser.error('Pacioli requires Python 3.14, the version its lock files are resolved for')
 
     repository = Path(__file__).resolve().parent
     environment = args.venv.expanduser().resolve()
@@ -29,7 +29,7 @@ def main():
     if pip_environment.get('TMPDIR'):
         pip_environment.setdefault('PIP_CACHE_DIR',
                                    str(Path(pip_environment['TMPDIR']) / 'pacioli-pip-cache'))
-    subprocess.run([str(python), '-m', 'pip', 'install', '-r', str(requirements)],
+    subprocess.run([str(python), '-m', 'pip', 'install', '--require-hashes', '-r', str(requirements)],
                    check=True, env=pip_environment)
     print('Pacioli environment ready:', environment)
 

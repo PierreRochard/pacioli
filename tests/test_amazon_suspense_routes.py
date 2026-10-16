@@ -274,9 +274,9 @@ def test_suspense_active_posting_disables_preparation_review_and_fact_mutation(
     response = client.get(BASE)
     assert response.status_code == 200
     assert b'Posting is in progress.' in response.data
-    assert re.search(rb'class="btn btn-default"\s+disabled>Prepare current-policy review', response.data)
+    assert re.search(rb'class="btn btn-secondary"\s+disabled>Prepare current-policy review', response.data)
     assert re.search(rb'class="btn btn-primary"\s+disabled>Save reviewed classifications', response.data)
-    assert re.search(rb'class="btn btn-default"\s+disabled>Save purchase context', response.data)
+    assert re.search(rb'class="btn btn-secondary"\s+disabled>Save purchase context', response.data)
 
 
 def test_suspense_empty_workbench_has_actionable_source_link(client, admin_user, suspense_routes):

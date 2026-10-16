@@ -76,7 +76,7 @@ def evidence(kind, payload, reviewer):
 def account(account_id):
     row = db.session.execute(text('SELECT id, name FROM ofx.acctfrom WHERE id=:id'),
                              {'id': account_id}).first()
-    registered = db.session.query(BankFeedAccounts).get(account_id)
+    registered = db.session.get(BankFeedAccounts, account_id)
     if not row or not registered or registered.currency != 'USD':
         raise ValueError('Select a registered USD account')
     from pacioli.functions.accounting_report import chart_accounts
@@ -89,7 +89,7 @@ def account(account_id):
 
 
 def source_rows(account_id, start, end):
-    return [dict(r) for r in db.session.execute(text('''SELECT id, date, amount, description
+    return [dict(r._mapping) for r in db.session.execute(text('''SELECT id, date, amount, description
         FROM ofx.transactions WHERE account_id=:aid AND date>=:start AND date<:end ORDER BY id'''),
         dict(aid=account_id, start=midnight(start), end=midnight(end + timedelta(days=1))))]
 
@@ -161,7 +161,7 @@ def post_opening(account_id, cutover, expected_digest, reviewer):
     preview = opening_preview(account_id, cutover)
     if preview['digest'] != expected_digest:
         raise ValueError('Opening evidence changed; preview again')
-    old = db.session.query(OpeningBalances).get(account_id)
+    old = db.session.get(OpeningBalances, account_id)
     if old:
         if old.evidence_digest != expected_digest:
             raise ValueError('An opening already exists with different evidence')
@@ -211,7 +211,7 @@ def statement_checks():
 def opening_journal_matches(row):
     if row.amount == 0:
         return row.journal_id is None
-    entry=db.session.query(JournalEntries).get(row.journal_id)
+    entry=db.session.get(JournalEntries, row.journal_id)
     name=json.loads(row.details)['account']
     debit,credit=(name,'Personal Equity') if row.amount>0 else ('Personal Equity',name)
     return bool(entry and entry.transaction_source=='statement_opening' and
@@ -330,7 +330,7 @@ def transfer_pair(left, right):
 
 def match_transfer(left_id, right_id, expected_digest, reviewer, reason):
     lock_ledger(reviewer, reason)
-    legs = transfer_pair(db.session.query(JournalEntries).get(left_id), db.session.query(JournalEntries).get(right_id))
+    legs = transfer_pair(db.session.get(JournalEntries, left_id), db.session.get(JournalEntries, right_id))
     sha = digest(legs)
     if sha != expected_digest:
         raise ValueError('Transfer changed; refresh candidates')
@@ -339,7 +339,7 @@ def match_transfer(left_id, right_id, expected_digest, reviewer, reason):
         return old
     for leg in legs:
         require_open(datetime.fromisoformat(leg['date']))
-        if db.session.query(TransferMatchLegs).get(leg['journal_id']):
+        if db.session.get(TransferMatchLegs, leg['journal_id']):
             raise ValueError('A transfer leg is already matched')
     row = TransferMatches(fingerprint=sha, details=dump(dict(legs=legs, reason=reason)), reviewer=reviewer)
     db.session.add(row)

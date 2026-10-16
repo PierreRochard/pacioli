@@ -417,8 +417,8 @@ def fake_bank(native_run, monkeypatch):
 
 
 def _reload(run, credentials):
-    return (db.session.query(ChaseBrowserRuns).get(inspect(run).identity[0]),
-            db.session.query(ChaseBrowserCredentials).get(inspect(credentials).identity[0]))
+    return (db.session.get(ChaseBrowserRuns, inspect(run).identity[0]),
+            db.session.get(ChaseBrowserCredentials, inspect(credentials).identity[0]))
 
 
 def test_offline_mfa_export_balance_and_persistent_reuse(

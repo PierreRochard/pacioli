@@ -132,7 +132,7 @@ def match_records(records, transactions, accounts, booked):
 
 
 def _source_tables(session, identifier):
-    doc = session.query(AccountingEvidence).get(identifier)
+    doc = session.get(AccountingEvidence, identifier)
     if not doc or doc.kind != 'amazon_csv_import':
         raise ValueError('Select a saved Amazon source archive')
     manifest = json.loads(doc.payload)
@@ -140,7 +140,7 @@ def _source_tables(session, identifier):
         raise ValueError('Archive manifest evidence changed')
     tables = []
     for entry in manifest['tables']:
-        source = session.query(AccountingEvidence).get(entry['evidence_id'])
+        source = session.get(AccountingEvidence, entry['evidence_id'])
         if not source or source.kind != 'amazon_csv_table' or digest(json.loads(source.payload)) != source.sha256:
             raise ValueError('Saved source table evidence is missing or changed')
         body = json.loads(source.payload)
@@ -153,7 +153,7 @@ def _source_tables(session, identifier):
 
 
 def _bank_inputs(session):
-    accounts = [dict(row) for row in session.execute(text('''
+    accounts = [dict(row._mapping) for row in session.execute(text('''
         SELECT a.id, a.name, f.currency,
             right(regexp_replace(COALESCE(c.acctid,b.acctid,''),'[^0-9]','','g'),4) AS last4,
             min(t.date)::date::text AS first_date, max(t.date)::date::text AS last_date
@@ -163,7 +163,7 @@ def _bank_inputs(session):
         LEFT JOIN ofx.transactions t ON t.account_id=a.id
         GROUP BY a.id,a.name,f.currency,c.acctid,b.acctid ORDER BY a.id'''))]
     account_map = {a['id']: a for a in accounts}
-    transactions = [dict(row) for row in session.execute(text('''
+    transactions = [dict(row._mapping) for row in session.execute(text('''
         SELECT id,date,amount,account,account_id,description FROM ofx.transactions
         WHERE description ILIKE '%AMAZON%' OR description ILIKE '%AMZN%' ORDER BY id'''))]
     journals = defaultdict(list)
@@ -171,7 +171,7 @@ def _bank_inputs(session):
         WHERE j.transaction_source='ofx' AND j.transaction_id IN (
           SELECT id FROM ofx.transactions WHERE description ILIKE '%AMAZON%' OR description ILIKE '%AMZN%')
         ORDER BY j.id''')):
-        journals[row.transaction_id].append(dict(row))
+        journals[row.transaction_id].append(dict(row._mapping))
     for t in transactions:
         a = account_map[t['account_id']]
         t['currency'], t['card_last4'] = a['currency'], a['last4'] or None
@@ -281,7 +281,7 @@ def _positive_integer(value, label):
 
 
 def _saved_report(identifier):
-    doc = db.session.query(AccountingEvidence).get(_positive_integer(identifier, 'reconciliation report'))
+    doc = db.session.get(AccountingEvidence, _positive_integer(identifier, 'reconciliation report'))
     if not doc or doc.kind != 'amazon_reconciliation':
         raise ValueError('Select a saved Amazon reconciliation report')
     body = json.loads(doc.payload)

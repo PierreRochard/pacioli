@@ -6,12 +6,13 @@ import re
 import secrets
 
 from flask import abort, current_app, redirect, render_template, request, url_for
-from flask_security.utils import encrypt_password
+from flask_security.utils import hash_password
 from flask_wtf.csrf import validate_csrf
 from wtforms.validators import ValidationError
 
 from pacioli.extensions import db
 from pacioli.models import AdminSetupLinks, Roles, Users
+from sqlalchemy import text
 
 
 SETUP_LOCK = 72419035
@@ -20,7 +21,7 @@ LINK_LIFETIME = timedelta(hours=2)
 
 def _lock_setup(session):
     # The issuer and browser POST serialize the zero-user check and token use.
-    session.execute('SELECT pg_advisory_xact_lock({})'.format(SETUP_LOCK))
+    session.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': SETUP_LOCK})
 
 
 def issue_admin_link(session, public_url):
@@ -107,7 +108,7 @@ def _setup_admin():
     if role is None:
         role = Roles(name='administrator', description='administrator')
         db.session.add(role)
-    user = Users(email=email, password=encrypt_password(password),
+    user = Users(email=email, password=hash_password(password),
                  active=True, confirmed_at=now.replace(tzinfo=None))
     user.roles.append(role)
     db.session.add(user)

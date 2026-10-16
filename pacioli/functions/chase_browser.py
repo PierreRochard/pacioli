@@ -74,7 +74,7 @@ def _now():
 
 
 def _run(run_id):
-    run = db.session.query(ChaseBrowserRuns).get(run_id)
+    run = db.session.get(ChaseBrowserRuns, run_id)
     if run is None:
         raise ChaseBrowserError('run_missing')
     return run

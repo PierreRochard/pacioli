@@ -25,7 +25,7 @@ KIND = 'qfx_snapshot_timing'
 
 
 def _export(row):
-    response = db.session.query(ConnectionResponses).get(row.response_id)
+    response = db.session.get(ConnectionResponses, row.response_id)
     if not response or not isinstance(response.response, str) or response.connection_id != row.connection_id:
         raise ValueError('Original QFX response is missing or has changed')
     raw = response.response.encode('latin-1')
@@ -64,16 +64,16 @@ def _export(row):
 def _sources(account_id, start, end):
     # OFX source dates are naive UTC; bind naive UTC boundaries even if the
     # PostgreSQL session uses a different timezone.
-    return [dict(r) for r in db.session.execute(text('''SELECT id,date,amount,description
+    return [dict(r._mapping) for r in db.session.execute(text('''SELECT id,date,amount,description
         FROM ofx.transactions WHERE account_id=:aid AND date>=:start AND date<:end ORDER BY id'''),
         {'aid': account_id, 'start': datetime.combine(start, datetime.min.time()),
          'end': datetime.combine(end + timedelta(days=1), datetime.min.time())})]
 
 
 def preview(original_id, witness_id, statement_id):
-    original = db.session.query(OFXFileImports).get(original_id)
-    witness = db.session.query(OFXFileImports).get(witness_id)
-    anchor = db.session.query(BankStatements).get(statement_id)
+    original = db.session.get(OFXFileImports, original_id)
+    witness = db.session.get(OFXFileImports, witness_id)
+    anchor = db.session.get(BankStatements, statement_id)
     if not original or not witness or not anchor or not (original.ofx_account_id == witness.ofx_account_id == anchor.account_id):
         raise ValueError('Select original and later QFX exports and a statement for the same account')
     acct = rec.account(original.ofx_account_id)
@@ -81,7 +81,7 @@ def preview(original_id, witness_id, statement_id):
     day, last_day = asof.date(), later.date()
     if anchor.end_date >= day or last_day <= day or witness.imported_at <= original.imported_at:
         raise ValueError('A prior statement and a later observed balance are required')
-    opening = db.session.query(OpeningBalances).get(acct.id)
+    opening = db.session.get(OpeningBalances, acct.id)
     if not opening or opening.cutover > anchor.end_date or not rec.opening_journal_matches(opening):
         raise ValueError('A valid statement-supported opening is required')
     current_balance = db.session.execute(text('SELECT balamt FROM ofx.ledgerbal WHERE acctfrom_id=:id AND dtasof=:asof'),
@@ -92,7 +92,7 @@ def preview(original_id, witness_id, statement_id):
         {'id': acct.id, 'asof': later.replace(tzinfo=None)}).scalar()
     if current_later != witness.balance_amount:
         raise ValueError('The later snapshot was revised; review the current balance')
-    document = db.session.query(AccountingEvidence).get(anchor.evidence_id)
+    document = db.session.get(AccountingEvidence, anchor.evidence_id)
     if not document or document.kind != 'bank_statement' or sha256(document.payload.encode()).hexdigest() != document.sha256:
         raise ValueError('Statement evidence is missing or has changed')
     body = json.loads(document.payload)

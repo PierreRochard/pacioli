@@ -341,7 +341,7 @@ def amazon_support_evidence(session, end=None):
             if allocations != sorted(allocations, key=lambda a: (a['category'], a['amount'])):
                 raise ValueError('Reviewed allocation order changed')
             payload = dict(bundle_id=bundle.id, evidence_digest=digest(body),
-                source=dict(source, date=utc_timestamp(source.date)), allocations=allocations)
+                source=dict(source._mapping, date=utc_timestamp(source.date)), allocations=allocations)
             if any(proof.get(k) != v for k,v in json.loads(dump(payload)).items()):
                 raise ValueError('Reviewed allocation fingerprint no longer agrees')
             if partial and not any(a['category'] != 'Bookkeeping Suspense' for a in allocations):
@@ -579,7 +579,7 @@ def bank_balance_differences(session, *, include_reviewed=False, end=None):
         next_day = datetime.combine(as_of.astimezone(timezone.utc).date() +
                                     timedelta(days=1), time.min,
                                     tzinfo=timezone.utc)
-        registration = session.query(BankFeedAccounts).get(account_id)
+        registration = session.get(BankFeedAccounts, account_id)
         if registration is None or registration.currency != 'USD':
             differences.append({'account_id': account_id, 'as_of': as_of,
                                 'subaccount': subaccount,
@@ -618,7 +618,7 @@ def amazon_settlement_differences(session, end=None):
     if end is not None:
         entries = entries.filter(JournalEntries.timestamp < end)
     for entry in entries:
-        item = session.query(AmazonItems).get(int(entry.transaction_id)) if (
+        item = session.get(AmazonItems, int(entry.transaction_id)) if (
             entry.transaction_id and entry.transaction_id.isdigit()) else None
         if item is None or item.item_total is None:
             continue  # Source existence and amount are checked separately.

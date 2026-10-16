@@ -344,7 +344,7 @@ class ChasePasskeyDiagnostics:
     def persist(self, force=False):
         if not force and time.monotonic() - self.last_persist < 10:
             return
-        run = db.session.query(ChaseBrowserRuns).get(self.run_id)
+        run = db.session.get(ChaseBrowserRuns, self.run_id)
         if run is None:
             return
         run.diagnostics = json.dumps(self.report(), separators=(',', ':'))

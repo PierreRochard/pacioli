@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import text
 
-from pacioli.extensions import db
+from pacioli.extensions import db, run_sql
 from pacioli.functions import chase_browser
 from pacioli.functions.chase_diagnostics import (
     MAX_EVENTS, ChasePasskeyDiagnostics, _chase_endpoint, _machine_codes)
@@ -26,16 +26,16 @@ PATH = '/connections/chase/'
 def clean_chase_connector(app_context, app, tmp_path, monkeypatch):
     monkeypatch.setitem(app.config, 'CHASE_BROWSER_PROFILE_ROOT', tmp_path / 'profiles')
     db.session.remove()
-    db.engine.execute(text('DELETE FROM admin.chase_local_preferences'))
-    db.engine.execute(text('DELETE FROM admin.chase_browser_runs'))
-    db.engine.execute(text('DELETE FROM admin.chase_browser_credentials'))
-    db.engine.execute(text("DELETE FROM admin.connections WHERE source = 'chase_browser'"))
+    run_sql(text('DELETE FROM admin.chase_local_preferences'))
+    run_sql(text('DELETE FROM admin.chase_browser_runs'))
+    run_sql(text('DELETE FROM admin.chase_browser_credentials'))
+    run_sql(text("DELETE FROM admin.connections WHERE source = 'chase_browser'"))
     yield
     db.session.remove()
-    db.engine.execute(text('DELETE FROM admin.chase_local_preferences'))
-    db.engine.execute(text('DELETE FROM admin.chase_browser_runs'))
-    db.engine.execute(text('DELETE FROM admin.chase_browser_credentials'))
-    db.engine.execute(text("DELETE FROM admin.connections WHERE source = 'chase_browser'"))
+    run_sql(text('DELETE FROM admin.chase_local_preferences'))
+    run_sql(text('DELETE FROM admin.chase_browser_runs'))
+    run_sql(text('DELETE FROM admin.chase_browser_credentials'))
+    run_sql(text("DELETE FROM admin.connections WHERE source = 'chase_browser'"))
 
 
 def _csrf(html):
@@ -462,7 +462,7 @@ def test_chase_rejection_stops_enrollment_and_preserves_diagnostics(
     monkeypatch.setattr(chase_browser, '_run_browser', cancelled)
     run_id = run.id
     chase_browser.run_worker(run_id)
-    run = db.session.query(ChaseBrowserRuns).get(run_id)
+    run = db.session.get(ChaseBrowserRuns, run_id)
     assert run.status == 'failed'
     assert run.error_code == 'chase_passkey_rejected'
     assert json.loads(run.diagnostics)['events'][-1]['error_code'] == (
@@ -482,7 +482,7 @@ def test_chase_rejection_stops_enrollment_and_preserves_diagnostics(
     monkeypatch.setattr(chase_browser, '_run_browser', unexpected)
     failed_id = failed.id
     chase_browser.run_worker(failed_id)
-    failed = db.session.query(ChaseBrowserRuns).get(failed_id)
+    failed = db.session.get(ChaseBrowserRuns, failed_id)
     assert failed.status == 'failed'
     report = json.loads(failed.diagnostics)
     assert report['events'][-1]['exception_type'] == 'RuntimeError'

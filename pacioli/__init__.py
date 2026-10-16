@@ -1,3 +1,10 @@
+import configparser
+
+# The pinned ofxtools fork imports SafeConfigParser, an alias of ConfigParser
+# that Python 3.12 removed. Restore the alias before anything imports ofxtools.
+if not hasattr(configparser, 'SafeConfigParser'):
+    configparser.SafeConfigParser = configparser.ConfigParser
+
 from flask import Flask, url_for
 from flask_security import Security
 from flask_admin import helpers as admin_helpers
@@ -20,7 +27,8 @@ def create_app(config_object, env="prod"):
 
     @security.context_processor
     def security_context_processor():
-        return dict(admin_base_template=admin.base_template,
+        return dict(admin_base_template=admin.theme.base_template,
+                    theme=admin.theme,
                     admin_view=admin.index_view,
                     h=admin_helpers,
                     get_url=url_for)

@@ -177,7 +177,7 @@ def csv_bytes(headers, rows, numeric=()):
 
 
 def source_table_csv(identifier):
-    doc = db.session.query(AccountingEvidence).get(identifier)
+    doc = db.session.get(AccountingEvidence, identifier)
     if not doc or doc.kind != 'amazon_csv_table':
         raise ValueError('Select an imported Amazon CSV table')
     table = json.loads(doc.payload)
@@ -186,11 +186,11 @@ def source_table_csv(identifier):
 
 
 def original_archive(identifier):
-    doc = db.session.query(AccountingEvidence).get(identifier)
+    doc = db.session.get(AccountingEvidence, identifier)
     if not doc or doc.kind != 'amazon_csv_import':
         raise ValueError('Select an Amazon archive import')
     manifest = json.loads(doc.payload)
-    source = db.session.query(AccountingEvidence).get(manifest['source_id'])
+    source = db.session.get(AccountingEvidence, manifest['source_id'])
     content = base64.b64decode(json.loads(source.payload)['base64'], validate=True)
     if hashlib.sha256(content).hexdigest() != manifest['source_sha256']:
         raise ValueError('Stored archive hash mismatch')

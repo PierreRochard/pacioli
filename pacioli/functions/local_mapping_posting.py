@@ -145,13 +145,13 @@ def post_reviewed_batch(snapshot, proposals, review, *, commit=False, bulk=False
             bookkeeping.bank_feed_accounts,bookkeeping.subaccounts,bookkeeping.accounts,
             bookkeeping.classifications,bookkeeping.elements IN SHARE MODE'''))
         db.session.execute(text('LOCK TABLE admin.mappings IN SHARE ROW EXCLUSIVE MODE'))
-        live_chart = [dict(row) for row in db.session.execute(text(CHART_SQL))]
+        live_chart = [dict(row._mapping) for row in db.session.execute(text(CHART_SQL))]
         chart = {row['name']:row for row in live_chart}
         if any(chart.get(row['name']) != row for row in snapshot['chart']):
             raise ValueError('Chart changed after classification; review again')
         ids = [item['source']['id'] for item in selected]
         live_rows = list(db.session.execute(text(SOURCE_SQL),{'ids':ids}))
-        live_sources = {row['id']:json.loads(json.dumps(dict(row),default=str)) for row in live_rows}
+        live_sources = {row.id:json.loads(json.dumps(dict(row._mapping),default=str)) for row in live_rows}
         if len(live_sources)!=len(ids) or len(live_rows)!=len(ids):
             raise ValueError('An approved source was removed or its identity became ambiguous')
         latest_closed = db.session.execute(text('SELECT max(period) FROM bookkeeping.closed_periods')).scalar()

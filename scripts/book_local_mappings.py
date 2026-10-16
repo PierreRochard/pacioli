@@ -133,12 +133,12 @@ def prepare(directory, supermarket_policy):
     directory.mkdir(mode=0o700,parents=True,exist_ok=False)
     with create_engine(database_url()).begin() as connection:
         connection.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'))
-        rows = [dict(row) for row in connection.execute(text('''
+        rows = [dict(row._mapping) for row in connection.execute(text('''
             SELECT t.id,t.date,t.amount,t.description,t.type::text,t.account,t.account_id,b.currency
             FROM ofx.transactions t LEFT JOIN bookkeeping.bank_feed_accounts b
               ON b.ofx_account_id=t.account_id
             WHERE t.journal_entry_id IS NULL ORDER BY t.date,t.id'''))]
-        chart = [dict(row) for row in connection.execute(text('''
+        chart = [dict(row._mapping) for row in connection.execute(text('''
             SELECT s.name,a.name account,c.name classification,e.name element
             FROM bookkeeping.subaccounts s JOIN bookkeeping.accounts a ON a.name=s.parent
             JOIN bookkeeping.classifications c ON c.name=a.parent

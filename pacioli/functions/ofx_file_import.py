@@ -94,7 +94,7 @@ def _retain_response(content, connection_id):
                 session.add(connection)
                 session.flush()
         else:
-            connection = session.query(Connections).get(connection_id)
+            connection = session.get(Connections, connection_id)
             if connection is None or connection.source != 'ofx':
                 raise ValueError('A saved OFX connection is required')
         response = ConnectionResponses(connection_id=connection.id,
@@ -109,7 +109,7 @@ def _retain_response(content, connection_id):
 
 def _reject_response(response_id, error):
     with Session(bind=ofx_engine()) as session:
-        response = session.query(ConnectionResponses).get(response_id)
+        response = session.get(ConnectionResponses, response_id)
         response.import_status = 'rejected'
         # Raw provider messages can contain credentials or account identifiers.
         # The response itself is encrypted; diagnostics retain only a safe code.
@@ -376,7 +376,7 @@ def import_ofx_statement(content, *, currency, connection_id=None, expected_acco
         progress('import_lock')
         OFX_Session.execute(text("SELECT pg_advisory_xact_lock(hashtext('pacioli.trial_balances'))"))
         OFX_Session.execute(text('SELECT pg_advisory_xact_lock(724109, 2)'))
-        response = OFX_Session.query(ConnectionResponses).get(response_id)
+        response = OFX_Session.get(ConnectionResponses, response_id)
         connection = (OFX_Session.query(Connections).filter_by(id=source_connection_id)
                       .with_for_update().one())
         if connection.currency != currency:
@@ -405,7 +405,7 @@ def import_ofx_statement(content, *, currency, connection_id=None, expected_acco
         OFX_Session.flush()
         if allowed_account_ids is not None and account.id not in allowed_account_ids:
             raise AccountNotApproved('QFX account is not approved for automatic import')
-        registration = OFX_Session.query(BankFeedAccounts).get(account.id)
+        registration = OFX_Session.get(BankFeedAccounts, account.id)
         if registration is not None and registration.currency != currency:
             raise ImportRejected('currency_registration_conflict', 'This feed has a conflicting currency registration')
         if registration is None:

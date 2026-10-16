@@ -283,6 +283,17 @@ def test_overlap_page_shows_conflicting_case_equivalent_exact_rules_once(mapping
     assert (case.token + ' cafe').upper().encode() in response.data
 
 
+def test_overlap_view_pairs_exact_and_keyword_rules(mapping_case):
+    case = mapping_case
+    case.source(case.token + ' Pine Cafe')
+    exact = case.rule(case.token + ' pine cafe', 'Restaurants', match_mode='exact')
+    keyword = case.rule(case.token + ' cafe', 'Groceries')
+    case.rule(case.token + ' pine', 'Groceries', match_mode='exact')
+    db.session.commit()
+    rows = db.session.execute(text('SELECT mapping_id_1,mapping_id_2 FROM admin.mapping_overlaps')).all()
+    assert [tuple(row) for row in rows] == [(exact.id, keyword.id)]
+
+
 def test_overlap_page_uses_literal_words_and_source_account_scope(mapping_case, client, admin_user):
     case = mapping_case
     case.source(case.token + 'X100 other shop')

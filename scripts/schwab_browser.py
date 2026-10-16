@@ -154,7 +154,7 @@ def saved_login():
     from pacioli.models import BrokerageCredentials
     app = create_app('pacioli.settings.ProdConfig', env='Prod')
     with app.app_context():
-        row = db.session.query(BrokerageCredentials).get('schwab')
+        row = db.session.get(BrokerageCredentials, 'schwab')
         login = (row.username, row.password) if row else None
         db.session.remove()
     return login

@@ -2,7 +2,7 @@ from pacioli.extensions import admin
 from pacioli.models import (db, Paystubs, PaystubItems)
 from pacioli.views import PrivateModelView
 
-admin.add_view(PrivateModelView(Paystubs, db.session, category='Payroll'))
+admin.add_view(PrivateModelView(Paystubs, db, category='Payroll'))
 
 
 class PaystubItemsModelView(PrivateModelView):
@@ -21,4 +21,4 @@ class PaystubItemsModelView(PrivateModelView):
                                      ('Social Security Tax', 'Social Security Tax')])
     form_columns = ('description', 'this_period', 'year_to_date', 'statutory', 'paystub', 'rate', 'hours')
 
-admin.add_view(PaystubItemsModelView(PaystubItems, db.session, category='Payroll'))
+admin.add_view(PaystubItemsModelView(PaystubItems, db, category='Payroll'))

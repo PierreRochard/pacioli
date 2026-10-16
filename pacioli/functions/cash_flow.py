@@ -307,7 +307,7 @@ def cash_flow_details(session, start, end_exclusive, section, label=None, page=1
     query = _query(_DETAILS).bindparams(bindparam('label', type_=String()),
                                       bindparam('direction', type_=String()))
     for row in session.execute(query, params):
-        values = dict(row)
+        values = dict(row._mapping)
         total = values.pop('total')
         if values['journal_id'] is not None:
             rows.append(values)

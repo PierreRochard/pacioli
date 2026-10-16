@@ -21,16 +21,16 @@ ROLES = {
 
 def ensure_chart_path(session, element, classification, account, cash_source, subaccount):
     """Add missing levels; refuse to reinterpret an existing name under another parent."""
-    if session.query(Elements).get(element) is None:
+    if session.get(Elements, element) is None:
         session.add(Elements(name=element))
         session.flush()
-    existing = session.query(Classifications).get(classification)
+    existing = session.get(Classifications, classification)
     if existing is None:
         session.add(Classifications(name=classification, parent=element))
         session.flush()
     elif existing.parent != element:
         raise ValueError('Chart classification {} already belongs to {}'.format(classification, existing.parent))
-    existing = session.query(Accounts).get(account)
+    existing = session.get(Accounts, account)
     if existing is None:
         session.add(Accounts(name=account, parent=classification, cash_source=cash_source, is_cash=False))
         session.flush()

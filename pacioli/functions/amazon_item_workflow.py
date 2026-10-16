@@ -37,7 +37,7 @@ def _policy():
 
 
 def _document(identifier, kind):
-    doc = db.session.query(AccountingEvidence).get(identifier)
+    doc = db.session.get(AccountingEvidence, identifier)
     if not doc or doc.kind != kind:
         raise ValueError('Missing item review evidence')
     body = json.loads(doc.payload)
@@ -150,7 +150,7 @@ def _carry_forward(settlement, bundle, categories):
     if len(proven) != 1:
         raise ValueError('A refreshed partial allocation requires one original item-review proof')
     item_document, proof = proven[0]
-    old_run = db.session.query(AmazonItemRuns).populate_existing().get(proof['run_id'])
+    old_run = db.session.get(AmazonItemRuns, proof['run_id'], populate_existing=True)
     if not old_run or old_run.input_digest != proof['manifest_digest']:
         raise ValueError('The original posted item manifest changed')
     old_manifest = _manifest(old_run)
@@ -164,7 +164,7 @@ def _carry_forward(settlement, bundle, categories):
     for identifier in proof['decisions']:
         decision = _document(identifier, 'amazon_item_decision')
         item = old_items.get(decision.get('item_id'))
-        job = db.session.query(AmazonItemJobs).populate_existing().get(decision.get('job_id'))
+        job = db.session.get(AmazonItemJobs, decision.get('job_id'), populate_existing=True)
         if (not item or item['item_id'] in decisions or not job
                 or decision.get('run_id') != old_run.id or job.run_id != old_run.id
                 or job.item_id != item['item_id'] or decision.get('item_digest') != digest(item)
@@ -303,11 +303,11 @@ def create_run(archive_id, reviewer, think=False):
 
 
 def run_status(run_id):
-    run = db.session.query(AmazonItemRuns).get(run_id)
+    run = db.session.get(AmazonItemRuns, run_id)
     if not run:
         raise ValueError('Missing item run')
     rows = db.session.query(AmazonItemJobs.state, func.count(AmazonItemJobs.id),
-        func.sum(case([(AmazonItemJobs.decision_id.isnot(None), 1)], else_=0))).filter_by(
+        func.sum(case((AmazonItemJobs.decision_id.isnot(None), 1), else_=0))).filter_by(
             run_id=run_id).group_by(AmazonItemJobs.state).all()
     counts = {state: int(count) for state, count, reviewed in rows}
     counts.update(total=sum(int(count) for _,count,_ in rows),
@@ -331,7 +331,7 @@ def run_worker(run_id, infer_fn=None):
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
-        run = db.session.query(AmazonItemRuns).get(run_id)
+        run = db.session.get(AmazonItemRuns, run_id)
         if not run:
             raise ValueError('Missing item run')
         manifest = _manifest(run)
@@ -425,7 +425,7 @@ def run_worker(run_id, infer_fn=None):
                 job.updated_at = _now(); db.session.commit()
                 active_job_id = None
                 progress('validated_' + job.state)
-        run = db.session.query(AmazonItemRuns).get(run_id)
+        run = db.session.get(AmazonItemRuns, run_id)
         failures = sum(j.state == 'failed' and j.decision_id is None for j in _jobs(run_id))
         run.state = 'needs_attention' if failures else 'completed'
         run.progress = ('{} item responses need retry or review'.format(failures) if failures else
@@ -442,7 +442,7 @@ def run_worker(run_id, infer_fn=None):
                     validation_errors=['worker_runtime_failure'], failure_phase='runtime',
                     failure_code=type(exc).__name__, retryable=True))
                 stopped.updated_at = _now()
-        run = db.session.query(AmazonItemRuns).get(run_id)
+        run = db.session.get(AmazonItemRuns, run_id)
         if run:
             run.state = 'needs_attention'
             run.progress = 'Item worker stopped ({}). Saved proposals are retained; retry incomplete items.'.format(type(exc).__name__)
@@ -460,7 +460,7 @@ def review_item(job_id, category, reason, reviewer):
         raise ValueError('Missing item')
     if job.state in ('queued', 'running'):
         raise ValueError('Wait for this item proposal before reviewing it')
-    run = db.session.query(AmazonItemRuns).get(job.run_id)
+    run = db.session.get(AmazonItemRuns, job.run_id)
     manifest = _manifest(run)
     item = _items(manifest)[job.item_id]
     category = category or None
@@ -473,7 +473,7 @@ def review_item(job_id, category, reason, reviewer):
     previous = _decision(job)
     if (previous and previous['category'] == category and previous['reason'] == reason.strip()
             and previous.get('suspense_control') == control):
-        return db.session.query(AccountingEvidence).get(job.decision_id)
+        return db.session.get(AccountingEvidence, job.decision_id)
     body = dict(run_id=run.id, job_id=job.id, item_id=job.item_id, category=category,
         reason=reason.strip(), reviewer=reviewer, manifest_digest=run.input_digest,
         item_digest=digest(item), proposal_digest=digest(json.loads(job.proposal)) if job.proposal else None,
@@ -488,7 +488,7 @@ def review_item(job_id, category, reason, reviewer):
 
 
 def review_digest(run_id):
-    run = db.session.query(AmazonItemRuns).get(run_id)
+    run = db.session.get(AmazonItemRuns, run_id)
     if not run:
         raise ValueError('Missing item run')
     manifest = _manifest(run)
@@ -710,7 +710,7 @@ def page(run_id=None, page=1):
     except (ValueError, TypeError):
         raise ValueError('Invalid item page')
     runs = db.session.query(AmazonItemRuns).order_by(AmazonItemRuns.id.desc()).limit(20).all()
-    run = db.session.query(AmazonItemRuns).get(int(run_id)) if run_id is not None else (runs[0] if runs else None)
+    run = db.session.get(AmazonItemRuns, int(run_id)) if run_id is not None else (runs[0] if runs else None)
     if run_id is not None and not run:
         raise ValueError('Missing item run')
     archives = [dict(id=d.id, filename=json.loads(d.payload)['filename']) for d in

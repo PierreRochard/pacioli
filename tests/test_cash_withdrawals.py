@@ -109,7 +109,7 @@ def test_preview_then_apply_moves_only_selected_journals(withdrawals):
     assert categories(journal_ids['atm'] + journal_ids['nonbank'] + journal_ids['plain']) == [(CATEGORY, 'Chase Checking')] * 4
     for key in ('transfer', 'reversal', 'matched'):
         assert all('Transfer Clearing' in pair for pair in categories(journal_ids[key]))
-    mapping = db.session.query(Mappings).get(mapping_ids['atm'])
+    mapping = db.session.get(Mappings, mapping_ids['atm'])
     assert (mapping.negative_debit_subaccount_id, mapping.review_required) == (CATEGORY, False)
     assert mapping.provenance['suspense_review']['previous_category'] == 'Transfer Clearing'
     assert db.session.query(JournalEntryEvents).filter_by(action='UPDATE').count() == 4

@@ -40,7 +40,7 @@
 {% if invalid_request %}<div class="alert alert-warning">This answer could not be saved. <a href="{{ url_for('.amazon_policy_history') }}">Reload the current questions</a> and review the message above.</div>
 {% else %}<p>No suspense review is available for policy questions yet.</p>{% endif %}
 {% else %}
-<section class="well" aria-labelledby="policy-progress-heading">
+<section class="card card-body bg-light" aria-labelledby="policy-progress-heading">
 <h3 id="policy-progress-heading">Decisions to work through</h3>
 <p><strong>{{ totals.remaining_count }} purchases · {{ totals.remaining_amount }} USD still in suspense</strong></p>
 <p>{{ totals.answered_count }} purchases have saved answers. {{ totals.deferred_count }} purchases have been deferred.</p>
@@ -99,7 +99,7 @@
 </fieldset>
 <fieldset><legend>3. Select the affected purchases</legend>
 <p>Nothing is selected automatically. Saving a revised answer preserves the earlier evidence.</p>
-<p><button type="button" class="btn btn-default" id="policy-select-all" hidden>Select every purchase in this question</button> <button type="button" class="btn btn-default" id="policy-select-none" hidden>Clear selection</button></p>
+<p><button type="button" class="btn btn-secondary" id="policy-select-all" hidden>Select every purchase in this question</button> <button type="button" class="btn btn-secondary" id="policy-select-none" hidden>Clear selection</button></p>
 <p id="policy-selection-count-top" role="status" aria-live="polite">{{ form_values.item_ids|length }} purchases selected</p>
 <p><button type="submit" class="btn btn-primary" {% if plan.posting_active or not plan.current_policy %}disabled{% endif %}>Preview answer and affected purchases</button></p>
 <div class="table-responsive"><table class="table table-striped purchase-list"><thead><tr><th scope="col">Purchase and evidence</th><th scope="col" class="money amount-column">Amount (USD)</th></tr></thead><tbody>
@@ -109,7 +109,7 @@
 {% if item.answer %}<details><summary>Saved answer{% if item.answer.stale %} — needs fresh review{% endif %}</summary>{{ saved_answer(item.answer) }}</details>{% endif %}
 <details class="item-evidence"><summary>Exact costs and source evidence</summary>
 <p>Quantity {{ item.quantity }} · {{ item.amount }} USD including adjustments</p>
-<div class="table-responsive"><table class="table table-condensed"><caption>Component amounts already include quantity.</caption><thead><tr><th scope="col">Component</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Evidence</th></tr></thead><tbody>
+<div class="table-responsive"><table class="table table-sm"><caption>Component amounts already include quantity.</caption><thead><tr><th scope="col">Component</th><th scope="col" class="money">Amount (USD)</th><th scope="col">Evidence</th></tr></thead><tbody>
 {% for component in item.components %}<tr><td>{{ component.kind|replace('_',' ')|capitalize }}</td><td class="money">{{ component.amount }}</td><td>{% for source in component.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if source.fields %}<br>{{ source.fields|join(', ') }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}
 </tbody></table></div>
 <p>Original item: {% for source in item.source_refs %}<a href="{{ url_for('.amazon_table',identifier=source.table_id) }}">Table {{ source.table_id }}, row {{ source.row_number }}</a>{% if not loop.last %} · {% endif %}{% endfor %}.</p>

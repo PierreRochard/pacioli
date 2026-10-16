@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from flask import current_app
 from flask_security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
 from sqlalchemy import PrimaryKeyConstraint
@@ -35,6 +37,10 @@ class Users(db.Model, UserMixin):
     last_login_ip = db.Column(db.String())
     current_login_ip = db.Column(db.String())
     login_count = db.Column(db.Integer)
+    # Flask-Security keys sessions and tokens on this value; rotating it signs out
+    # every session for the user.
+    fs_uniquifier = db.Column(db.String(64), unique=True, nullable=False,
+                              default=lambda: uuid4().hex)
     roles = db.relationship('Roles',
                             secondary=roles_users,
                             backref=db.backref('users'))

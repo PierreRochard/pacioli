@@ -90,7 +90,7 @@ class ReconciliationView(PrivateModelView):
 
     @expose('/document/<int:identifier>/')
     def document(self,identifier):
-        row=db.session.query(AccountingEvidence).get(identifier)
+        row=db.session.get(AccountingEvidence, identifier)
         if not row or row.kind!='bank_statement':abort(404)
         import base64
         pdf=base64.b64decode(json.loads(row.payload)['pdf'])
@@ -195,7 +195,7 @@ class ReconciliationView(PrivateModelView):
                         run.state='needs_attention';run.progress='Could not start collection';db.session.commit()
                 elif action=='receipt_items':
                     import csv,io
-                    doc=db.session.query(AccountingEvidence).get(int(request.form['receipt']))
+                    doc=db.session.get(AccountingEvidence, int(request.form['receipt']))
                     if not doc or doc.kind!='amazon_receipt':raise ValueError('Select captured receipt evidence')
                     raw=json.loads(doc.payload)
                     values=[request.form.getlist(k) for k in ('line','kind','title','line_amount')]
@@ -746,7 +746,7 @@ class ReconciliationView(PrivateModelView):
 
     @expose('/review/<int:identifier>/',methods=('GET','POST'))
     def review(self,identifier):
-        row=db.session.query(AccountingReviews).get(identifier)
+        row=db.session.get(AccountingReviews, identifier)
         if not row:abort(404)
         if request.method=='POST':
             require_action_csrf()
@@ -785,7 +785,7 @@ class ReconciliationView(PrivateModelView):
 
     @expose('/review/<int:identifier>/status/')
     def review_status(self,identifier):
-        row=db.session.query(AccountingReviews).get(identifier)
+        row=db.session.get(AccountingReviews, identifier)
         if not row:abort(404)
         response=jsonify(state=row.state,updated_at=row.updated_at.isoformat())
         response.headers['Cache-Control']='no-store'
@@ -808,4 +808,4 @@ class ReconciliationView(PrivateModelView):
         return self.page(tab='evaluation',cases=cases,runs=results)
 
 
-admin.add_view(ReconciliationView(BankStatements,db.session,category='Accounting',name='Reconciliation',endpoint='reconciliation'))
+admin.add_view(ReconciliationView(BankStatements,db,category='Accounting',name='Reconciliation',endpoint='reconciliation'))

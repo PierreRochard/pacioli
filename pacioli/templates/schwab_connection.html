@@ -28,7 +28,7 @@
 {% if configured %}
 <form method="post" style="margin-top: 16px">
   <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
-  <button class="btn btn-default" type="submit" name="action" value="forget">Forget Schwab login</button>
+  <button class="btn btn-secondary" type="submit" name="action" value="forget">Forget Schwab login</button>
 </form>
 {% endif %}
 {% endblock %}

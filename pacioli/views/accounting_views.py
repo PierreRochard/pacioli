@@ -45,7 +45,7 @@ class TrialBalancesView(PrivateModelView):
                 :period_name);
         ''')
         try:
-            db.session.execute('TRUNCATE bookkeeping.trial_balances RESTART IDENTITY')
+            db.session.execute(text('TRUNCATE bookkeeping.trial_balances RESTART IDENTITY'))
             for period_interval_name in ['YYYY', 'YYYY-Q', 'YYYY-MM',
                                          'YYYY-WW', 'YYYY-MM-DD']:
                 periods = [row[0] for row in db.session.execute(
@@ -74,7 +74,7 @@ class TrialBalancesView(PrivateModelView):
         return redirect(url_for('trialbalances.index_view'))
 
 
-admin.add_view(TrialBalancesView(TrialBalances, db.session,
+admin.add_view(TrialBalancesView(TrialBalances, db,
                                  category='Accounting'))
 
 
@@ -91,7 +91,7 @@ def render_personal_statement(view, kind):
         period_bounds(interval, period)
     except ValueError:
         abort(400)
-    closed = (db.session.query(ClosedPeriods).get(period)
+    closed = (db.session.get(ClosedPeriods, period)
               if interval == 'YYYY-MM' else None)
     if closed is not None:
         from pacioli.functions.period_close import snapshot_report, closed_period_matches
@@ -137,7 +137,7 @@ class IncomeStatementsView(PrivateModelView):
         return render_personal_statement(self, 'income')
 
 
-admin.add_view(IncomeStatementsView(TrialBalances, db.session, category='Accounting', name='Income Statements', endpoint='income-statements'))
+admin.add_view(IncomeStatementsView(TrialBalances, db, category='Accounting', name='Income Statements', endpoint='income-statements'))
 
 
 class BalanceSheetView(PrivateModelView):
@@ -154,7 +154,7 @@ class BalanceSheetView(PrivateModelView):
         return render_personal_statement(self, 'balance')
 
 
-admin.add_view(BalanceSheetView(TrialBalances, db.session, category='Accounting',
+admin.add_view(BalanceSheetView(TrialBalances, db, category='Accounting',
                                 name='Balance Sheet', endpoint='balance-sheet'))
 
 import pacioli.views.reconciliation_views

@@ -1,11 +1,14 @@
-.PHONY: help env deps test ci db-init db-start db-stop db-status db-backup
+.PHONY: help env deps lock upgrade-deps audit test ci db-init db-start db-stop db-status db-backup
 
-PYTHON ?= python3.11
+PYTHON ?= python3.14
 VENV ?= .venv
 
 help:
-	@echo "env   create a Python 3.11 development environment"
-	@echo "deps  refresh development dependencies"
+	@echo "env   create a Python 3.14 development environment"
+	@echo "deps  install the hashed development lock into the environment"
+	@echo "lock  re-resolve the hashed locks after editing requirements*.in"
+	@echo "upgrade-deps  move every locked dependency to its latest release"
+	@echo "audit check the installed environment for known vulnerabilities"
 	@echo "test  run the PostgreSQL test suite"
 	@echo "ci    run all local checks with disposable PostgreSQL"
 	@echo "db-init   create or update the persistent local Pacioli database"
@@ -18,7 +21,20 @@ env:
 	$(PYTHON) install.py --dev --venv $(VENV)
 
 deps:
-	$(VENV)/bin/python -m pip install -r requirements-dev.txt
+	$(VENV)/bin/python -m pip install --require-hashes -r requirements-dev.txt
+
+LOCK = uv pip compile --python-version 3.14 --generate-hashes --quiet
+
+lock:
+	$(LOCK) requirements.in -o requirements.txt
+	$(LOCK) requirements-dev.in -o requirements-dev.txt
+
+upgrade-deps:
+	$(LOCK) --upgrade requirements.in -o requirements.txt
+	$(LOCK) --upgrade requirements-dev.in -o requirements-dev.txt
+
+audit:
+	uvx pip-audit --path $(VENV)/lib/python3.14/site-packages
 
 test:
 	$(VENV)/bin/python scripts/ci_local.py

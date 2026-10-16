@@ -81,7 +81,7 @@ def test_changed_evidence_cannot_be_overwritten(correction,change):
         db.session.execute(text("UPDATE ofx.stmttrn SET name='CHANGED PURPOSE' WHERE acctfrom_id=:id"),
             {'id':snap['sources'][0]['account_id']})
     elif change=='journal':db.session.query(JournalEntries).first().memo='Manual review'
-    elif change=='mapping':db.session.query(Mappings).get(mid).review_note='Manual review'
+    elif change=='mapping':db.session.get(Mappings, mid).review_note='Manual review'
     else:
         post_pair(timestamp=datetime(2026,1,3,tzinfo=timezone.utc),debit='Bookkeeping Suspense',
                   credit='Chase Checking',functional_amount='4',mapping_id=mid)
@@ -114,7 +114,7 @@ def test_transfer_clearing_stays_provisional(correction):
     snap,review=correction;review['approvals'][0]['category']='Transfer Clearing'
     result=reclassify(snap,review,commit=True)
     assert result['changed_entries']==2
-    assert db.session.query(Mappings).get(review['approvals'][0]['mapping_id']).review_required
+    assert db.session.get(Mappings, review['approvals'][0]['mapping_id']).review_required
     assert audit_ledger(db.session)==[{'kind':'classification_pending','journal_count':2}]
 
 
@@ -125,7 +125,7 @@ def test_independent_override_retains_original_model_evidence(correction):
                     model_category='Groceries',model_validation_errors=[])
     result=reclassify(snap,review,commit=True)
     assert result['changed_entries']==2
-    provenance=db.session.query(Mappings).get(approval['mapping_id']).provenance['suspense_review']
+    provenance=db.session.get(Mappings, approval['mapping_id']).provenance['suspense_review']
     assert provenance['reviewer_override'] is True
     assert provenance['model_category']=='Groceries'
     assert provenance['override_reason']==approval['override_reason']

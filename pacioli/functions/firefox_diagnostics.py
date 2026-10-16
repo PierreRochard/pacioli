@@ -25,6 +25,6 @@ class FirefoxDiagnostics:
         record['elapsed_ms'] = round((time.monotonic() - self.started) * 1000)
         events.append(record)
         del events[:-40]
-        run = db.session.query(ChaseBrowserRuns).get(self.run_id)
+        run = db.session.get(ChaseBrowserRuns, self.run_id)
         run.diagnostics = json.dumps(self.report, separators=(',', ':'))
         db.session.commit()

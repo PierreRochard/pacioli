@@ -132,7 +132,7 @@ def test_formatting_and_chart_geometry():
 
 
 def test_home_requires_sign_in_for_figures(client, synthetic_ledger):
-    client.get('/logout/')
+    client.post('/logout/')
     response = client.get('/')
     assert response.status_code == 200
     assert b'Sign in' in response.data

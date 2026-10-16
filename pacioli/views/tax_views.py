@@ -14,5 +14,5 @@ class TaxTagsModelView(TaxModelView):
     pass
 
 
-admin.add_view(TaxTagsModelView(TaxTags, db.session,
+admin.add_view(TaxTagsModelView(TaxTags, db,
                                      name='Tags', category='Tax', endpoint='tax/tags'))

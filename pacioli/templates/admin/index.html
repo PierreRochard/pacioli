@@ -97,9 +97,9 @@
       </div>
     </div>
     <div>
-      <a class="btn btn-default" href="{{ url_for('connections.chase_browser') }}">
+      <a class="btn btn-secondary" href="{{ url_for('connections.chase_browser') }}">
         {% if chase_active %}Chase sync running…{% else %}Sync Chase{% endif %}</a>
-      <a class="btn btn-default" href="{{ url_for('reconciliation.index_view') }}">Reconcile</a>
+      <a class="btn btn-secondary" href="{{ url_for('reconciliation.index_view') }}">Reconcile</a>
       <a class="btn btn-primary" href="{{ url_for('cash-flows.index_view') }}">Cash flows</a>
     </div>
   </header>

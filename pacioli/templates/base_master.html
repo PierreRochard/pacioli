@@ -2,13 +2,13 @@
 
 {% block access_control %}
     {% if current_user.is_authenticated %}
-        <a class="navbar-btn btn-default pull-right btn-sm" href="{{ url_for('security.logout') }}">
-            Logout
-        </a>
-    {% elif not current_user.is_authenticated %}
-        <a class="navbar-btn btn-default pull-right btn-sm" href="{{ url_for('security.login') }}">
-            Login
-        </a>
+        {# Logout is POST-only, so another site cannot sign you out with a link. #}
+        <form class="form-inline" method="post" action="{{ url_for('security.logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ action_csrf_token() }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
+        </form>
+    {% else %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('security.login') }}">Login</a>
     {% endif %}
 {% endblock %}
 

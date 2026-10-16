@@ -66,7 +66,8 @@ class Config(object):
     SECURITY_BLUEPRINT_NAME = 'security'
     SECURITY_URL_PREFIX = None
     SECURITY_FLASH_MESSAGES = True
-    SECURITY_PASSWORD_HASH = 'pbkdf2_sha512'
+    # Existing pbkdf2_sha512 hashes still verify and are rehashed at next login.
+    SECURITY_PASSWORD_HASH = 'argon2'
     SECURITY_PASSWORD_SALT = setting('SECURITY_PASSWORD_SALT', required=True)
     SECURITY_EMAIL_SENDER = 'no-reply@localhost'
     SECURITY_TOKEN_AUTHENTICATION_KEY = 'auth_token'

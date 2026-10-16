@@ -20,7 +20,7 @@ from tests.test_amazon_item_workflow import (
 
 
 def _triage(run_id, gates=None):
-    run = db.session.query(AmazonItemRuns).get(run_id)
+    run = db.session.get(AmazonItemRuns, run_id)
     manifest = workflow._manifest(run)
     items = workflow._items(manifest)
     rows = []
@@ -46,7 +46,7 @@ def _triage(run_id, gates=None):
 
 def _plan(source, *, approve=True, gate='ordinary', prepare=True):
     run_id, book_id, wash_id = _prepared(source, approve=approve)
-    wash = db.session.query(AmazonItemJobs).get(wash_id)
+    wash = db.session.get(AmazonItemJobs, wash_id)
     doc = _triage(run_id, {wash.item_id: gate})
     plan = suspense.import_triage(doc, 'fixture owner')
     identifier = plan.id
@@ -150,7 +150,7 @@ def test_owner_facts_append_immutable_ancestry_and_invalidate_action_tokens(item
     facts = suspense.page(plan_id)['items'][0]['facts']
     assert len(facts) == 2 and facts[0]['note'] == 'Private owner-confirmed source purpose.'
     second = db.session.query(AmazonSuspenseFacts).order_by(AmazonSuspenseFacts.id.desc()).first()
-    body = json.loads(db.session.query(AccountingEvidence).get(second.evidence_id).payload)
+    body = json.loads(db.session.get(AccountingEvidence, second.evidence_id).payload)
     assert body['previous_fact_id'] == facts[0]['id']
     assert suspense.page(plan_id)['totals']['fact_count'] == 1
     assert suspense.page(plan_id)['totals']['saved_fact_count'] == 2
@@ -234,7 +234,7 @@ def test_fact_dependent_review_requires_individual_fact_and_cannot_be_remembered
     before = _financial_state()
     result = _review(plan_id, [item_id])
     assert result['reviewed'] == 1 and result['remembered'] == 0
-    event = json.loads(db.session.query(AccountingEvidence).get(result['evidence_id']).payload)
+    event = json.loads(db.session.get(AccountingEvidence, result['evidence_id']).payload)
     assert item_id in event['fact_evidence_ids']
     assert _financial_state() == before
 
@@ -306,9 +306,9 @@ def test_new_source_eligibility_plan_invalidates_rule_without_changing_policy_or
 def test_source_and_stale_second_session_review_changes_reject_actions(item_workflow_source):
     plan_id, doc, _, wash_id = _plan(item_workflow_source)
     item_id = doc['items'][0]['item_id']; token = suspense.page(plan_id)['token']
-    cached = db.session.query(AmazonItemJobs).get(wash_id)
+    cached = db.session.get(AmazonItemJobs, wash_id)
     previous_id = cached.decision_id
-    run = db.session.query(AmazonItemRuns).get(cached.run_id)
+    run = db.session.get(AmazonItemRuns, cached.run_id)
     source_item = workflow._items(workflow._manifest(run))[item_id]
     body = dict(run_id=run.id, job_id=wash_id, item_id=item_id, category=None,
         reason='Independent reviewer updated the evidence.', reviewer='second reviewer',

@@ -40,9 +40,9 @@ def snapshot(connection):
             expression = "(to_jsonb(t)-'mapping_decision')::text"
         elif table == 'admin.connection_responses':
             expression = "(to_jsonb(t)-'import_status'-'import_error')::text"
-        rows = [r[0] for r in connection.execute('SELECT '+expression+' FROM '+table+' t ORDER BY 1')]
+        rows = [r[0] for r in connection.exec_driver_sql('SELECT '+expression+' FROM '+table+' t ORDER BY 1')]
         result[table] = {'count': len(rows), 'sha256': sha256(json.dumps(rows).encode()).hexdigest()}
-    rows = [r[0] for r in connection.execute('SELECT to_jsonb(t)::text FROM ofx.transactions t ORDER BY 1')]
+    rows = [r[0] for r in connection.exec_driver_sql('SELECT to_jsonb(t)::text FROM ofx.transactions t ORDER BY 1')]
     result['ofx.transactions'] = {'count': len(rows), 'sha256': sha256(json.dumps(rows).encode()).hexdigest()}
     return result
 
@@ -67,7 +67,7 @@ def upgrade(url=None, expected=None):
             raise RuntimeError('Live database changed since the restore rehearsal; create a fresh backup and rehearse again')
         if expected is not None:
             with db.engine.connect() as connection:
-                active = connection.execute("""SELECT
+                active = connection.exec_driver_sql("""SELECT
                     (SELECT count(*) FROM admin.chase_browser_runs WHERE status IN
                         ('queued','signing_in','waiting_for_mfa','choosing_accounts','exporting','importing')) +
                     (SELECT count(*) FROM amazon.collection_runs WHERE state IN ('queued','running'))""").scalar()
@@ -93,7 +93,7 @@ def upgrade(url=None, expected=None):
                 for column in encrypted:
                     if column.name not in available:
                         continue
-                    for value, in connection.execute('SELECT "'+column.name+'" FROM "'+table.schema+'"."'+table.name+'" WHERE "'+column.name+'" IS NOT NULL'):
+                    for value, in connection.exec_driver_sql('SELECT "'+column.name+'" FROM "'+table.schema+'"."'+table.name+'" WHERE "'+column.name+'" IS NOT NULL'):
                         decrypt_value(value)
                         decrypted += 1
         from pacioli.functions.accounting_report import audit_ledger
