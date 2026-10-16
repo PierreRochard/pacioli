@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from flask import current_app
 from flask_security import RoleMixin, UserMixin, SQLAlchemyUserDatastore
-from sqlalchemy import PrimaryKeyConstraint
+from sqlalchemy import MetaData, PrimaryKeyConstraint
 from sqlalchemy.ext.automap import automap_base
 
 from pacioli.extensions import db
@@ -761,12 +761,15 @@ class PaystubItems(db.Model):
 
 
 def register_views():
-    for schema_name in current_app.config['MODEL_MAP'].keys():
-        view_names = current_app.config['MODEL_MAP'][schema_name].keys()
-        db.metadata.reflect(bind=db.engine,
-                            schema=schema_name,
-                            views=True,
-                            only=view_names)
+    """Map the OFX fork's tables and the reporting views named in MODEL_MAP.
+
+    They are reflected into their own metadata. Automapping db.metadata would
+    map every declarative model's table a second time, with relationships that
+    overlap the real ones.
+    """
+    metadata = MetaData()
+    for schema_name, names in current_app.config['MODEL_MAP'].items():
+        metadata.reflect(bind=db.engine, schema=schema_name, views=True, only=list(names))
     manual_constraints = [
         {'view_name': 'admin.mapping_overlaps',
          'columns': ['description', 'mapping_id_1', 'mapping_id_2'],
@@ -790,9 +793,9 @@ def register_views():
     for c in manual_constraints:
         constraint = PrimaryKeyConstraint(*c['columns'],
                                           name=c['constraint_name'])
-        db.metadata.tables[c['view_name']].append_constraint(constraint)
+        metadata.tables[c['view_name']].append_constraint(constraint)
 
-    base = automap_base(metadata=db.metadata)
+    base = automap_base(metadata=metadata)
     base.prepare()
 
     for schema_name in current_app.config['MODEL_MAP'].keys():
@@ -806,12 +809,6 @@ def register_views():
     setattr(InvestmentPositions, '__repr__', lambda self: str(self.id))
     setattr(InvestmentTransactions, '__repr__', lambda self: self.subclass)
     setattr(Securities, '__repr__', lambda self: '{0} ({1})'.format(self.secname, self.ticker))
-
-
-def remove_views_from_metadata():
-    for schema_name in current_app.config['MODEL_MAP'].keys():
-        for view_name in current_app.config['MODEL_MAP'][schema_name].keys():
-            db.metadata.remove(db.metadata.tables[schema_name + '.' + view_name])
 
 
 class AmazonSuspensePlans(db.Model):
