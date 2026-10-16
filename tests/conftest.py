@@ -58,7 +58,7 @@ def database_url():
 @pytest.fixture(scope='session')
 def app(database_url):
     from pacioli import create_app
-    from pacioli.database.setup import create_database, populate_chart
+    from pacioli.database.setup import populate_chart, upgrade_database
     from pacioli.extensions import db
     from pacioli.models import register_views
     from pacioli.settings import DevConfig
@@ -72,7 +72,7 @@ def app(database_url):
 
     application = create_app(TestConfig, env='test')
     with application.app_context():
-        create_database()
+        upgrade_database()
         populate_chart()
         register_views()
 

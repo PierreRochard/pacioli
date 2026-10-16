@@ -49,7 +49,7 @@ deploy:
 
 db-init:
 	$(VENV)/bin/python scripts/local_db.py init
-	$(VENV)/bin/python manage.py createdb
+	$(VENV)/bin/python manage.py db upgrade
 	$(VENV)/bin/python manage.py populate_chart_of_accounts
 	$(VENV)/bin/python manage.py accounting_check
 

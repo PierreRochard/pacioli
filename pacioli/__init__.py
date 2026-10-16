@@ -4,7 +4,7 @@ from flask_admin import helpers as admin_helpers
 from flask_wtf.csrf import generate_csrf
 
 from pacioli import settings
-from pacioli.extensions import admin, mail, db
+from pacioli.extensions import admin, mail, db, migrate
 from pacioli.models import Users, Roles, user_datastore
 
 
@@ -15,6 +15,7 @@ def create_app(config_object, env="prod"):
     app.config['ENV'] = env
     app.jinja_env.globals['action_csrf_token'] = generate_csrf
     db.init_app(app)
+    migrate.init_app(app, db)
     mail.init_app(app)
     security = Security(app, user_datastore)
 

@@ -27,13 +27,11 @@ def main(argv=None):
     document = read_encrypted(args.triage)
     from pacioli import create_app
     from pacioli.extensions import db
-    from pacioli.database.workbench import install_amazon_suspense
     from pacioli.functions.amazon_item_workflow import install_item_categories
     from pacioli.functions.amazon_suspense import import_triage, prepare_new_review_run
 
     app = create_app('pacioli.settings.ProdConfig', env='Prod')
     with app.app_context():
-        install_amazon_suspense(db.engine)
         try:
             created = install_item_categories(db.session)
             plan = import_triage(document, args.reviewer.strip())

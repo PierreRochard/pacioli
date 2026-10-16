@@ -42,23 +42,6 @@ def planned_chart(existing):
     return sorted(rows.values(), key=lambda row: (row['element'], row['name']))
 
 
-def install_mapping_columns(connection):
-    for clause in (
-        "ADD COLUMN IF NOT EXISTS match_mode varchar NOT NULL DEFAULT 'keyword'",
-        'ADD COLUMN IF NOT EXISTS review_required boolean NOT NULL DEFAULT false',
-        'ADD COLUMN IF NOT EXISTS review_note text',
-        'ADD COLUMN IF NOT EXISTS provenance json',
-    ):
-        connection.execute(text('ALTER TABLE admin.mappings ' + clause))
-    connection.execute(text("""DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint
-          WHERE conrelid='admin.mappings'::regclass AND conname='mapping_match_mode') THEN
-          ALTER TABLE admin.mappings ADD CONSTRAINT mapping_match_mode
-          CHECK (match_mode IN ('keyword', 'exact'));
-        END IF;
-    END $$"""))
-
-
 def mapping_values(category):
     return dict(positive_debit_subaccount_id=None,
                 positive_credit_subaccount_id=category,

@@ -245,9 +245,9 @@ automatic posting.
 
 ## Migration and verification
 
-`pacioli.database.workbench.install_workbench()` is additive and repeatable. New
-document, statement, opening, transfer and gold-label records have database
-immutability triggers. Back up before production migration. Existing source
+The workbench tables are part of the baseline schema migration. New document,
+statement, opening, transfer and gold-label records have database immutability
+triggers. Back up before production migration. Existing source
 transactions and journal history are untouched by schema installation.
 
 Run `.venv/bin/python scripts/ci_local.py` for serial local CI using disposable

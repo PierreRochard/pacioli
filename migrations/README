@@ -1,1 +1,9 @@
-Generic single-database configuration.
+Pacioli's schema migrations: Alembic, run through Flask-Migrate.
+
+    .venv/bin/python manage.py db upgrade                        # apply pending revisions
+    .venv/bin/python manage.py db migrate -m "change" --rev-id 0003  # draft from model changes
+    .venv/bin/python manage.py db current
+
+0001_baseline.sql freezes the schema the pre-Alembic installers built; do not
+edit it. Autogenerate ignores the objects listed in
+pacioli/database/migration_scope.py. See "Schema migrations" in README.md.

@@ -1,6 +1,9 @@
 from flask_admin import Admin
 from flask_admin.theme import Bootstrap4Theme
+from pathlib import Path
+
 from flask_mail import Mail
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
 from pacioli.views.dashboard_views import HomeView
@@ -13,6 +16,9 @@ admin = Admin(url='/',
 mail = Mail()
 
 db = SQLAlchemy()
+
+MIGRATIONS = Path(__file__).resolve().parents[1] / 'migrations'
+migrate = Migrate(directory=str(MIGRATIONS))
 
 
 def run_sql(statement, parameters=None):

@@ -11,26 +11,20 @@ import json
 import click
 from dateutil.tz import tzlocal
 from flask.cli import ScriptInfo
-from flask_migrate import Migrate
 from flask_security.utils import hash_password
 from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
-from ofxtools.ofxalchemy import Base as OFX_Base
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
 from pacioli import create_app
-from pacioli.database.setup import create_database, ofx_engine, populate_chart
-from pacioli.extensions import db, run_sql
-from pacioli.models import (Users, Roles, BankFeedAccounts,
-                            ChaseBrowserCredentials, ChaseBrowserRuns, ChaseLocalPreferences,
-                            ChaseExportCoverage, ChaseLocalEvents)
+from pacioli.database.setup import ofx_engine, populate_chart
+from pacioli.extensions import db
+from pacioli.models import Users, Roles, BankFeedAccounts
 from pacioli.secure_fields import encrypt_existing_data as migrate_encrypted_data
 
 env = os.environ.get('pacioli_ENV', 'Dev')
 app = create_app('pacioli.settings.{0}Config'.format(env), env=env)
-
-migrate = Migrate(app, db)
 
 @app.cli.command('run_server')
 def run_server():
@@ -52,47 +46,6 @@ def run_server():
 @app.shell_context_processor
 def make_shell_context():
     return dict(app=app, db=db, User=Users)
-
-
-@app.cli.command('createdb')
-def createdb():
-    create_database()
-
-
-@app.cli.command('migrate_chase_browser')
-def migrate_chase_browser():
-    """Add or extend Chase connector tables without touching accounting data."""
-    run_sql('CREATE SCHEMA IF NOT EXISTS admin')
-    db.metadata.create_all(bind=db.engine, tables=[
-        ChaseBrowserCredentials.__table__, ChaseBrowserRuns.__table__,
-        ChaseLocalPreferences.__table__, ChaseExportCoverage.__table__,
-        ChaseLocalEvents.__table__])
-    for clause in (
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS selected_account_labels json',
-        'ALTER TABLE admin.chase_browser_credentials ADD COLUMN IF NOT EXISTS selected_ofx_account_ids json',
-        "ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS mode varchar(16) NOT NULL DEFAULT 'interactive'",
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS mfa_prompt varchar(16)',
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS mfa_code text',
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS browser_requested boolean NOT NULL DEFAULT false',
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS browser_visible boolean NOT NULL DEFAULT false',
-        'ALTER TABLE admin.chase_browser_runs ADD COLUMN IF NOT EXISTS diagnostics text',
-    ):
-        run_sql(clause)
-    run_sql("UPDATE admin.chase_browser_runs SET mode = 'automatic' WHERE mode = 'scheduled'")
-    # Retired columns, including the removed Chromium engine's session snapshot,
-    # profile key and passkey material.
-    for column in ('auto_sync_enabled', 'scheduled_by_id', 'last_scheduled_at',
-                   'session_state', 'browser_profile_key', 'browser_engine',
-                   'provider_verified_at', 'passkey_credential', 'passkey_verified_at'):
-        run_sql('ALTER TABLE admin.chase_browser_credentials DROP COLUMN IF EXISTS {}'.format(column))
-    for column in ('provider_confirmed', 'passkey_confirmed'):
-        run_sql('ALTER TABLE admin.chase_browser_runs DROP COLUMN IF EXISTS {}'.format(column))
-
-
-@app.cli.command('dropdb')
-def dropdb():
-    db.drop_all()
-    OFX_Base.metadata.drop_all(ofx_engine())
 
 
 @app.cli.command('create_admin')
@@ -256,13 +209,6 @@ def accounting_check():
                           default=str, indent=2))
     if problems:
         raise click.ClickException('{} accounting differences found'.format(len(problems)))
-
-
-@app.cli.command('prepare_accounting_columns')
-def prepare_accounting_columns():
-    """Add conversion evidence columns before reviewed historical backfill."""
-    from pacioli.database.accounting_migration import prepare_journal_columns
-    prepare_journal_columns()
 
 
 @app.cli.command('post_journal')

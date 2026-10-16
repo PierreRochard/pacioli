@@ -1,10 +1,8 @@
 """Deploy this checkout to the local pacioli-web service.
 
 The service runs straight from this checkout and its .venv, so a deploy backs
-up the database, makes .venv match the hashed lock exactly, applies the
-idempotent schema updates in `manage.py createdb`, restarts the service and
-waits for its login page. Connector migrations such as
-`manage.py migrate_chase_browser` stay separate and explicit.
+up the database, makes .venv match the hashed lock exactly, applies pending
+Alembic migrations, restarts the service and waits for its login page.
 """
 
 from pathlib import Path
@@ -52,7 +50,7 @@ def main():
     run(PYTHON, 'scripts/local_db.py', 'backup')
     # The service's .venv also runs local CI, so it follows the development lock.
     run('uv', 'pip', 'sync', '--python', PYTHON, '--require-hashes', 'requirements-dev.txt')
-    run(PYTHON, '-W', 'ignore', 'manage.py', 'createdb')
+    run(PYTHON, '-W', 'ignore', 'manage.py', 'db', 'upgrade')
     run('systemctl', '--user', 'restart', SERVICE)
     wait_for_login_page()
     print('{} is serving {}'.format(SERVICE, LOGIN_URL), flush=True)

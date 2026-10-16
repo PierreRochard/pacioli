@@ -53,6 +53,7 @@ this repository, and recreate `.local/lan-backup/` (mode 0700) with the
 ```sh
 python3.14 scripts/lan_backup.py restore
 make env
+.venv/bin/python manage.py db upgrade
 .venv/bin/python manage.py accounting_check
 ```
 
@@ -67,8 +68,9 @@ Once initialized, create an administrator and start the application:
 .venv/bin/python manage.py run_server
 ```
 
-`create_admin` prompts for a password. `createdb` creates the seven application
-schemas, tables, triggers, and reporting views inside the selected database;
+`create_admin` prompts for a password. The schema migrations that `db-init`
+applies create the seven application schemas, tables, triggers, and reporting
+views inside the selected database;
 `populate_chart_of_accounts` can be rerun without duplicating accounts. The
 development server listens on port 5000.
 
@@ -78,7 +80,7 @@ service, proxy, and certificate files stay in the untracked `deploy/` directory.
 one-use browser link for creating the first administrator without email.
 The `pacioli-web` user service runs straight from this checkout. After pulling
 changes, run `make deploy`: it saves a database backup, syncs `.venv` with the
-hashed development lock, runs `manage.py createdb`, restarts the service and
+hashed development lock, applies pending schema migrations, restarts the service and
 waits for its login page.
 
 For an existing or externally managed PostgreSQL database, use `.env.example`
@@ -96,9 +98,9 @@ When configuring an external database, generate `PACIOLI_CREDENTIAL_KEY` with
 `.venv/bin/python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`.
 Keep this key outside database backups: losing it makes encrypted connection
 passwords and OFX responses unreadable. New records are encrypted on write.
-For a database created by an older version, run
-`.venv/bin/python manage.py createdb` to install the updated balance trigger,
-then `.venv/bin/python manage.py encrypt_existing_data` after setting the key
+For a database created by an older version, bring its schema up to date (see
+[Schema migrations](#schema-migrations)), then run
+`.venv/bin/python manage.py encrypt_existing_data` after setting the key
 to encrypt existing plaintext values. The encryption command is repeatable and
 checks that the key can decrypt records already encrypted. Use **Refresh** on
 the Trial Balances page once to rebuild balances created by the old trigger.
@@ -207,15 +209,11 @@ accounting check then verifies the split total against the imported amount.
 }
 ```
 
-For an existing database, **back it up before running the updated `createdb`**.
-`createdb` installs the new constraints only if every historical journal row
-already satisfies them; on failure it lists up to ten IDs per violated rule and
-does not round, delete, or rewrite those entries. Zero and fractional-cent USD
-postings, mismatched USD source amounts, and foreign-currency postings without
-conversion evidence require review. `prepare_accounting_columns` adds the
-nullable conversion fields for a reviewed backfill; after correcting historical
-records, rerun `createdb` and `accounting_check`. Existing chart records are
-preserved, so review any custom account classification and cash designation.
+These journal constraints are part of the baseline schema migration. Zero and
+fractional-cent USD postings, mismatched USD source amounts, and
+foreign-currency postings without conversion evidence are rejected. Existing
+chart records are preserved, so review any custom account classification and
+cash designation.
 
 The bundled chart now places `Cold Wallet` under `Bitcoin Investments` and
 provides a separate `Personal Distributions` branch. Existing chart records
@@ -251,6 +249,30 @@ and removes the cluster. Keep the scratch directory on a fast local disk:
 browser tests time out when Firefox profiles sit on a busy hard drive.
 It needs local PostgreSQL server binaries and does not need `.env` or an
 existing application database.
+
+## Schema migrations
+
+Alembic, through Flask-Migrate, owns the schema. Revisions live in
+`migrations/versions/`. Revision 0001 is the schema the earlier hand-written
+installers built, frozen in `0001_baseline.sql`. Revision 0002 aligns the one
+database created before Alembic with that baseline. `make db-init` and
+`make deploy` run `.venv/bin/python manage.py db upgrade`.
+
+After changing a model, draft a revision and review it before committing:
+
+```sh
+.venv/bin/python manage.py db migrate -m "describe the change" --rev-id 0003
+```
+
+Autogenerate cannot see triggers, views, functions, or the raw-SQL tables listed
+in `pacioli/database/migration_scope.py`; write those changes with
+`op.execute`. `make ci` builds its database through the migrations and fails if
+the models and the migrated schema disagree.
+
+A database created before Alembic has no version table, and revision 0001
+refuses to rebuild a populated database. Only for one brought up to date by
+the installers at commit 1de7fd3: back it up, run `manage.py db stamp 0001`,
+then `manage.py db upgrade`.
 
 ## Tests with an existing PostgreSQL server
 
@@ -354,11 +376,8 @@ memory limit and a 40-minute runtime limit (including handoff waits). Only a
 numeric run ID is passed to the worker. If Chase changes its login, MFA, or
 download controls, the connector stops with a generic error instead of guessing
 or bypassing a control.
-Fresh databases created with `manage.py createdb` include the connector tables.
-For an existing database, run `.venv/bin/python manage.py migrate_chase_browser`
-after updating dependencies, then restart `pacioli-web.service`. The command
-also drops the columns of the removed Chromium connector: its encrypted Chase
-session snapshot, profile key and passkey fields. Run `make ci` for the local
+The schema migrations create the connector tables; `make deploy` applies them
+and restarts `pacioli-web.service`. Run `make ci` for the local
 disposable-PostgreSQL test suite. The Firefox connector tests launch a real
 headless Firefox against a local fixture bank: MFA relay, session reuse and
 expiry, the verification handoff, account allowlist rejection, duplicate QFX,
@@ -480,8 +499,8 @@ credentials, file paths or screenshots. Completed imports are reported only
 after commit. These logs begin with runs performed after this migration;
 earlier step history cannot be reconstructed.
 
-Run `manage.py migrate_chase_browser` to add the event table, then reload the
-systemd user manager and restart the web service. The web service uses eight
+`make deploy` applies the migrations, including the event table, and restarts
+the web service; reload the systemd user manager after changing unit files. The web service uses eight
 threads, with at most four concurrent 20-second event streams; other clients
 fall back to polling. Database sessions are released between stream checks.
 The September 25 live update completed both bank accounts and verified real-file

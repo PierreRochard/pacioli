@@ -125,8 +125,8 @@ transaction locks serialize update requests and QFX imports, including manual
 uploads. Importing an overlapping source does not create another transaction with
 the same bank transaction ID. A conflicting transaction requires review.
 
-For an existing deployment, run `python manage.py migrate_chase_browser` to create
-the preferences and export-coverage tables, rerun the native-host installer after host changes, and
+For an existing deployment, run `make deploy` to apply the schema migrations,
+rerun the native-host installer after host changes, and
 reload the extension after updating it. No scheduled or remote CI job is added.
 
 Run all checks serially with disposable local PostgreSQL:

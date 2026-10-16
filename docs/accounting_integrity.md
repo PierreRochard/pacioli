@@ -88,33 +88,10 @@ and malformed postings, mapping order/conflicts, replay, controlled contention,
 and faults after partial work. External bank transport is mocked. There is no
 GitHub Actions workflow.
 
-Before applying the migration, create a private dump and rehearse a complete
-restore using the configured encryption key:
-
-```sh
-.venv/bin/python scripts/local_db.py backup
-.venv/bin/python scripts/verify_integrity_upgrade.py \
-  --rehearse /path/to/pacioli-backup.dump --report /private/path/rehearsal.json
-```
-
-The rehearsal creates and removes a disposable PostgreSQL cluster under `TMPDIR`.
-It compares counts and hashes of retained financial records, source views,
-encrypted responses, and evidence before/after the upgrade, verifies decryption,
-and reports the strengthened audit's findings. Reports contain digests/counts,
-not source contents or keys. Keep the private encryption configuration separately
-from database backups; this drill does not arrange off-device retention.
-
-Quiesce the web application and any active workers before applying. Use a fresh
-backup/rehearsal if live financial records changed in the meantime:
-
-```sh
-.venv/bin/python scripts/verify_integrity_upgrade.py \
-  --apply /private/path/rehearsal.json --report /private/path/applied.json
-```
-
-The apply command rejects a mismatch with the rehearsed starting data. Constraint
-installation replaces old definitions in a checked transaction and records the
-integrity migration versions. Start the application afterward and inspect audit
-findings. Schema installation never silently fixes historical financial amounts,
-conversions, or classifications. Migration lock timeouts abort busy upgrades;
-ordinary direct SQL maintenance must also coordinate with application writers.
+The integrity upgrade (`journal-money-v2`, `ofx-source-identity-v1`,
+`brokerage-ledger-v1` in `admin.integrity_migrations`) was rehearsed on a
+restored dump and applied to the live database before Pacioli adopted Alembic.
+Its schema is part of the baseline migration, and the rehearsal script was
+removed with the hand-written installers. Schema installation never silently
+fixes historical financial amounts, conversions, or classifications. Direct SQL
+maintenance must coordinate with application writers.

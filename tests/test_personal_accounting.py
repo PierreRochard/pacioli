@@ -8,7 +8,6 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
-from pacioli.database.accounting_migration import install_journal_constraints
 from pacioli.extensions import db, run_sql
 from pacioli.functions.accounting_report import (audit_ledger, bank_balance_differences,
                                                 period_bounds, source_differences,
@@ -202,11 +201,6 @@ def test_reversal_preserves_original_and_records_reason(clean_ledger):
     assert audit_ledger(db.session) == []
 
 
-def test_constraint_installation_is_repeatable_on_current_schema(clean_ledger):
-    install_journal_constraints()
-    install_journal_constraints()
-
-
 def test_imported_bank_balance_requires_opening_cash_or_all_transactions(clean_ledger):
     account_id = run_sql(text(
         "INSERT INTO ofx.acctfrom (subclass, name) "
@@ -253,29 +247,6 @@ def test_direct_journal_edit_is_recorded_and_audit_history_is_immutable(clean_le
         db.session.commit()
     db.session.rollback()
     assert db.session.query(JournalEntryEvents).count() == 2
-
-
-def test_existing_schema_hardening_fails_closed_on_legacy_zero(clean_ledger):
-    for name in ('journal_functional_money', 'journal_source_money'):
-        run_sql('ALTER TABLE bookkeeping.journal_entries DROP CONSTRAINT ' + name)
-    identifier = None
-    try:
-        identifier = run_sql(text("""INSERT INTO bookkeeping.journal_entries
-            (timestamp, debit_subaccount, credit_subaccount, functional_amount,
-             functional_currency, source_amount, source_currency)
-            VALUES (:when, 'Rent', 'Accounts Payable', 0, 'USD', 0, 'USD')
-            RETURNING id
-        """), {'when': at(2047, 1, 1)}).scalar()
-        with pytest.raises(ValueError, match='Historical journal entries violate'):
-            install_journal_constraints()
-        assert run_sql(text('SELECT functional_amount FROM '
-                                      'bookkeeping.journal_entries WHERE id = :id'),
-                                 {'id': identifier}).scalar() == 0
-    finally:
-        if identifier is not None:
-            run_sql(text('DELETE FROM bookkeeping.journal_entries WHERE id = :id'),
-                              {'id': identifier})
-        install_journal_constraints()
 
 
 def test_old_amazon_expense_suspense_mapping_is_rejected(clean_ledger):

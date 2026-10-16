@@ -34,6 +34,7 @@ docs/_build
 # Virtual environments
 env
 env*
+!migrations/env.py
 
 .webassets-cache
 .DS_Store
@@ -64,7 +65,6 @@ libraries/
 
 Chart of Accounts.csv
 
-migrations
 
 adhoc.py
 
