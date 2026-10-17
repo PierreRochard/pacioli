@@ -70,3 +70,7 @@ adhoc.py
 
 logs
 gunicorn_configuration.py
+
+# Alire workspace state for the SPARK OFX program.
+ofx/alire/
+ofx/config/

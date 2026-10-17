@@ -46,6 +46,7 @@ MESSAGES = {
     'local_model_invalid_response': 'The local model returned an incomplete or invalid response. No proposed action was executed.',
     'local_model_gpu_unavailable': 'The local GPU did not respond to the readiness check.',
     'desktop_launch_failed': 'The desktop worker could not start. Saved intervals are retained.',
+    'qfx_invalid': 'The downloaded file is not a valid OFX statement. It was not imported.',
     'qfx_identity_mismatch': 'The downloaded QFX did not match the requested account or currency. It was not imported.',
     'qfx_coverage_unverified': 'The QFX did not confirm the full requested date interval. Review the download before retrying.',
     'minimum_interval_exceeded': 'Chase refused even a single-day export. This account needs manual review.',

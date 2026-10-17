@@ -10,4 +10,5 @@
 !migrations/
 !scripts/
 !extensions/
+!ofx/build/bin/pacioli-ofx
 **/__pycache__

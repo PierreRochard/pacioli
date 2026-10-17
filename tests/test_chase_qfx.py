@@ -1,4 +1,4 @@
-"""Exercise real ofxtools parsing against the disposable PostgreSQL database."""
+"""Exercise real OFX parsing against the disposable PostgreSQL database."""
 
 from decimal import Decimal
 from datetime import date, datetime, timezone
@@ -313,7 +313,7 @@ def test_chase_qfx_import_page_requires_login_and_csrf(
             'csrf_token': token, 'reviewed_usd': 'yes',
             'statement': (BytesIO(b'not ofx'), 'bad.qfx')})
         assert response.status_code == 200, response.data[:1000]
-        assert b'Could not import this file' in response.data
+        assert b'The file is not a valid OFX statement' in response.data
     finally:
         app.config['WTF_CSRF_ENABLED'] = prior
 

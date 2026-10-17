@@ -26,6 +26,7 @@ COPY pacioli/ pacioli/
 COPY migrations/ migrations/
 COPY scripts/ scripts/
 COPY extensions/ extensions/
+COPY ofx/build/bin/pacioli-ofx ofx/build/bin/pacioli-ofx
 RUN /opt/venv/bin/python -m compileall -q pacioli scripts migrations
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \

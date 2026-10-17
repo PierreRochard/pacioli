@@ -80,6 +80,8 @@ def main():
             environment['PYTHONDONTWRITEBYTECODE'] = '1'
 
             check_python_syntax()
+            # The tests run the SPARK OFX program; prove it before using it.
+            run('make', 'ofx', 'prove')
             # Environments built by uv carry no pip; check them with uv instead.
             if importlib.util.find_spec('pip'):
                 run(sys.executable, '-m', 'pip', 'check', env=environment)

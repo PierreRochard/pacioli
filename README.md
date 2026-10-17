@@ -7,15 +7,18 @@ with Python 3.14. Direct dependencies are listed in `requirements.in`;
 
 ## Local setup
 
-For a new local installation, install [uv](https://docs.astral.sh/uv/) and the
-PostgreSQL server binaries, then run:
+For a new local installation, install [uv](https://docs.astral.sh/uv/), the
+PostgreSQL server binaries, and [Alire](https://alire.ado.dev/) (`alr`), which
+provides GNAT and GNATprove for the OFX program in `ofx/`. Then run:
 
 ```sh
 make env
+make ofx
 make db-init
 ```
 
-`make env` installs the Python version pinned in `.python-version` with uv and
+`make ofx` builds the OFX reader that every statement import uses
+(`ofx/README.md`). `make env` installs the Python version pinned in `.python-version` with uv and
 builds `.venv` on it. The web container's image uses the same version.
 `db-init` creates a persistent PostgreSQL cluster and a `pacioli` database in
 the ignored `.local/` directory, loads the chart, and runs the accounting
@@ -93,12 +96,13 @@ After pulling or committing changes, run `make deploy`:
    from `HEAD`.
 2. It saves a database backup and syncs `.venv` with the hashed development
    lock.
-3. It builds the image from a `git archive` of `HEAD` plus the locked wheels in
-   `.local/wheels`. Nothing else from `.local` enters the image.
+3. It builds the OFX program (`make ofx`), then the image from a `git archive`
+   of `HEAD`, the locked wheels in `.local/wheels`, and that program. Nothing
+   else from `.local` enters the image.
 4. It applies pending schema migrations, restarts the service, waits for the
    login page, and keeps the last three builds.
 
-The image contains the private ofxtools and Flask-Admin builds. Never push it
+The image contains the private Flask-Admin build. Never push it
 to a registry. Install `docker-buildx` to build with BuildKit; without it, the
 deploy falls back to Docker's deprecated classic builder.
 
@@ -287,8 +291,8 @@ make ci
 
 This command checks available memory and disk space, starts a private
 PostgreSQL cluster under `.local/ci` (or `PACIOLI_CI_SCRATCH`), checks Python
-syntax and installed package dependencies, runs the tests serially, then stops
-and removes the cluster. Keep the scratch directory on a fast local disk:
+syntax and installed package dependencies, builds the OFX program and proves it
+with GNATprove, runs the tests serially, then stops and removes the cluster. Keep the scratch directory on a fast local disk:
 browser tests time out when Firefox profiles sit on a busy hard drive.
 It needs local PostgreSQL server binaries and does not need `.env` or an
 existing application database.
@@ -328,7 +332,7 @@ jQuery 3.7.1, Select2 4.1.0, daterangepicker 3.1.0 and moment 2.31.0. A small
 inline editor replaces x-editable for `column_editable_list`. Map widgets and
 Bootswatch swatches are not supported.
 
-As with ofxtools, the wheel is not in git: copy
+The wheel is not in git: copy
 `flask_admin-2.2.1+pacioli.1-py3-none-any.whl` into `.local/wheels/` before
 installing. To change the theme or a library, change the fork, run its tests,
 then build and tag a new `+pacioli.N` wheel as `PACIOLI.md` describes. Point
@@ -354,6 +358,22 @@ The two configuration tests can run alone without PostgreSQL:
 `.venv/bin/python -m pytest -q tests/test_config.py`.
 
 ## Amazon and market data
+
+### OFX statements
+
+Every OFX/QFX import, from the upload form, the Chase browser worker, or a
+direct OFX connection, goes through one reader: `ofx/`, a SPARK program proved
+free of run-time errors, run in its own process (`ofx/README.md`). It accepts
+bank and credit-card statements only and returns typed values; Pacioli then
+applies its acceptance rules and writes the `ofx` schema. A transaction ID
+that is already stored must match its stored row in every column, or the whole
+file is rejected for review. Balances keep the latest amount reported for each
+as-of time; the encrypted source file keeps every original.
+
+Character references in bank text are decoded, so a payee sent as `A &amp; B`
+is stored as `A & B`. Imports before this reader kept the reference; migration
+0003 decoded those names and the mapping keywords copied from them, keeping the
+originals in `ofx.text_before_0003` for its downgrade.
 
 ### Chase QFX files
 

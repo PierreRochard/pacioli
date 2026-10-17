@@ -1,22 +1,18 @@
 """One validated financial import boundary for downloaded and direct OFX."""
 
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from hashlib import sha256
-from io import BytesIO
 import json
 
-from ofxtools.Types import DateTime as OFXDateTime
-from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
-from ofxtools.ofxalchemy.Parser import BankStatement, CreditCardStatement
-from ofxtools.ofxalchemy import models as ofx_models
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from pacioli.database.setup import ofx_engine
 from pacioli.extensions import db
 from pacioli.models import (BankFeedAccounts, ConnectionResponses, Connections,
                             OFXFileImports, Subaccounts, ChaseExportCoverage)
+from pacioli.functions import ofx_document
 from pacioli.functions.chase_coverage import account_ranges, missing_ranges
 
 
@@ -41,49 +37,84 @@ SUPPORTED_PRECISION = {'USD': Decimal('.01'), 'EUR': Decimal('.01'),
                        'BTC': Decimal('.00000001')}
 
 
-def _validate_envelope(parser, currency, expected_account):
+REJECTIONS = {
+    'unsupported_statement': 'The file must contain exactly one bank or credit-card statement',
+    'unsuccessful_status': 'The OFX response reports an unsuccessful status',
+    'currency_mismatch': 'OFX statement currency does not match the reviewed account currency',
+    'account_identity_invalid': 'The OFX statement must identify exactly one account',
+    'transaction_id_invalid': 'The QFX contains a missing or reserved transaction ID',
+    'transaction_value_invalid': 'The OFX contains an invalid transaction date or amount',
+    'transaction_detail_unsupported': 'The OFX contains transaction details Pacioli does not import',
+    'ledger_balance_invalid': 'A valid {currency} posted ledger balance is required',
+}
+
+
+def parse_statement(content, currency='USD'):
+    """The typed document; parser rejections become safe acceptance codes."""
+    try:
+        return ofx_document.parse(content)
+    except ofx_document.OFXError as error:
+        code = _rejection_code(error)
+        message = REJECTIONS.get(code, 'The file is not a valid OFX statement')
+        raise ImportRejected(code, message.format(currency=currency)) from None
+
+
+def _rejection_code(error):
+    """Name a parser rejection by the part of the statement at fault."""
+    path = error.path.split('/')
+    if error.code == 'header_invalid':
+        return 'ofx_header_invalid'
+    if len(path) == 2 and error.code == 'element_unsupported':
+        return 'unsupported_statement'
+    if 'STMTTRN' in path:
+        return ('transaction_id_invalid' if path[-1] == 'FITID' else
+                'transaction_detail_unsupported' if error.code == 'element_unsupported' else
+                'transaction_value_invalid')
+    if 'LEDGERBAL' in path:
+        return 'ledger_balance_invalid'
+    if 'BANKACCTFROM' in path or 'CCACCTFROM' in path:
+        return 'account_identity_invalid'
+    if path[-1] == 'CURDEF':
+        return 'currency_mismatch'
+    if 'STATUS' in path:
+        return 'unsuccessful_status'
+    return 'ofx_' + error.code
+
+
+def _validate_envelope(document, currency, expected_account):
     """Validate transport-independent acceptance before creating financial rows.
 
-    ofxtools deliberately skips error responses and does not validate statuses.
     Connection settings describe expectations; they cannot relabel the document.
+    Returns the one statement response.
     """
-    signon = parser.find('SIGNONMSGSRSV1/SONRS/STATUS')
-    if signon is None:
+    if document.signon is None or document.signon.status is None:
         raise ImportRejected('missing_signon_status', 'The OFX response is missing its sign-on status')
-    responses = (parser.findall('BANKMSGSRSV1/STMTTRNRS') +
-                 parser.findall('CREDITCARDMSGSRSV1/CCSTMTTRNRS'))
-    if (len(responses) != 1 or parser.findall('INVSTMTMSGSRSV1/INVSTMTTRNRS') or
-            parser.find('SECLISTMSGSRSV1') is not None):
+    if len(document.responses) != 1:
         raise ImportRejected('unsupported_statement', 'The file must contain exactly one bank or credit-card statement')
-    if responses[0].find('STATUS') is None:
+    response = document.responses[0]
+    if response.status is None:
         raise ImportRejected('missing_statement_status', 'The OFX response is missing its statement status')
-    for status in parser.findall('.//STATUS'):
-        if ((status.findtext('CODE') or '').strip() != '0' or
-                (status.findtext('SEVERITY') or '').strip().upper() != 'INFO'):
-            raise ImportRejected('unsuccessful_status', 'The OFX response reports an unsuccessful status')
-    statements = (responses[0].findall('STMTRS') + responses[0].findall('CCSTMTRS'))
-    if len(statements) != 1:
+    if not all(status.success for status in document.statuses):
+        raise ImportRejected('unsuccessful_status', 'The OFX response reports an unsuccessful status')
+    statement = response.statement
+    if statement is None:
         raise ImportRejected('unsupported_statement', 'The file must contain exactly one bank or credit-card statement')
-    statement = statements[0]
-    if (statement.findtext('CURDEF') or '').strip() != currency:
+    if statement.currency != currency:
         raise ImportRejected('currency_mismatch', 'OFX statement currency does not match the reviewed account currency')
-    bank, card = statement.find('BANKACCTFROM'), statement.find('CCACCTFROM')
-    if (bank is None) == (card is None):
+    account, bank = statement.account, response.kind == 'bank'
+    if account is None or not account.acctid or (bank and not (account.bankid and account.accttype)):
         raise ImportRejected('account_identity_invalid', 'The OFX statement must identify exactly one account')
-    node = bank if bank is not None else card
-    identity = {'type': (node.findtext('ACCTTYPE') or '').strip() if bank is not None else 'CREDITCARD',
-                'account_number': (node.findtext('ACCTID') or '').strip(),
-                'routing_number': (node.findtext('BANKID') or '').strip() if bank is not None else None}
-    if not identity['account_number']:
-        raise ImportRejected('account_identity_invalid', 'The OFX statement account is missing')
+    identity = {'type': account.accttype if bank else 'CREDITCARD',
+                'account_number': account.acctid,
+                'routing_number': account.bankid if bank else None}
     if expected_account is not None and identity != expected_account:
         raise AccountNotApproved('The OFX response account does not match the requested account')
-    return statement
+    return response
 
 
 def _retain_response(content, connection_id):
     """Durably retain encrypted acquisition evidence, independently of acceptance."""
-    with Session(bind=ofx_engine()) as session:
+    with Session(bind=db.engine) as session:
         # Also serialize creation of the shared manual-file connection.
         session.execute(text('SELECT pg_advisory_xact_lock(724109, 2)'))
         if connection_id is None:
@@ -108,7 +139,7 @@ def _retain_response(content, connection_id):
 
 
 def _reject_response(response_id, error):
-    with Session(bind=ofx_engine()) as session:
+    with Session(bind=db.engine) as session:
         response = session.get(ConnectionResponses, response_id)
         response.import_status = 'rejected'
         # Raw provider messages can contain credentials or account identifiers.
@@ -120,72 +151,178 @@ def _reject_response(response_id, error):
 def _utc(value):
     if value is None:
         return None
-    if isinstance(value, str):
-        value = OFXDateTime().convert(value)
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
-def _prepare_transactions(parser, currency='USD'):
+def _naive(value):
+    # ofx.* timestamps are naive UTC.
+    return None if value is None else _utc(value).replace(tzinfo=None)
+
+
+def _prepare_transactions(document, currency='USD'):
     """Separate Chase card fees from purchases that reuse the same bank FITID.
 
-    Change only the parsed tree; the original QFX is retained verbatim. Always
-    derive the fee ID, including fee-only exports, so overlap/order cannot
-    change transaction identity. Unknown conflicting IDs must fail closed.
+    The original QFX is retained verbatim; only the transactions to store get
+    the derived fee ID. Always derive it, including for fee-only exports, so
+    overlap/order cannot change transaction identity. Unknown conflicting IDs
+    must fail closed. Returns {fitid: fingerprint}, {alias: original FITID},
+    and the transactions to store.
     """
-    statements = (parser.findall('BANKMSGSRSV1/STMTTRNRS/STMTRS') +
-                  parser.findall('CREDITCARDMSGSRSV1/CCSTMTTRNRS/CCSTMTRS'))
-    if len(statements) != 1:
+    if len(document.responses) != 1 or document.responses[0].statement is None:
         raise ValueError('The file must contain exactly one bank or credit-card statement')
-    statement = statements[0]
-    chase_card = (statement.tag == 'CCSTMTRS' and
-                  parser.findtext('SIGNONMSGSRSV1/SONRS/FI/ORG') == 'B1' and
-                  parser.findtext('SIGNONMSGSRSV1/SONRS/FI/FID') == '10898')
-    expected, fee_aliases = {}, {}
-    for transaction in statement.findall('BANKTRANLIST/STMTTRN'):
-        def value(tag):
-            return (transaction.findtext(tag) or '').strip()
-        fitid = value('FITID')
+    response, signon = document.responses[0], document.signon
+    statement = response.statement
+    chase_card = (response.kind == 'creditcard' and signon is not None and
+                  signon.org == 'B1' and signon.fid == '10898')
+    expected, fee_aliases, transactions = {}, {}, []
+    for transaction in (statement.transactions.transactions if statement.transactions else ()):
+        fitid = transaction.fitid or ''
         if not fitid or fitid.startswith(CHASE_FEE_ID_PREFIX):
             raise ImportRejected('transaction_id_invalid', 'The QFX contains a missing or reserved transaction ID')
-        name = value('NAME')
+        if transaction.correctfitid is not None or transaction.correctaction is not None:
+            raise ImportRejected('transaction_correction_unsupported',
+                                 'The OFX corrects an earlier transaction; review it before importing')
+        name = transaction.name or ''
         if chase_card and name.upper() in CHASE_FEE_NAMES:
             identity = json.dumps([fitid, name.upper()], separators=(',', ':'))
             alias = CHASE_FEE_ID_PREFIX + sha256(identity.encode('utf-8')).hexdigest()
             fee_aliases[alias] = fitid
-            transaction.find('FITID').text = alias
+            transaction = replace(transaction, fitid=alias)
             fitid = alias
-        posted, amount = _utc(value('DTPOSTED')), Decimal(value('TRNAMT'))
-        if (posted is None or not amount.is_finite() or
+        posted, amount = _utc(transaction.dtposted), transaction.trnamt
+        if (posted is None or amount is None or transaction.trntype is None or
                 amount != amount.quantize(SUPPORTED_PRECISION[currency])):
             raise ImportRejected('transaction_value_invalid', 'The OFX contains an invalid transaction date or amount')
-        fingerprint = (posted, amount,
-                       value('TRNTYPE'), name, value('MEMO'))
+        fingerprint = (posted, amount, transaction.trntype, name, transaction.memo or '')
         if fitid in expected and expected[fitid] != fingerprint:
             raise ImportRejected('transaction_id_conflict', 'The QFX reuses a transaction ID for conflicting records')
         expected[fitid] = fingerprint
-    return expected, fee_aliases
+        transactions.append(transaction)
+    return expected, fee_aliases, transactions
 
 
-def _verify_transactions(statement, expected, fee_aliases):
-    # ofxtools returns the existing row when a primary key already exists,
-    # without checking its contents. Never silently accept a changed record.
-    for transaction in statement.transactions:
-        actual = (_utc(transaction.dtposted), Decimal(transaction.trnamt),
-                  transaction.trntype, transaction.name or '', transaction.memo or '')
-        if actual != expected[transaction.fitid]:
-            raise ImportRejected('transaction_id_conflict', 'An imported transaction ID conflicts with its stored record')
+def _ledger_balance(statement, currency='USD'):
+    """The posted balance and its as-of time, which every import must report."""
+    ledger = statement.ledger
+    amount, asof = (ledger.amount, _utc(ledger.asof)) if ledger else (None, None)
+    if amount is None or asof is None or amount != amount.quantize(SUPPORTED_PRECISION[currency]):
+        raise ImportRejected('ledger_balance_invalid', 'A valid {} posted ledger balance is required'.format(currency))
+    if asof.date() > datetime.now(timezone.utc).date():
+        raise ImportRejected('ledger_balance_future', 'The posted balance date is in the future')
+    return amount, asof
+
+
+TRANSACTION_COLUMNS = ('trntype', 'dtposted', 'dtuser', 'dtavail', 'trnamt', 'srvrtid', 'checknum',
+                       'refnum', 'sic', 'payeeid', 'name', 'memo', 'inv401ksource', 'curtype',
+                       'cursym', 'currate')
+
+
+def _transaction_row(transaction):
+    currency = transaction.currency
+    return {'trntype': transaction.trntype, 'dtposted': _naive(transaction.dtposted),
+            'dtuser': _naive(transaction.dtuser), 'dtavail': _naive(transaction.dtavail),
+            'trnamt': transaction.trnamt, 'srvrtid': transaction.srvrtid,
+            'checknum': transaction.checknum, 'refnum': transaction.refnum, 'sic': transaction.sic,
+            'payeeid': transaction.payeeid, 'name': transaction.name, 'memo': transaction.memo,
+            'inv401ksource': transaction.inv401ksource,
+            'curtype': currency.kind if currency else None,
+            'cursym': currency.symbol if currency else None,
+            'currate': currency.rate if currency else None}
+
+
+def _store_account(session, response):
+    """The ofx.acctfrom id of the statement's account, created on first import."""
+    account, bank = response.statement.account, response.kind == 'bank'
+    if bank:
+        row = session.execute(text('SELECT id, accttype FROM ofx.bankacctfrom WHERE bankid=:bankid AND acctid=:acctid'),
+                              {'bankid': account.bankid, 'acctid': account.acctid}).first()
+        if row is not None and row.accttype != account.accttype:
+            raise ImportRejected('account_identity_invalid', 'The OFX account type differs from the stored account')
+    else:
+        row = session.execute(text('SELECT id FROM ofx.ccacctfrom WHERE acctid=:acctid'),
+                              {'acctid': account.acctid}).first()
+    if row is not None:
+        return row.id
+    account_id = session.execute(text('INSERT INTO ofx.acctfrom (subclass) VALUES (:subclass) RETURNING id'),
+                                 {'subclass': 'bankacctfrom' if bank else 'ccacctfrom'}).scalar_one()
+    if bank:
+        session.execute(text("""
+            INSERT INTO ofx.bankacctfrom (id, bankid, branchid, acctid, accttype, acctkey)
+            VALUES (:id, :bankid, :branchid, :acctid, CAST(:accttype AS ofx.accttype), :acctkey)
+        """), {'id': account_id, 'bankid': account.bankid, 'branchid': account.branchid,
+               'acctid': account.acctid, 'accttype': account.accttype, 'acctkey': account.acctkey})
+    else:
+        session.execute(text('INSERT INTO ofx.ccacctfrom (id, acctid, acctkey) VALUES (:id, :acctid, :acctkey)'),
+                        {'id': account_id, 'acctid': account.acctid, 'acctkey': account.acctkey})
+    return account_id
+
+
+def _store_transactions(session, account_id, transactions):
+    """Insert new FITIDs; an existing FITID must match its stored row exactly.
+
+    Returns how many transactions were inserted.
+    """
+    if not transactions:
+        return 0
+    stored = {row.fitid: {column: getattr(row, column) for column in TRANSACTION_COLUMNS}
+              for row in session.execute(text(
+                  'SELECT fitid, {} FROM ofx.stmttrn WHERE acctfrom_id=:account_id AND fitid=ANY(:fitids)'
+                  .format(', '.join(TRANSACTION_COLUMNS))),
+                  {'account_id': account_id, 'fitids': [t.fitid for t in transactions]})}
+    inserts = []
+    for transaction in transactions:
+        row = _transaction_row(transaction)
+        if transaction.fitid in stored:
+            if stored[transaction.fitid] != row:
+                raise ImportRejected('transaction_id_conflict', 'An imported transaction ID conflicts with its stored record')
+            continue
+        stored[transaction.fitid] = row
+        inserts.append(dict(row, acctfrom_id=account_id, fitid=transaction.fitid))
+    if inserts:
+        session.execute(text("""
+            INSERT INTO ofx.stmttrn (acctfrom_id, fitid, trntype, dtposted, dtuser, dtavail, trnamt,
+                                     srvrtid, checknum, refnum, sic, payeeid, name, memo,
+                                     inv401ksource, curtype, cursym, currate)
+            VALUES (:acctfrom_id, :fitid, CAST(:trntype AS ofx.trntype), :dtposted, :dtuser, :dtavail,
+                    :trnamt, :srvrtid, :checknum, :refnum, :sic, :payeeid, :name, :memo,
+                    CAST(:inv401ksource AS ofx.inv401ksource), CAST(:curtype AS ofx.curtype),
+                    CAST(:cursym AS ofx.cursym), :currate)
+        """), inserts)
+    return len(inserts)
+
+
+def _check_legacy_fee_ids(session, account_id, fee_aliases):
     for original in set(fee_aliases.values()):
-        legacy = OFX_Session.query(ofx_models.STMTTRN).filter_by(
-            acctfrom_id=statement.account.id, fitid=original).one_or_none()
+        legacy = session.execute(text('SELECT name FROM ofx.stmttrn WHERE acctfrom_id=:account_id AND fitid=:fitid'),
+                                 {'account_id': account_id, 'fitid': original}).first()
         if legacy is not None and (legacy.name or '').upper() in CHASE_FEE_NAMES:
             raise ImportRejected('legacy_fee_id_conflict', 'Previously imported Chase fee IDs need review before reimport')
 
 
-def _account_name(session, account, institution='Chase'):
-    if account.name:
-        return account.name
+def _store_balances(session, account_id, statement):
+    """Keep the latest reported amount for each (account, as-of) balance.
+
+    Every original value stays in the encrypted source and its import snapshot.
+    """
+    for table, code, balance in (('ledgerbal', 'ledger_balance_invalid', statement.ledger),
+                                 ('availbal', 'available_balance_invalid', statement.available)):
+        if balance is None:
+            continue
+        if balance.amount is None or balance.asof is None:
+            raise ImportRejected(code, 'The OFX statement reports an incomplete balance')
+        session.execute(text("""
+            INSERT INTO ofx.{} (acctfrom_id, dtasof, balamt) VALUES (:account_id, :asof, :amount)
+            ON CONFLICT (acctfrom_id, dtasof) DO UPDATE SET balamt = EXCLUDED.balamt
+        """.format(table)), {'account_id': account_id, 'asof': _naive(balance.asof), 'amount': balance.amount})
+
+
+def _account_name(session, account_id, response, institution='Chase'):
+    name = session.execute(text('SELECT name FROM ofx.acctfrom WHERE id=:id'), {'id': account_id}).scalar_one()
+    if name:
+        return name
+    account = response.statement.account
     last_four = account.acctid[-4:]
-    if isinstance(account, ofx_models.CCACCTFROM):
+    if response.kind == 'creditcard':
         kind, parent = 'Credit Card', 'Accounts Payable'
     elif account.accttype == 'SAVINGS':
         kind, parent = 'Savings', 'Cash'
@@ -194,9 +331,9 @@ def _account_name(session, account, institution='Chase'):
     name = '{} {} ({})'.format(institution, kind, last_four)
     existing = session.query(Subaccounts).filter_by(name=name).first()
     if existing is not None:
-        name = '{} {} ({}; feed {})'.format(institution, kind, last_four, account.id)
+        name = '{} {} ({}; feed {})'.format(institution, kind, last_four, account_id)
     session.add(Subaccounts(name=name, parent=parent))
-    account.name = name
+    session.execute(text('UPDATE ofx.acctfrom SET name=:name WHERE id=:id'), {'name': name, 'id': account_id})
     return name
 
 
@@ -294,32 +431,6 @@ def public_account_summary(summary):
             for key, value in summary.items()}
 
 
-def _source_metadata(parser, currency='USD'):
-    """Read before ofxtools mutates the tree or reuses existing ORM balances."""
-    nodes = parser.findall('BANKMSGSRSV1/STMTTRNRS/STMTRS') + parser.findall('CREDITCARDMSGSRSV1/CCSTMTTRNRS/CCSTMTRS')
-    if len(nodes) != 1:
-        raise ValueError('Expected one statement')
-    node = nodes[0]
-    amount = Decimal(node.findtext('LEDGERBAL/BALAMT') or 'NaN')
-    asof = _utc(node.findtext('LEDGERBAL/DTASOF'))
-    if not amount.is_finite() or amount != amount.quantize(SUPPORTED_PRECISION[currency]) or asof is None:
-        raise ImportRejected('ledger_balance_invalid', 'A valid {} posted ledger balance is required'.format(currency))
-    if asof.date() > datetime.now(timezone.utc).date():
-        raise ImportRejected('ledger_balance_future', 'The posted balance date is in the future')
-    bank = node.find('BANKACCTFROM')
-    def field(parent, tag):
-        return (parent.findtext(tag) or '').strip()
-    if bank is not None:
-        account = OFX_Session.query(ofx_models.BANKACCTFROM).filter_by(
-            bankid=field(bank, 'BANKID'), acctid=field(bank, 'ACCTID'),
-            accttype=field(bank, 'ACCTTYPE')).one_or_none()
-    else:
-        account = OFX_Session.query(ofx_models.CCACCTFROM).filter_by(
-            acctid=field(node, 'CCACCTFROM/ACCTID')).one_or_none()
-    count = OFX_Session.query(ofx_models.STMTTRN).filter_by(acctfrom_id=account.id).count() if account else 0
-    return amount, asof, count
-
-
 def chase_account_summaries():
     ids = (db.session.query(OFXFileImports.ofx_account_id)
            .distinct().order_by(OFXFileImports.ofx_account_id).all())
@@ -361,116 +472,104 @@ def import_ofx_statement(content, *, currency, connection_id=None, expected_acco
         raise ValueError('Set a supported OFX account currency before importing')
     if connection_id is not None and expected_account is None:
         raise ValueError('Direct OFX import requires an expected account')
-    if not content or len(content) > MAX_OFX_BYTES:
+    if not isinstance(content, bytes) or not content or len(content) > MAX_OFX_BYTES:
         raise ValueError('Choose an OFX/QFX file no larger than 10 MiB')
     if verified_interval is not None and (allowed_account_ids is None or len(allowed_account_ids) != 1):
         raise ValueError('Verified export coverage requires one approved account')
     digest = sha256(content).hexdigest()
     response_id, source_connection_id = _retain_response(content, connection_id)
-    OFX_Session.remove()
-    OFX_Session.configure(bind=ofx_engine())
     accepted = False
-    try:
-        # Manual uploads and background replays must see each other's commits
-        # before checking hashes or FITIDs. Locks release on commit/rollback.
-        progress('import_lock')
-        OFX_Session.execute(text("SELECT pg_advisory_xact_lock(hashtext('pacioli.trial_balances'))"))
-        OFX_Session.execute(text('SELECT pg_advisory_xact_lock(724109, 2)'))
-        response = OFX_Session.get(ConnectionResponses, response_id)
-        connection = (OFX_Session.query(Connections).filter_by(id=source_connection_id)
-                      .with_for_update().one())
-        if connection.currency != currency:
-            raise ImportRejected('connection_changed', 'OFX connection currency changed before import')
-        if connection_id is not None:
-            configured_account = {
-                'type': 'CREDITCARD' if connection.type == 'Credit Card' else connection.type.upper(),
-                'account_number': connection.account_number,
-                'routing_number': None if connection.type == 'Credit Card' else connection.routing_number}
-            if configured_account != expected_account:
-                raise ImportRejected('connection_changed', 'OFX connection account changed before import')
-        progress('import_parse')
-        parser = OFXParser()
-        parser.parse(BytesIO(content))
-        _validate_envelope(parser, currency, expected_account)
-        expected, fee_aliases = _prepare_transactions(parser, currency)
-        balance_amount, balance_asof, before_count = _source_metadata(parser, currency)
-        parser.instantiate()
-        if len(parser.statements) != 1 or not isinstance(
-                parser.statements[0], (BankStatement, CreditCardStatement)):
-            raise ValueError('The file must contain exactly one bank or credit-card statement')
-        statement = parser.statements[0]
-        progress('import_validate')
-        _verify_transactions(statement, expected, fee_aliases)
-        account = statement.account
-        OFX_Session.flush()
-        if allowed_account_ids is not None and account.id not in allowed_account_ids:
-            raise AccountNotApproved('QFX account is not approved for automatic import')
-        registration = OFX_Session.get(BankFeedAccounts, account.id)
-        if registration is not None and registration.currency != currency:
-            raise ImportRejected('currency_registration_conflict', 'This feed has a conflicting currency registration')
-        if registration is None:
-            OFX_Session.add(BankFeedAccounts(ofx_account_id=account.id, currency=currency))
-        progress('import_deduplicate')
-        prior = OFX_Session.query(OFXFileImports).filter_by(sha256=digest).one_or_none()
-        if prior is not None:
-            if prior.ofx_account_id != account.id:
-                raise ImportRejected('import_identity_changed', 'The imported statement account identity has changed')
-            if (allowed_account_ids is not None and
-                    prior.ofx_account_id not in allowed_account_ids):
+    with Session(bind=db.engine) as session:
+        try:
+            # Manual uploads and background replays must see each other's commits
+            # before checking hashes or FITIDs. Locks release on commit/rollback.
+            progress('import_lock')
+            session.execute(text("SELECT pg_advisory_xact_lock(hashtext('pacioli.trial_balances'))"))
+            session.execute(text('SELECT pg_advisory_xact_lock(724109, 2)'))
+            response = session.get(ConnectionResponses, response_id)
+            connection = (session.query(Connections).filter_by(id=source_connection_id)
+                          .with_for_update().one())
+            if connection.currency != currency:
+                raise ImportRejected('connection_changed', 'OFX connection currency changed before import')
+            if connection_id is not None:
+                configured_account = {
+                    'type': 'CREDITCARD' if connection.type == 'Credit Card' else connection.type.upper(),
+                    'account_number': connection.account_number,
+                    'routing_number': None if connection.type == 'Credit Card' else connection.routing_number}
+                if configured_account != expected_account:
+                    raise ImportRejected('connection_changed', 'OFX connection account changed before import')
+            progress('import_parse')
+            document = parse_statement(content, currency)
+            ofx_response = _validate_envelope(document, currency, expected_account)
+            statement = ofx_response.statement
+            expected, fee_aliases, transactions = _prepare_transactions(document, currency)
+            balance_amount, balance_asof = _ledger_balance(statement, currency)
+
+            progress('import_validate')
+            account_id = _store_account(session, ofx_response)
+            new_transactions = _store_transactions(session, account_id, transactions)
+            _check_legacy_fee_ids(session, account_id, fee_aliases)
+            if allowed_account_ids is not None and account_id not in allowed_account_ids:
                 raise AccountNotApproved('QFX account is not approved for automatic import')
-            _record_verified_interval(OFX_Session, prior, verified_interval)
+            registration = session.get(BankFeedAccounts, account_id)
+            if registration is not None and registration.currency != currency:
+                raise ImportRejected('currency_registration_conflict', 'This feed has a conflicting currency registration')
+            if registration is None:
+                session.add(BankFeedAccounts(ofx_account_id=account_id, currency=currency))
+
+            progress('import_deduplicate')
+            prior = session.query(OFXFileImports).filter_by(sha256=digest).one_or_none()
+            if prior is not None:
+                if prior.ofx_account_id != account_id:
+                    raise ImportRejected('import_identity_changed', 'The imported statement account identity has changed')
+                _record_verified_interval(session, prior, verified_interval)
+                response.import_status = 'accepted'
+                if connection_id is not None:
+                    connection.synced_at = datetime.now(timezone.utc)
+                progress('import_commit', duplicate=True, transactions=prior.transaction_count)
+                session.commit()
+                accepted = True
+                db.session.expire_all()
+                return {'duplicate': True, 'sha256': digest,
+                        'transaction_count': prior.transaction_count,
+                        'new_transactions': 0, 'existing_transactions': prior.transaction_count,
+                        'reported_balance': str(prior.balance_amount), 'reported_balance_asof': prior.balance_asof.isoformat(),
+                        'account_id': prior.ofx_account_id,
+                        'summary': account_summary(prior.ofx_account_id)}
+
+            _account_name(session, account_id, ofx_response, connection.org or 'OFX')
+            _store_balances(session, account_id, statement)
+
+            progress('import_save')
+            dates = [_utc(transaction.dtposted) for transaction in transactions]
+            coverage = statement.transactions
+            imported = OFXFileImports(
+                connection_id=connection.id, response_id=response.id,
+                ofx_account_id=account_id, sha256=digest,
+                transaction_count=len(expected),
+                coverage_start=_utc(coverage.start) if coverage else None,
+                coverage_end=_utc(coverage.end) if coverage else None,
+                first_transaction=min(dates) if dates else None,
+                last_transaction=max(dates) if dates else None,
+                balance_amount=balance_amount,
+                balance_asof=balance_asof)
+            session.add(imported)
+            _record_verified_interval(session, imported, verified_interval)
             response.import_status = 'accepted'
             if connection_id is not None:
                 connection.synced_at = datetime.now(timezone.utc)
-            progress('import_commit', duplicate=True, transactions=prior.transaction_count)
-            OFX_Session.commit()
+            progress('import_commit', duplicate=False, transactions=len(expected))
+            session.commit()
             accepted = True
             db.session.expire_all()
-            return {'duplicate': True, 'sha256': digest,
-                    'transaction_count': prior.transaction_count,
-                    'new_transactions': 0, 'existing_transactions': prior.transaction_count,
-                    'reported_balance': str(prior.balance_amount), 'reported_balance_asof': prior.balance_asof.isoformat(),
-                    'account_id': prior.ofx_account_id,
-                    'summary': account_summary(prior.ofx_account_id)}
-
-        _account_name(OFX_Session, account, connection.org or 'OFX')
-        # ofxtools identifies balances by (account, as-of) and otherwise silently
-        # keeps the old amount. Refresh this derived row; retain every original
-        # value in the encrypted source and its immutable import snapshot.
-        statement.ledgerbal.balamt = balance_amount
-        new_transactions = OFX_Session.query(ofx_models.STMTTRN).filter_by(acctfrom_id=account.id).count() - before_count
-
-        progress('import_save')
-        dates = [_utc(transaction.dtposted) for transaction in statement.transactions]
-        imported = OFXFileImports(
-            connection_id=connection.id, response_id=response.id,
-            ofx_account_id=account.id, sha256=digest,
-            transaction_count=len(expected),
-            coverage_start=_utc(getattr(statement.transactions, 'dtstart', None)),
-            coverage_end=_utc(getattr(statement.transactions, 'dtend', None)),
-            first_transaction=min(dates) if dates else None,
-            last_transaction=max(dates) if dates else None,
-            balance_amount=balance_amount,
-            balance_asof=balance_asof)
-        OFX_Session.add(imported)
-        _record_verified_interval(OFX_Session, imported, verified_interval)
-        response.import_status = 'accepted'
-        if connection_id is not None:
-            connection.synced_at = datetime.now(timezone.utc)
-        progress('import_commit', duplicate=False, transactions=len(expected))
-        OFX_Session.commit()
-        accepted = True
-        db.session.expire_all()
-        return {'duplicate': False, 'sha256': digest,
-                'transaction_count': len(expected),
-                'new_transactions': new_transactions, 'existing_transactions': len(expected) - new_transactions,
-                'reported_balance': str(balance_amount), 'reported_balance_asof': balance_asof.isoformat(),
-                'account_id': account.id,
-                'summary': account_summary(account.id)}
-    except Exception as error:
-        OFX_Session.rollback()
-        if not accepted:
-            _reject_response(response_id, error)
-        raise
-    finally:
-        OFX_Session.remove()
+            return {'duplicate': False, 'sha256': digest,
+                    'transaction_count': len(expected),
+                    'new_transactions': new_transactions, 'existing_transactions': len(expected) - new_transactions,
+                    'reported_balance': str(balance_amount), 'reported_balance_asof': balance_asof.isoformat(),
+                    'account_id': account_id,
+                    'summary': account_summary(account_id)}
+        except Exception as error:
+            session.rollback()
+            if not accepted:
+                _reject_response(response_id, error)
+            raise

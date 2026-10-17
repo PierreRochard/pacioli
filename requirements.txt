@@ -1005,9 +1005,6 @@ numpy==2.5.4 \
     # via
     #   pandas
     #   yfinance
-./.local/wheels/ofxtools-0.5+pacioli.1-py3-none-any.whl \
-    --hash=sha256:3d76a41bcb7d955075d5390375f13c0bfca85bb0325a63ecc1bbfc239fa32b6c
-    # via -r requirements.in
 pandas==3.0.6 \
     --hash=sha256:0704044b676496b8350e023b09f174a26772456c974a2b11c36bebb558c9490d \
     --hash=sha256:085e3786ae6b2e82b406266bce36690f72b9dc1421903ba9296b2981a9fcf586 \
@@ -1177,7 +1174,6 @@ requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
     --hash=sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed
     # via
-    #   ofxtools
     #   premailer
     #   yfinance
 six==1.17.0 \

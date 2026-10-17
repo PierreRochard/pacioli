@@ -88,25 +88,18 @@ def test_ofx_sync_uses_the_selected_bank_account_history(app_context, monkeypatc
 
     requested = {}
 
-    class FakeClient:
-        def __init__(self, *args, **kwargs):
-            pass
+    def download(url, body):
+        requested['body'] = body
+        raise RuntimeError('network intentionally disabled')
 
-        def statement_request(self, *args, **kwargs):
-            requested.update(kwargs)
-            return object()
-
-        def download(self, request):
-            raise RuntimeError('network intentionally disabled')
-
-    monkeypatch.setattr(ofx_functions, 'OFXClient', FakeClient)
+    monkeypatch.setattr(ofx_functions, 'download', download)
     connection = Connections(type='Checking', routing_number='123456789',
                              account_number='11111111', url='https://bank.invalid',
                              org='bank', fid='1', user='test', password='test',
                              currency='USD')
     with pytest.raises(RuntimeError, match='network intentionally disabled'):
         ofx_functions.sync_ofx_connection(connection)
-    assert requested['dtstart'] == date(2025, 1, 10)
+    assert b'<INCTRAN><DTSTART>20250110</DTSTART>' in requested['body']
 
 
 def test_market_prices_update_existing_rows_without_network(app_context, monkeypatch):

@@ -93,7 +93,7 @@ stop for review. Both the incremental planner and reconciliation summaries use
 the same coverage evidence, preferring verified request bounds for each file.
 
 Each export records the QFX `LEDGERBAL` value and bank as-of date directly from
-the parsed source before ofxtools can reuse a prior ORM balance. Same-as-of
+the parsed source. Same-as-of
 revisions refresh the derived OFX balance while immutable source snapshots retain
 earlier values. Exact-file replay cannot roll a newer balance back. A zero-activity
 QFX can extend coverage and capture a balance without creating transactions.

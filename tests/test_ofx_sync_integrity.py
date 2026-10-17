@@ -1,6 +1,5 @@
 """Real parser regressions for every OFX transport's acceptance boundary."""
 
-from io import BytesIO
 from uuid import uuid4
 from concurrent.futures import ThreadPoolExecutor
 
@@ -27,17 +26,11 @@ def direct_connection(clean_ledger):
 def _transport(monkeypatch, content):
     from pacioli.functions import ofx_functions
 
-    class Client:
-        def __init__(self, *args, **kwargs):
-            pass
+    def download(url, body):
+        assert url == 'https://bank.invalid' and b'<USERPASS>fixture</USERPASS>' in body
+        return content
 
-        def statement_request(self, *args, **kwargs):
-            return object()
-
-        def download(self, request):
-            return BytesIO(content)
-
-    monkeypatch.setattr(ofx_functions, 'OFXClient', Client)
+    monkeypatch.setattr(ofx_functions, 'download', download)
     return ofx_functions.sync_ofx_connection
 
 
@@ -148,14 +141,14 @@ def test_direct_ofx_rejects_registration_conflict_after_instantiation(direct_con
 def test_direct_ofx_rolls_back_failure_after_source_creation(direct_connection, monkeypatch):
     content = _qfx(direct_connection.account_number)
     before = _financial_snapshot()
-    verify = ofx_file_import._verify_transactions
+    check = ofx_file_import._check_legacy_fee_ids
 
-    def fail_after_creation(statement, expected, aliases):
-        verify(statement, expected, aliases)
-        ofx_file_import.OFX_Session.flush()
+    def fail_after_creation(session, account_id, aliases):
+        check(session, account_id, aliases)
+        session.flush()
         raise RuntimeError('injected failure after source insertion')
 
-    monkeypatch.setattr(ofx_file_import, '_verify_transactions', fail_after_creation)
+    monkeypatch.setattr(ofx_file_import, '_check_legacy_fee_ids', fail_after_creation)
     with pytest.raises(RuntimeError, match='injected failure'):
         _transport(monkeypatch, content)(direct_connection)
     assert _financial_snapshot() == before

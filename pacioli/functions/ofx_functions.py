@@ -1,11 +1,11 @@
-from __future__ import print_function
+from datetime import date, datetime, timezone
+import ssl
+from urllib.parse import urlparse
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
+from uuid import uuid4
 
-from datetime import date, timezone
-
-from sqlalchemy import func
-
-from ofxtools.legacyclient import OFXClient, CcAcct, BankAcct
 from pacioli import db
+from pacioli.functions import ofx_document
 from pacioli.functions.ofx_file_import import MAX_OFX_BYTES, import_ofx_statement
 from pacioli.functions.journal_posting import post_pair
 from pacioli.models import (Subaccounts, Mappings, JournalEntries,
@@ -13,26 +13,25 @@ from pacioli.models import (Subaccounts, Mappings, JournalEntries,
                             AccountsFrom, CreditCardAccounts, BankAccounts)
 
 
-def fix_ofx_file(ofx_file_path):
-    old_file = open(ofx_file_path, 'r')
-    if 'verisightprod' not in old_file.read():
-        return ofx_file_path
-    old_file.seek(0)
-    new_file = open(ofx_file_path + ' fixed.ofx', 'w')
-    for line in old_file.readlines():
-        if line.startswith('</SECID>'):
-            continue
-        elif line.startswith('<TICKER>'):
-            new_file.write(line)
-            new_file.write('</SECID>\n')
-        elif line.startswith('<HELDINACCT>'):
-            new_file.write('</SECID>\n')
-            new_file.write(line)
-        else:
-            new_file.write(line)
-    old_file.close()
-    new_file.close()
-    return ofx_file_path + ' fixed.ofx'
+DOWNLOAD_TIMEOUT_SECONDS = 60
+
+
+class _RefuseRedirects(HTTPRedirectHandler):
+    """The request carries credentials; never resend it elsewhere."""
+
+    def redirect_request(self, *args, **kwargs):
+        raise ValueError('The OFX server answered with a redirect')
+
+
+def download(url, body):
+    """POST one OFX request over verified HTTPS; at most MAX_OFX_BYTES + 1 bytes."""
+    if urlparse(url).scheme != 'https':
+        raise ValueError('Direct OFX downloads require an https URL')
+    request = Request(url, data=body, method='POST',
+                      headers={'Content-Type': 'application/x-ofx', 'Accept': '*/*, application/x-ofx'})
+    opener = build_opener(_RefuseRedirects, HTTPSHandler(context=ssl.create_default_context()))
+    with opener.open(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+        return response.read(MAX_OFX_BYTES + 1)
 
 
 def sync_ofx():
@@ -55,12 +54,11 @@ def sync_ofx_connection(connection):
         raise ValueError('Set the OFX connection currency before syncing')
     if connection.type in ['Checking', 'Savings']:
         account_model = BankAccounts
-        account = BankAcct(connection.routing_number,
-                           connection.account_number,
-                           connection.type)
+        account = {'account': 'bank', 'bankid': connection.routing_number,
+                   'acctid': connection.account_number, 'accttype': connection.type.upper()}
     elif connection.type == 'Credit Card':
         account_model = CreditCardAccounts
-        account = CcAcct(connection.account_number)
+        account = {'account': 'creditcard', 'acctid': connection.account_number}
     else:
         raise Exception('Unrecognized account/'
                         'connection type: {0}'.format(connection.type))
@@ -71,37 +69,21 @@ def sync_ofx_connection(connection):
     if connection.type in ['Checking', 'Savings']:
         latest_query = latest_query.filter(BankAccounts.bankid == connection.routing_number)
     latest = latest_query.order_by(Transactions.date.desc()).first()
-    start = latest[0] if latest else None
-    if start:
-        start = start.date()
-        end = date.today()
-    else:
-        start = None
-        end = None
-    ofx_client = OFXClient(connection.url, connection.org, connection.fid,
-                           version=220, appid='QWIN', appver='2500')
-
-    if start and end:
-        statement_request = ofx_client.statement_request(connection.user,
-                                                         connection.password,
-                                                         [account],
-                                                         clientuid=connection.clientuid,
-                                                         dtstart=start,
-                                                         dtend=end)
-    else:
-        statement_request = ofx_client.statement_request(connection.user,
-                                                         connection.password,
-                                                         [account],
-                                                         clientuid=connection.clientuid)
-    response = ofx_client.download(statement_request)
+    # Without a stored transaction, ask for everything the bank keeps.
+    start = latest[0].date() if latest else None
+    request = ofx_document.statement_request(
+        dtclient=datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S'),
+        userid=connection.user, userpass=connection.password,
+        org=connection.org, fid=connection.fid, appid='QWIN', appver='2500',
+        clientuid=connection.clientuid, trnuid=str(uuid4()), newfileuid=str(uuid4()),
+        dtstart=start.strftime('%Y%m%d') if start else None,
+        dtend=date.today().strftime('%Y%m%d') if start else None,
+        **account)
+    content = download(connection.url, request)
 
     # Both direct downloads and QFX uploads use the same acceptance boundary.
     # Retain bounded encrypted response evidence; account/currency/status and
     # repeated FITID contents are proved before any financial commit.
-    try:
-        content = response.read(MAX_OFX_BYTES + 1)
-    finally:
-        response.close()
     import_ofx_statement(content, currency=connection.currency, connection_id=connection.id,
         expected_account={'type': ('CREDITCARD' if connection.type == 'Credit Card'
                                   else connection.type.upper()),

@@ -12,13 +12,12 @@ import click
 from dateutil.tz import tzlocal
 from flask.cli import ScriptInfo
 from flask_security.utils import hash_password
-from ofxtools.ofxalchemy import OFXParser, Session as OFX_Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
 from pacioli import create_app
-from pacioli.database.setup import ofx_engine, populate_chart
+from pacioli.database.setup import populate_chart
 from pacioli.extensions import db
 from pacioli.models import Users, Roles, BankFeedAccounts
 from pacioli.secure_fields import encrypt_existing_data as migrate_encrypted_data
@@ -100,20 +99,21 @@ def create_admin_link():
 
 
 @app.cli.command('import_ofx')
-def import_ofx():
-    from pacioli.functions.ofx_functions import fix_ofx_file
-    directory = os.path.abspath(os.path.join('configuration_files', 'data'))
-    files = [ofx_file for ofx_file in os.listdir(directory) if ofx_file.endswith(('.ofx', '.OFX', '.qfx', '.QFX'))]
-    for ofx_file_name in files:
-        ofx_file_path = os.path.join(directory, ofx_file_name)
-        parser = OFXParser()
-        OFX_Session.configure(bind=ofx_engine())
-        if 'fixed' not in ofx_file_path:
-            ofx_file_path = fix_ofx_file(ofx_file_path)
-        parser.parse(ofx_file_path)
-        parser.instantiate()
-        OFX_Session.commit()
-        OFX_Session.remove()
+@click.argument('paths', nargs=-1, required=True,
+                type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option('--reviewed-usd', is_flag=True,
+              help='Confirm that every file is a USD Chase statement, as the upload form does')
+def import_ofx(paths, reviewed_usd):
+    """Import Chase OFX/QFX files through the same checks as the upload form."""
+    from pacioli.functions.ofx_file_import import import_chase_qfx
+    for path in paths:
+        try:
+            result = import_chase_qfx(path.read_bytes(), reviewed_usd=reviewed_usd)
+        except ValueError as error:
+            raise click.ClickException('{}: {}'.format(path.name, error))
+        click.echo('{}: {} transactions, {} new{}'.format(
+            path.name, result['transaction_count'], result['new_transactions'],
+            ' (already imported)' if result['duplicate'] else ''))
 
 
 @app.cli.command('runs_at_7am_and_7pm')

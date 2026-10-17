@@ -1,0 +1,34 @@
+project Pacioli_Ofx is
+   for Languages use ("Ada");
+   for Source_Dirs use ("src");
+   for Object_Dir use "build/obj";
+   for Exec_Dir use "build/bin";
+   for Main use ("pacioli_ofx_main.adb");
+   for Create_Missing_Dirs use "True";
+
+   package Builder is
+      for Executable ("pacioli_ofx_main.adb") use "pacioli-ofx";
+   end Builder;
+
+   package Compiler is
+      --  Every run-time check stays on, although GNATprove shows none fails.
+      for Default_Switches ("Ada") use
+        ("-gnat2022", "-gnatwa", "-gnatwe", "-gnatVa", "-O2", "-g");
+   end Compiler;
+
+   package Binder is
+      for Default_Switches ("Ada") use ("-E");
+   end Binder;
+
+   package Linker is
+      --  A static binary runs unchanged on the host and in the web image.
+      for Default_Switches ("Ada") use ("-static");
+   end Linker;
+
+   package Prove is
+      for Proof_Dir use "build/gnatprove";
+      for Proof_Switches ("Ada") use
+        ("--level=2", "--timeout=60", "--checks-as-errors=on",
+         "--warnings=error", "--report=fail");
+   end Prove;
+end Pacioli_Ofx;

@@ -8,17 +8,15 @@ import base64
 from datetime import datetime, timedelta
 from decimal import Decimal
 from hashlib import sha256
-from io import BytesIO
 import json
 
-from ofxtools.ofxalchemy import OFXParser
 from sqlalchemy import text
 
 from pacioli.extensions import db
 from pacioli.models import (AccountingEvidence, BankStatements, ConnectionResponses,
                             OFXFileImports, OpeningBalances, JournalEntries)
 from pacioli.functions import reconciliation as rec
-from pacioli.functions.ofx_file_import import _prepare_transactions, _utc, MAX_OFX_BYTES
+from pacioli.functions.ofx_file_import import _prepare_transactions, _utc, parse_statement, MAX_OFX_BYTES
 
 
 KIND = 'qfx_snapshot_timing'
@@ -31,25 +29,23 @@ def _export(row):
     raw = response.response.encode('latin-1')
     if len(raw) > MAX_OFX_BYTES or sha256(raw).hexdigest() != row.sha256:
         raise ValueError('Original QFX hash does not match its import')
-    parser = OFXParser()
-    parser.parse(BytesIO(raw))
-    expected, _ = _prepare_transactions(parser)
-    nodes = parser.findall('BANKMSGSRSV1/STMTTRNRS/STMTRS') + parser.findall('CREDITCARDMSGSRSV1/CCSTMTTRNRS/CCSTMTRS')
-    node = nodes[0]
-    if (node.findtext('CURDEF') != 'USD' or
-            rec.money(node.findtext('LEDGERBAL/BALAMT')) != row.balance_amount or
-            _utc(node.findtext('LEDGERBAL/DTASOF')) != rec.utc(row.balance_asof)):
+    document = parse_statement(raw)
+    expected, _, _ = _prepare_transactions(document)
+    statement = document.responses[0]
+    node = statement.statement
+    ledger, coverage, account = node.ledger, node.transactions, node.account
+    if (node.currency != 'USD' or ledger is None or ledger.amount != row.balance_amount or
+            _utc(ledger.asof) != rec.utc(row.balance_asof)):
         raise ValueError('QFX balance or currency metadata has changed')
-    if (_utc(node.findtext('BANKTRANLIST/DTSTART')) != _utc(row.coverage_start) or
-            _utc(node.findtext('BANKTRANLIST/DTEND')) != _utc(row.coverage_end)):
+    if (_utc(coverage.start if coverage else None) != _utc(row.coverage_start) or
+            _utc(coverage.end if coverage else None) != _utc(row.coverage_end)):
         raise ValueError('QFX transaction coverage metadata has changed')
-    bank = node.find('BANKACCTFROM')
-    if bank is not None:
+    if statement.kind == 'bank':
         identity = db.session.execute(text('SELECT bankid,acctid,accttype FROM ofx.bankacctfrom WHERE id=:id'), {'id': row.ofx_account_id}).first()
-        expected_identity = tuple((bank.findtext(tag) or '').strip() for tag in ('BANKID', 'ACCTID', 'ACCTTYPE'))
+        expected_identity = (account.bankid, account.acctid, account.accttype) if account else None
     else:
         identity = db.session.execute(text('SELECT acctid FROM ofx.ccacctfrom WHERE id=:id'), {'id': row.ofx_account_id}).first()
-        expected_identity = ((node.findtext('CCACCTFROM/ACCTID') or '').strip(),)
+        expected_identity = (account.acctid,) if account else None
     if identity is None or tuple(identity) != expected_identity:
         raise ValueError('QFX account identity does not match its import')
     current = db.session.execute(text('''SELECT fitid,dtposted,trnamt,trntype,name,memo

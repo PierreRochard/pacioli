@@ -7,11 +7,6 @@ from pacioli.extensions import db
 from pacioli.models import Elements, Classifications, Accounts, Subaccounts
 
 
-def ofx_engine():
-    # The OFX fork declares unqualified tables. Keep them in the ofx schema.
-    return db.engine.execution_options(schema_translate_map={None: 'ofx'})
-
-
 def upgrade_database():
     """Apply every pending Alembic migration; see migrations/README."""
     from flask_migrate import upgrade

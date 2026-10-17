@@ -1,0 +1,12 @@
+name = "pacioli_ofx"
+description = "Pacioli's OFX statement reader and request writer, in SPARK"
+version = "1.0.0"
+authors = ["Pierre Rochard"]
+maintainers = ["Pierre Rochard <pierre@example.com>"]
+maintainers-logins = ["PierreRochard"]
+
+executables = ["pacioli-ofx"]
+project-files = ["pacioli_ofx.gpr"]
+
+[[depends-on]]
+gnatprove = "^16.1"

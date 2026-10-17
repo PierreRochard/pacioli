@@ -1,11 +1,9 @@
 """Deterministic export policy around local vision proposals."""
 from datetime import date, datetime, timedelta
-from io import BytesIO
 import re
 import time
 
-from ofxtools.ofxalchemy import OFXParser
-
+from pacioli.functions import ofx_document
 from pacioli.functions.chase_local_bridge import LocalChaseError, read_qfx_download
 from pacioli.functions.ofx_file_import import _utc, import_chase_qfx, public_account_summary
 
@@ -69,19 +67,22 @@ def expected_step(observation, task):
 
 def verify_qfx(content, job, *, verified_export=False):
     """Validate source identity and explicit coverage before any importer writes."""
-    parser = OFXParser()
-    parser.parse(BytesIO(content))
-    statements = parser.findall('BANKMSGSRSV1/STMTTRNRS/STMTRS') + parser.findall('CREDITCARDMSGSRSV1/CCSTMTTRNRS/CCSTMTRS')
+    try:
+        document = ofx_document.parse(content)
+    except ofx_document.OFXError:
+        raise LocalChaseError('qfx_invalid') from None
+    statements = [response.statement for response in document.responses if response.statement]
     if len(statements) != 1:
         raise LocalChaseError('qfx_identity_mismatch')
     statement = statements[0]
-    account = statement.findtext('BANKACCTFROM/ACCTID') or statement.findtext('CCACCTFROM/ACCTID')
-    if account != job['account_number'] or statement.findtext('CURDEF') != 'USD':
+    account = statement.account.acctid if statement.account else None
+    if account != job['account_number'] or statement.currency != 'USD':
         raise LocalChaseError('qfx_identity_mismatch')
-    begin, end = statement.findtext('BANKTRANLIST/DTSTART'), statement.findtext('BANKTRANLIST/DTEND')
+    tranlist = statement.transactions
+    begin, end = (tranlist.start, tranlist.end) if tranlist else (None, None)
     left, right = date.fromisoformat(job['start']), date.fromisoformat(job['end'])
-    posted = [transaction.findtext('DTPOSTED') for transaction in statement.findall('BANKTRANLIST/STMTTRN')]
-    if any(not value for value in posted):
+    posted = [transaction.dtposted for transaction in (tranlist.transactions if tranlist else ())]
+    if any(value is None for value in posted):
         raise LocalChaseError('qfx_coverage_unverified')
     dates = [_utc(value).date() for value in posted]
     if not begin or not end or any(value < left or value > right for value in dates):

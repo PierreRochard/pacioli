@@ -4,8 +4,8 @@ The web service runs in a container (compose.yml) built from the committed
 tree plus the private wheels in .local/wheels, never from uncommitted files.
 A deploy backs up the database, makes .venv match the hashed lock (it still
 runs migrations, backups, CI and the Chase worker on the host), builds the
-image, applies pending Alembic migrations, restarts the service and waits for
-its login page.
+SPARK OFX program, builds the image, applies pending Alembic migrations,
+restarts the service and waits for its login page.
 """
 
 import io
@@ -32,6 +32,9 @@ KEEP_IMAGES = 3  # the current build and two to roll back to
 # root-owned directory, which the container cannot use.
 MOUNTED_FILES = ('config.json', 'decoy_tickers.txt', 'lan-backup/last-success')
 PRIVATE_DIRECTORIES = ('chase-browser', 'chase-launch', 'schwab')
+# Built from the committed sources by `make ofx`; the host worker and the
+# image run the same static binary.
+OFX_PROGRAM = Path('ofx', 'build', 'bin', 'pacioli-ofx')
 
 
 def run(*command):
@@ -90,6 +93,8 @@ def build_image(revision):
         lock = (ROOT / 'requirements.txt').read_text()
         for name in re.findall(r'^\./\.local/wheels/(\S+\.whl)', lock, re.MULTILINE):
             shutil.copy2(ROOT / '.local' / 'wheels' / name, wheels / name)
+        (context / OFX_PROGRAM).parent.mkdir(parents=True)
+        shutil.copy2(ROOT / OFX_PROGRAM, context / OFX_PROGRAM)
         environment = dict(os.environ)
         # Ubuntu ships BuildKit separately (docker-buildx); fall back to the
         # classic builder without it.
@@ -122,12 +127,15 @@ def main():
         raise SystemExit('uv is required to sync .venv with the lock')
     if not shutil.which('docker'):
         raise SystemExit('docker is required to build the web service image')
+    if not shutil.which('alr'):
+        raise SystemExit('Alire (alr) is required to build the OFX program; see ofx/README.md')
     revision = committed_revision()
     check_mounts()
     run(PYTHON, 'scripts/local_db.py', 'backup')
     # .venv runs migrations, backups, local CI and the Chase worker, so it
     # follows the development lock.
     run('uv', 'pip', 'sync', '--python', PYTHON, '--require-hashes', 'requirements-dev.txt')
+    run('make', 'ofx')
     build_image(revision)
     run(PYTHON, '-W', 'ignore', 'manage.py', 'db', 'upgrade')
     run('systemctl', '--user', 'restart', SERVICE)

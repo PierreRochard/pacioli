@@ -1,8 +1,8 @@
 """Which database objects Alembic's autogenerate compares with the models.
 
 Before Pacioli adopted Alembic, raw SQL created some tables that have no
-SQLAlchemy model, and the OFX fork owns the ofx schema. Leaving them out keeps
-`manage.py db migrate` from proposing to drop them. Any other difference
+SQLAlchemy model, and the OFX importer writes the ofx schema with SQL. Leaving
+them out keeps `manage.py db migrate` from proposing to drop them. Any other difference
 between the models and the database is a change that needs a migration.
 """
 
