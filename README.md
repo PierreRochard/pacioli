@@ -323,17 +323,17 @@ then `manage.py db upgrade`.
 
 ## Admin theme and front-end libraries
 
-Flask-Admin comes from a patched build: tag `v2.2.1+pacioli.1` of the private
+Flask-Admin comes from a patched build: tag `v2.2.1+pacioli.2` of the private
 `PierreRochard/flask-admin-private` repository, a short patch series on
 Flask-Admin 2.2.1 that its `PACIOLI.md` describes. The patches replace
 Flask-Admin's Bootstrap 4 theme and its old bundled libraries with a Bootstrap
-5 theme and pinned current releases: Bootstrap 5.3.8, Bootstrap Icons 1.13.1,
+5 theme and pinned current releases: Bootstrap 5.3.8, Bootstrap Icons 1.13.2,
 jQuery 3.7.1, Select2 4.1.0, daterangepicker 3.1.0 and moment 2.31.0. A small
 inline editor replaces x-editable for `column_editable_list`. Map widgets and
 Bootswatch swatches are not supported.
 
 The wheel is not in git: copy
-`flask_admin-2.2.1+pacioli.1-py3-none-any.whl` into `.local/wheels/` before
+`flask_admin-2.2.1+pacioli.2-py3-none-any.whl` into `.local/wheels/` before
 installing. To change the theme or a library, change the fork, run its tests,
 then build and tag a new `+pacioli.N` wheel as `PACIOLI.md` describes. Point
 `requirements.in` at the new wheel and run `make lock` and `make ci`.

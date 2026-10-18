@@ -521,8 +521,8 @@ flask==3.1.3 \
     #   flask-security
     #   flask-sqlalchemy
     #   flask-wtf
-./.local/wheels/flask_admin-2.2.1+pacioli.1-py3-none-any.whl \
-    --hash=sha256:ab79a89fa990a1ab9dac02577f1856b709754c3ba721ea5c05787137606dd139
+./.local/wheels/flask_admin-2.2.1+pacioli.2-py3-none-any.whl \
+    --hash=sha256:a460e784ab4ac037b8fcf2c7bd54892df26f26566b99fb6494d15814b0b68219
     # via -r requirements.in
 flask-login==0.6.3 \
     --hash=sha256:5e23d14a607ef12806c699590b89d0f0e0d67baeec599d75947bf9c147330333 \
